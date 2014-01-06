@@ -1,1 +1,0 @@
-/home/ouyangzhu/.myenv/env_func_bash

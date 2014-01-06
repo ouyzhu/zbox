@@ -6,7 +6,7 @@ ZBOX_EXE="${ZBOX}/exe"
 ZBOX_SRC="${ZBOX}/src"
 [ ! -e "${ZBOX}" ] && mkdir "${ZBOX}" 
 
-source ${ZBOX}/zbox/script/env_func_bash.sh
+source ${ZBOX}/zbox_lib.sh || eval "$(wget -q -O - "https://raw.github.com/ouyzhu/zbox/master/zbox_lib.sh")" || exit 1
 
 function func_zbox_init() {
 	func_param_check 1 "Usage: $FUNCNAME <tname>" "$@"
