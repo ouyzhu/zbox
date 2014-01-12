@@ -1,4 +1,4 @@
 exe/
 src/
 tmp/
-*/.fl_me.txt
+.fl_me.txt
