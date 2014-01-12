@@ -26,6 +26,7 @@ function func_zbox_setup() {
 			ins_copy)	func_zbox_ins_copy "$@"		;;
 			ins_make)	func_zbox_ins_make "$@"		;;
 			as_default)	func_zbox_as_default "$@"	;;
+			*)		func_die "ERROR: can not handle '${step}', exit!"	;;
 		esac
 	done
 }
@@ -78,10 +79,21 @@ function func_zbox_ins_make() {
 	local exe_fullpath="$(func_zbox_gen_exe_fullpath "$@")"
 	local configure_opts="$(echo "${zbox_ins_make_configure_opts}" | sed -e "s+--prefix=zbox_configure_prefix+--prefix=${exe_fullpath}+" )"
 	func_validate_path_inexist "${exe_fullpath}"
+
 	\cd "$(func_zbox_gen_ucd_fullpath "$@")"
-	echo "INFO: start make, with configure_opts='${configure_opts}'"
-	make clean &> /dev/null
-	./configure ${configure_opts} &> /dev/null && make &> /dev/null && make install &> /dev/null
+	local make_steps="${zbox_process_ins_make_steps:-"make_clean configure make make_install"}"
+	echo "INFO: start make, make_steps='${make_steps}', configure_opts='${configure_opts}'"
+	for step in ${make_steps} ; do
+		case "${step}" in 
+			make)		make &> /dev/null				&& echo "INFO: '${step}' success" || func_die "ERROR: '${step}' failed!"				;;
+			make_test)	make test &> /dev/null				&& echo "INFO: '${step}' success" || echo "WARN: '${step}' failed!"			;;
+			make_clean)	make clean &> /dev/null				&& echo "INFO: '${step}' success" || echo "WARN: '${step}' failed!"			;;
+			make_install)	make install &> /dev/null			&& echo "INFO: '${step}' success" || func_die "ERROR: '${step}' failed!"			;;
+			configure)	./configure ${configure_opts} &> /dev/null	&& echo "INFO: '${step}' success" || func_die "ERROR: '${step}' failed!"	;;
+			*)		func_die "ERROR: can not handle '${step}', exit!"	;;
+		esac
+	done
+	#./configure ${configure_opts} &> /dev/null && make &> /dev/null && make install &> /dev/null
 	\cd - &> /dev/null
 }
 

@@ -1,0 +1,2 @@
+zbox_process = "download uncompress ins_make ins_move as_default"
+zbox_process_ins_make_steps = "make make_test"
