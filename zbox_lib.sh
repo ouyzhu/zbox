@@ -26,9 +26,17 @@ function func_param_check {
 	[ $# -lt ${count} ] && func_die "${error_msg}"
 }
 
+function func_cd() {
+	local usage="Usage: $FUNCNAME <path>" 
+	local desc="Desc: (fail fast) change dir, exit whole process if fail"
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+	
+	[ -n "${1}" ] && \cd "${1}" || func_die "ERROR: failed to change dir: cd ${1}"
+}
+
 function func_mkdir() {
 	local usage="Usage: $FUNCNAME <path> ..." 
-	local desc="Desc: (fail fast) create dirs if NOT exist, exit if fail, which is different with /bin/mkdir"
+	local desc="Desc: (fail fast) create dirs if NOT exist, exit whole process if fail"
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 	
 	for p in "$@" ; do
@@ -58,6 +66,8 @@ function func_download() {
 
 	case "${1}" in
 		*)		func_download_wget "$@"		;;
+		#http://*)	func_download_wget "$@" ;;
+		#https://*)	func_download_wget "$@" ;;
 	esac
 }
 

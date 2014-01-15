@@ -1,0 +1,1 @@
+zbox_process = "download uncompress ins_make gen_env as_default"
