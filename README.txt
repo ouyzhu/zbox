@@ -1,10 +1,13 @@
 # ZBOX
 
-Zbox want to unify the installation of tools.
+Zbox want to unify the installation of tools. 
 
 Still under developing, quite incomplete.
 
+
+
 # Unsorted notes
+
 Process
 	Logstash	url > (download)                                                                     executable > (     copy        ) > target
 	vim		url > (download)                            ucd > (configure) > configured > (build) > executable > (          install) > target
@@ -38,24 +41,26 @@ Config
 	zbox_setup_url		in cnf
 
 Layout
-	exe				for builds, executable binaries
-		<tname>			symbolic link, to the real build, 1st build will create this link, need manual update afterwards
-		<tname>-<tver>		the real build
+	exe					for builds, executable binaries
+		<tname>				dir,
+			<tname>			symbolic link, to the real build, 1st build will create this link, need manual update afterwards
+			<uname>			the real build
+			<uname>_env		the env file to make tool usable
 
-	cnf				configuration
-		<tname>			dir,
-			setup		basic/general info for installation
-			setup-<tver>	specific info for version <tver>, which could override those settings in "setup"
+	cnf					configuration
+		<tname>				dir,
+			setup			basic/general info for installation
+			setup-<tver>		specific info for version <tver>, which could override those settings in "setup"
 
-	src				source code (for CVS like GIT, HG, etc), source packages (for source code distributed in packages)
-		<tname>			dir,
+	src					source code (for CVS like GIT, HG, etc), source packages (for source code distributed in packages)
+		<tname>				dir,
+			<uname>			'standard name' for source, probably a symbolic link point to the real download/checkout file
+	
+	tmp
+		<uname>				tmp files, usually extraced files,
 
-	zbox				misc, e.g. logs
-		script			zbox scripts
-
-		? sourceme.bash		source this file to use zbox, for bash
-
-	#TODO				customizations goes here
+	zbox_func.sh				(bash) zbox scripts
+	zbox_lib.sh				(bash) common scripts which not zbox specific
 
 Script
 	all logic in function
