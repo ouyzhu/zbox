@@ -109,7 +109,8 @@ function func_zbox_ins_copy() {
 	echo "INFO: copy source, from: ${dl_fullpath_actual} to: ${exe_fullpath}"
 	func_validate_path_inexist "${exe_fullpath}"
 	func_validate_path_exist "${dl_fullpath_actual}"
-	func_mkdir "${exe_fullpath}" && cp -R "${dl_fullpath_actual}" "${exe_fullpath}"
+	func_mkdir "${exe_fullpath}" 
+	cp -R "${dl_fullpath_actual}" "${exe_fullpath}"
 }
 
 function func_zbox_ins_move() {
@@ -124,6 +125,12 @@ function func_zbox_ins_move() {
 	func_validate_path_inexist "${exe_fullpath}"
 	func_validate_path_exist "${ucd_fullpath}"
 	mv "${ucd_fullpath}" "${exe_fullpath}"
+
+	# execute post script
+	if [ -n "${zbox_process_ins_move_post_script}" ] ; then
+		echo "INFO: executing zbox_process_ins_move_post_script, dir: "${exe_fullpath}", script: '${zbox_process_ins_move_post_script}'"
+		\cd "${exe_fullpath}" && eval "${zbox_process_ins_move_post_script}" && \cd -
+	fi
 }
 
 function func_zbox_uncompress() {

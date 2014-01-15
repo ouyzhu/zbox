@@ -28,7 +28,7 @@ function func_param_check {
 
 function func_mkdir() {
 	local usage="Usage: $FUNCNAME <path> ..." 
-	local desc="Desc: create dirs if NOT exist, exit if fail, which is different with /bin/mkdir"
+	local desc="Desc: (fail fast) create dirs if NOT exist, exit if fail, which is different with /bin/mkdir"
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 	
 	for p in "$@" ; do
@@ -39,11 +39,14 @@ function func_mkdir() {
 
 function func_mkdir_cd { 
 	local usage="Usage: $FUNCNAME <path> ..." 
-	local desc="Desc: create dir and cd into it. Create dirs if NOT exist, exit if fail, which is different with /bin/mkdir" 
+	local desc="Desc: (fail fast) create dir and cd into it. Create dirs if NOT exist, exit if fail, which is different with /bin/mkdir" 
 	func_param_check 1 "Usage: $FUNCNAME <path>" "$@"
 
+	func_mkdir "$1" 
+	\cd "${1}" || func_die "ERROR: failed to mkdir or cd into it ($1)"
+
 	# to avoid the path have blank, any simpler solution?
-	func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
+	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
 }
 
 function func_download() {
@@ -54,9 +57,7 @@ function func_download() {
 	[ -f "${2}" ] && echo "INFO: file (${2}) already exist, skip download" && return 0
 
 	case "${1}" in
-		*)
-			func_download_wget "$@"
-		;;
+		*)		func_download_wget "$@"		;;
 	esac
 }
 
