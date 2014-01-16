@@ -62,6 +62,7 @@ function func_download() {
 	local desc="Desc: download from url to local target" 
 	func_param_check 2 "${desc} \n ${usage} \n" "$@"
 	
+	[ -z "${1}" ] && func_die "ERROR: url is null or empty, download failed"
 	[ -f "${2}" ] && echo "INFO: file (${2}) already exist, skip download" && return 0
 
 	case "${1}" in

@@ -1,15 +1,19 @@
 #!/bin/bash
 
-ZBOX=~/.zbox
-ZBOX_CNF="${ZBOX}/cnf"
-ZBOX_EXE="${ZBOX}/exe"
-ZBOX_SRC="${ZBOX}/src"
-ZBOX_TMP="${ZBOX}/tmp"
+# Global Variables
+ZBOX="${ZBOX:="~/.zbox"}"
+ZBOX_CNF="${ZBOX_CNF:="${ZBOX}/cnf"}"
+ZBOX_EXE="${ZBOX_EXE:="${ZBOX}/exe"}"
+ZBOX_SRC="${ZBOX_SRC:="${ZBOX}/src"}"
+ZBOX_TMP="${ZBOX_TMP:="${ZBOX}/tmp"}"
+
+# Constants
 ZBOX_FUNC_USAGE="Usage: $FUNCNAME <tname> <tver> <tadd>" 
 
-[ ! -e "${ZBOX}" ] && mkdir -p "${ZBOX}" 
+# Common functions
 source ${ZBOX}/zbox_lib.sh || eval "$(wget -q -O - "https://raw.github.com/ouyzhu/zbox/master/zbox_lib.sh")" || exit 1
 
+# Functions
 function func_zbox_setup() {
 	local desc="Desc: setup tool, this should be the single entrance of zbox"
 	func_param_check 2 "${desc} \n ${ZBOX_FUNC_USAGE} \n" "$@"
@@ -27,7 +31,7 @@ function func_zbox_setup() {
 			ins_make)	func_zbox_ins_make "$@"		;;
 			gen_env)	func_zbox_gen_env "$@"		;;
 			as_default)	func_zbox_as_default "$@"	;;
-			*)		func_die "ERROR: can not handle '${step}', exit!"	;;
+			*)		func_die "ERROR: can not handle setup process step:'${step}', exit!"	;;
 		esac
 	done
 }
@@ -86,14 +90,15 @@ function func_zbox_ins_make() {
 		sudo apt-get install -y ${zbox_dependency_apt} &> /dev/null
 	fi
 
-	# Ensure target not exist
+	# Pre-Conditions
+	local make_steps="${zbox_process_ins_make_steps}"
 	local exe_fullpath="$(func_zbox_gen_exe_fullpath "$@")"
 	local configure_opts="${zbox_ins_make_configure_opts}"
 	func_validate_path_inexist "${exe_fullpath}"
+	[ -z "${make_steps}" ] && func_die "ERROR: 'zbox_process_ins_make_steps' not defined, can not make"
 
 	# Make
 	func_cd "$(func_zbox_gen_ucd_fullpath "$@")"
-	local make_steps="${zbox_process_ins_make_steps:-"configure make make_install"}"
 	echo "INFO: start make, make_steps='${make_steps}', configure_opts='${configure_opts}'"
 	for step in ${make_steps} ; do
 		case "${step}" in 

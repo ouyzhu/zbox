@@ -1,1 +1,2 @@
-zbox_process = "download uncompress ins_make gen_env as_default"
+zbox_process                = "download uncompress ins_make gen_env as_default"
+zbox_process_ins_make_steps = "configure make make_install"
