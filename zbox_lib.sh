@@ -96,7 +96,7 @@ function func_uncompress {
 	func_validate_path_exist "$1"
 	func_validate_dir_empty "$2"
 
-	target_dir="${2}"
+	target_dir="$(readlink -f "$2")"	# also need readlink, since might be a relative path
 	source_file="$(readlink -f "$1")"
 	func_mkdir_cd "${target_dir}"
 
@@ -151,9 +151,12 @@ function func_validate_dir_not_empty() {
 	local desc="Desc: the directory must exist and NOT empty, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 	
-	for path in "$@" ; do
+	for p in "$@" ; do
 		# only redirect stderr, otherwise the test will always false
-		[ ! "$(ls -A "$path" 2> /dev/null)" ] && echo "ERROR: $path is empty!" && exit 1
+		echo -----------$p
+		echo -----------$(ls $p)
+		echo -----------$(ls -A "${p}" 2> /dev/null)
+		[ ! "$(ls -A "${p}" 2> /dev/null)" ] && echo "ERROR: ${p} is empty!" && exit 1
 	done
 }
 
@@ -162,9 +165,9 @@ function func_validate_dir_empty() {
 	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 	
-	for path in "$@" ; do
+	for p in "$@" ; do
 		# only redirect stderr, otherwise the test will always false
-		[ "$(ls -A "$path" 2> /dev/null)" ] && echo "ERROR: $path not empty!" && exit 1
+		[ "$(ls -A "${p}" 2> /dev/null)" ] && echo "ERROR: ${p} not empty!" && exit 1
 	done
 }
 
