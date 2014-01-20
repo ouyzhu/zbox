@@ -153,9 +153,6 @@ function func_validate_dir_not_empty() {
 	
 	for p in "$@" ; do
 		# only redirect stderr, otherwise the test will always false
-		echo -----------$p
-		echo -----------$(ls $p)
-		echo -----------$(ls -A "${p}" 2> /dev/null)
 		[ ! "$(ls -A "${p}" 2> /dev/null)" ] && echo "ERROR: ${p} is empty!" && exit 1
 	done
 }
@@ -170,4 +167,3 @@ function func_validate_dir_empty() {
 		[ "$(ls -A "${p}" 2> /dev/null)" ] && echo "ERROR: ${p} not empty!" && exit 1
 	done
 }
-

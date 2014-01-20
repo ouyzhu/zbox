@@ -1,0 +1,15 @@
+zbox_stage_tver = 5.6.12
+zbox_stage_tadd = ""
+
+zbox_stage_cmd_client = "ZBOX_EXE_FULLPATH/bin/mysql -h127.0.0.1"
+zbox_stage_cmd_stop = "kill \$(cat ZBOX_STG_FULLPATH/pidfile)"
+zbox_stage_cmd_status = "[ -e ZBOX_STG_FULLPATH/pidfile ] && echo 'Running' && ps -ef | grep \$(cat ZBOX_STG_FULLPATH/pidfile) | grep -v grep || echo 'Not running.'"
+zbox_stage_cmd_start = "ZBOX_EXE_FULLPATH/bin/mysqld --defaults-file=ZBOX_STG_FULLPATH/conf/my.cnf --basedir=ZBOX_STG_FULLPATH --datadir=ZBOX_STG_FULLPATH/data --user=`whoami` --lc-messages-dir=ZBOX_EXE_FULLPATH/share/ --lc-messages=en_US --explicit_defaults_for_timestamp=TRUE --pid-file=ZBOX_STG_FULLPATH/pidfile --log-error=ZBOX_STG_FULLPATH/logs/mysqld.error.log --socket=ZBOX_STG_FULLPATH/mysql.sock --character-set-server=utf8 --collation-server=utf8_unicode_ci &>> ZBOX_STG_FULLPATH/logs/default.log"
+
+# NOTE 1: options in command line will overrides those in .cnf
+# NOTE 2: (strange but yes), --defaults-file must as first option!
+# NOTE 3: --explicit_defaults_for_timestamp=TRUE to avoid "TIMESTAMP with implicit DEFAULT value is deprecated. ..."
+# NOTE 4: --lc-messages-dir=ZBOX_EXE_FULLPATH/share/ --lc-messages=en_US to avoid error of "Can't find messagefile '/usr/share/mysql/errmsg.sys'"
+# NOTE 5: --defaults-file=ZBOX_EXE_FULLPATH/my.cnf to avoid error of "Ignoring user change to 'ouyangzhu' because the user was set to 'mysql' earlier on the command line"
+zbox_stage_pre_script = "cp ZBOX_EXE_FULLPATH/my.cnf ZBOX_STG_FULLPATH/conf"
+zbox_stage_post_script = "ZBOX_EXE_FULLPATH/scripts/mysql_install_db --defaults-file=ZBOX_EXE_FULLPATH/my.cnf --basedir=ZBOX_EXE_FULLPATH --datadir=ZBOX_STG_FULLPATH/data --user=`whoami` --lc-messages-dir=ZBOX_EXE_FULLPATH/share/ --lc-messages=en_US --explicit_defaults_for_timestamp=TRUE"

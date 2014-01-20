@@ -34,7 +34,10 @@ Naming
 	<tname>			name of the tool, without any version info. E.g. vim, ruby, etc.
 	<tver>			version of tool
 	<tadd>			addition info of tool, useful when need diff build for same version
-	<uname>			the unique name of the specific tool, <tname>-<tver> or <tname>-<tver>-<tadd>
+	<uname>			the unique tool name, <tname>-<tver> or <tname>-<tver>-<tadd>
+
+	<sname>			stage name, a name for the working area
+	<usname>		the unique stage name, <tname>-<sname> 
 
 Config
 	zbox_setup_process	defineds the setup process
@@ -56,6 +59,9 @@ Layout
 		<tname>				dir,
 			<uname>			'standard name' for source, probably a symbolic link point to the real download/checkout file
 	
+	stg					working area for tools
+		<tname>
+			<usname>
 	tmp
 		<uname>				tmp files, usually extraced files,
 

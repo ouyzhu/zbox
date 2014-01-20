@@ -1,1 +1,1 @@
-zbox_process = "download uncompress ins_move as_default"
+zbox_process = "download uncompress ins_dep ins_move as_default"

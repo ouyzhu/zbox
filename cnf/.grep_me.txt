@@ -1,0 +1,5 @@
+./httpd/setup download uncompress ins_make ins_move as_default
+./nginx/setup zbox_process_ins_make_steps       = "conf
+./ruby/setup zbox_process_ins_make_steps       = "conf
+./python/setup zbox_process_ins_make_steps = "configure 
+./redis/setup #zbox_process_ins_make_steps      = "make 

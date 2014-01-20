@@ -1,0 +1,4 @@
+#zbox_process                      = "download uncompress ins_dep ins_make ins_move as_default"
+#TODO: httpd need extract both xxx.tar.gz and xxx-deps.tar.gz, how to do it?
+zbox_process                      = "download"
+zbox_process_ins_make_steps       = "configure make make_install"
