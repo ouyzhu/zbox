@@ -1,4 +1,6 @@
 exe/
 src/
+stg/
 tmp/
 .fl_me.txt
+.grep_me.txt
