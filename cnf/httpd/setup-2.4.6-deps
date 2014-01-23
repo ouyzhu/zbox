@@ -1,0 +1,6 @@
+zbox_process = "download uncompress"
+zbox_url = http://archive.apache.org/dist/httpd/httpd-2.4.6-deps.tar.gz
+
+# need to make these var empty, since inherit from "setup-2.4.6"
+zbox_process_pre_script           = ""
+zbox_process_uncompress_post_script = ""

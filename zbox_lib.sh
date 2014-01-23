@@ -83,43 +83,44 @@ function func_download_wget() {
 
 	func_mkdir_cd "${2}" 
 	echo "INFO: start download, url=${1} target=${2}"
-	wget -q --no-check-certificate ${1}	# TODO: add control to unsecure options?
+	# TODO: add control to unsecure options?
+	# Command line explain: [Showing File Download Progress Using Wget](http://fitnr.com/showing-file-download-progress-using-wget.html)
+	wget --progress=dot --no-check-certificate ${1}	2>&1 | grep --line-buffered "%" | sed -u -e "s,\.,,g" | awk 'BEGIN{printf("INFO: Download progress:  0%")}{printf("\b\b\b\b%4s", $2)}'
 	[ -f "${dl_fullpath}" ] || func_die "ERROR: ${dl_fullpath} not found, seems download faild!"
 	\cd - &> /dev/null
 }
 
 function func_uncompress {
-	local usage="Usage: $FUNCNAME <source> <target_dir>"
+	local usage="Usage: $FUNCNAME <source> [target_dir]"
 	local desc="Desc: uncompress file, based on filename extension, <target_dir> will be the top level dir for uncompressed content" 
-	func_param_check 2 "${desc} \n ${usage} \n" "$@"
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+	func_validate_path_exist "${1}"
 
-	func_validate_path_exist "$1"
-	func_validate_dir_empty "$2"
-
-	target_dir="$(readlink -f "$2")"	# also need readlink, since might be a relative path
-	source_file="$(readlink -f "$1")"
-	func_mkdir_cd "${target_dir}"
+	# use readlink to avoid relative path
+	source_file="$(readlink -f "${1}")"
+	[ -n "${2}" ] && target_dir="$(readlink -f "${2}")" || target_dir="${source_file}_EXTRACT"
 
 	echo "INFO: uncompress file, from: ${source_file} to: ${target_dir}"
+	func_mkdir_cd "${target_dir}"
 	case "$source_file" in
-		#*.Z)		uncompress "$source_file"	;;
-		*.7z)		7z e "$source_file" &> /dev/null		;;	# do NOT use -e, which will fail
-		*.gz)		tar -zxvf "$source_file" &> /dev/null	;;
-		*.tgz)		tar -zxvf "$source_file" &> /dev/null	;;
-		*.xz)		tar -Jxvf "$source_file" &> /dev/null	;;
-		*.bz2)		tar -jxvf "$source_file" &> /dev/null	;;
-		*.tar)		tar -xvf "$source_file" &> /dev/null	;;
+		#*.Z)		uncompress "$source_file"		;;
 		*.rar)		7z e "$source_file" &> /dev/null	;;
+		*.7z)		7z e "$source_file" &> /dev/null	;;		# use "-e" will fail
 		*.zip)		unzip "$source_file" &> /dev/null	;;
+		*.tar)		tar -xvf "$source_file" &> /dev/null	;;
+		*.gz)		tar -zxvf "$source_file" &> /dev/null	;;
+		*.xz)		tar -Jxvf "$source_file" &> /dev/null	;;
+		*.tgz)		tar -zxvf "$source_file" &> /dev/null	;;
+		*.bz2)		tar -jxvf "$source_file" &> /dev/null	;;
 		#*.tbz2)	tar -jxvf "$source_file" &> /dev/null	;;
 		*)		echo "ERROR: unknow format of file: ${source_file}"	;;
 	esac
 
 	func_validate_dir_not_empty "${target_dir}"
 
-	# try to move dir level up, there might be only 1 file in the compressed file
+	# try to move dir level up, there might be only 1 file/dir in the uncompressed 
 	if [ "$(ls -A "${target_dir}" | wc -l)" = 1 ] ; then
-		mv -f "${target_dir}"/**/* "${target_dir}"/ &> /dev/null 
+		mv -f "${target_dir}"/**/* "${target_dir}"/**/.* "${target_dir}"/ &> /dev/null 
 		rmdir "${target_dir}"/**/ &> /dev/null 
 	fi
 

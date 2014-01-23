@@ -2,11 +2,11 @@
 
 # Global Variables
 ZBOX="${ZBOX:="~/.zbox"}"
-ZBOX_CNF="${ZBOX_CNF:="${ZBOX}/cnf"}"
-ZBOX_EXE="${ZBOX_EXE:="${ZBOX}/exe"}"
-ZBOX_SRC="${ZBOX_SRC:="${ZBOX}/src"}"
-ZBOX_STG="${ZBOX_TMP:="${ZBOX}/stg"}"
-ZBOX_TMP="${ZBOX_TMP:="${ZBOX}/tmp"}"
+ZBOX_CNF="${ZBOX_CNF:-"${ZBOX}/cnf"}"
+ZBOX_EXE="${ZBOX_EXE:-"${ZBOX}/exe"}"
+ZBOX_SRC="${ZBOX_SRC:-"${ZBOX}/src"}"
+ZBOX_STG="${ZBOX_STG:-"${ZBOX}/stg"}"
+ZBOX_TMP="${ZBOX_TMP:-"${ZBOX}/tmp"}"
 
 # Constants
 ZBOX_FUNC_SETUP_USAGE="Usage: $FUNCNAME <tname> <tver> <tadd>" 
@@ -21,7 +21,16 @@ function func_zbox_setup() {
 	func_param_check 2 "${desc} \n ${ZBOX_FUNC_SETUP_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_setup_cnf_vars "$@")
+	local exe_fullpath="$(func_zbox_gen_exe_fullpath "$@")"
 	func_zbox_setup_init_dir "$1"
+
+	# execute pre script
+	if [ -n "${zbox_process_pre_script}" ] ; then
+		echo "INFO: executing zbox_process_pre_script, dir: "${ZBOX_TMP}", script: '${zbox_process_pre_script}'"
+		func_cd "${ZBOX_TMP}" 
+		eval "${zbox_process_pre_script}" 
+		\cd - &> /dev/null
+	fi
 
 	local step
 	for step in ${zbox_process} ; do
@@ -37,6 +46,9 @@ function func_zbox_setup() {
 			*)		func_die "ERROR: can not handle setup process step:'${step}', exit!"	;;
 		esac
 	done
+
+	# Record what have done for that build
+	[ -e "${exe_fullpath}" ] && env > "${exe_fullpath}/zbox_setup_record.txt"
 }
 
 function func_zbox_mkstage() {
@@ -258,8 +270,15 @@ function func_zbox_uncompress() {
 	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
 
-	[ -e "${ucd_fullpath}" ] && rm -rf "${ucd_fullpath}"
 	func_uncompress "${src_fullpath}" "${ucd_fullpath}" 
+
+	# execute post script
+	if [ -n "${zbox_process_uncompress_post_script}" ] ; then
+		echo "INFO: executing zbox_process_uncompress_post_script, dir: "${ucd_fullpath}", script: '${zbox_process_uncompress_post_script}'"
+		func_cd "${ucd_fullpath}" 
+		eval "${zbox_process_uncompress_post_script}" 
+		\cd - &> /dev/null
+	fi
 }
 
 function func_zbox_gen_uname() {
@@ -338,7 +357,8 @@ function func_zbox_gen_stage_cnf_vars() {
 	local exe_fullpath="$(func_zbox_gen_exe_fullpath "${1}" "${zbox_stage_tver}" "${zbox_stage_tadd}")"
 
 	func_zbox_gen_stage_cnf_vars_raw "$@"		|\
-	sed -e	"s+ZBOX_EXE_FULLPATH+${exe_fullpath}+g;
+	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
+		s+ZBOX_EXE_FULLPATH+${exe_fullpath}+g;
 		s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;"
 }
 
@@ -379,6 +399,6 @@ function func_zbox_gen_setup_cnf_vars() {
 		/^\s*$/d;
 		s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
 		s/^/local /"							|\
-	sed -e	"s+ZBOX_EXE_FULLPATH+${exe_fullpath}+g;
-		" 
+	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
+		s+ZBOX_EXE_FULLPATH+${exe_fullpath}+g;" 
 }

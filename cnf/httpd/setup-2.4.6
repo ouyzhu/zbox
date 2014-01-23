@@ -1,2 +1,3 @@
 zbox_url = http://archive.apache.org/dist/httpd/httpd-2.4.6.tar.gz
-#          http://archive.apache.org/dist/httpd/httpd-2.4.6-deps.tar.gz
+zbox_process_pre_script           = "func_zbox_setup httpd 2.4.6 deps"
+zbox_process_uncompress_post_script = "mv ZBOX_TMP/httpd-2.4.6-deps/srclib/* ZBOX_TMP/httpd-2.4.6/srclib/"

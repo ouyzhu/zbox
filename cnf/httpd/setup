@@ -1,4 +1,6 @@
 #zbox_process                      = "download uncompress ins_dep ins_make ins_move as_default"
-#TODO: httpd need extract both xxx.tar.gz and xxx-deps.tar.gz, how to do it?
-zbox_process                      = "download"
+#TODO: httpd "depends on" httpd-deps, how to do it?
+zbox_process                      = "download uncompress ins_dep ins_make as_default"
 zbox_process_ins_make_steps       = "configure make make_install"
+zbox_dependency_apt_get_install   = "libpcre3-dev"
+zbox_ins_make_configure_opts      = "--prefix=ZBOX_EXE_FULLPATH --with-mpm=prefork --enable-shared-mods=all --with-pcre=yes --with-included-apr --enable-so --enable-log-debug --enable-logio=static --enable-suexec=shared --enable-layout=Debian --enable-log-config=static --enable-pie --enable-http --enable-proxy --enable-deflate --enable-headers --enable-rewrite --enable-expires --enable-proxy-fcgi --enable-proxy-http --enable-mime-magic --enable-slotmem-shm --enable-proxy-balancer"
