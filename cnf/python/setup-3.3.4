@@ -1,5 +1,5 @@
-zbox_url                          = http://www.python.org/ftp/python/2.7.6/Python-2.7.6.tar.xz
-zbox_dependency_apt_get_build_dep = "python2.7"
+zbox_url                          = http://www.python.org/ftp/python/3.3.4/Python-3.3.4.tar.xz
+zbox_dependency_apt_get_build_dep = "python3.3"
 zbox_gen_env_vars                 = 'PYTHON_HOME=ZBOX_EXE_FULLPATH PYTHON=${PYTHON_HOME}/bin/python PATH=${PYTHON_HOME}/bin:${PATH} LD_LIBRARY_PATH=${PYTHON_HOME}/lib:${LD_LIBRARY_PATH}'
 
 # --enable-shared is needed when compile wsgi which used by dijango, --enable-unicode=ucs4 seem need by django/sqllite, why?

@@ -198,11 +198,11 @@ function func_zbox_ins_make() {
 	echo "INFO: start make, make_steps='${make_steps}', configure_opts='${configure_opts}'"
 	for step in ${make_steps} ; do
 		case "${step}" in 
-			make)		make &> /dev/null				&& echo "INFO: '${step}' success" || func_die "ERROR: '${step}' failed!"	;;
-			make_test)	make test &> /dev/null				&& echo "INFO: '${step}' success" || echo "WARN: '${step}' failed!"		;;
-			make_clean)	make clean &> /dev/null				&& echo "INFO: '${step}' success" || echo "WARN: '${step}' failed!"		;;
-			make_install)	make install &> /dev/null			&& echo "INFO: '${step}' success" || func_die "ERROR: '${step}' failed!"	;;
-			configure)	./configure ${configure_opts} &> /dev/null	&& echo "INFO: '${step}' success" || func_die "ERROR: '${step}' failed!"	;;
+			make)		make &> /dev/null					&& echo "INFO: '${step}' success" || func_die "ERROR: '${step}' failed!"	;;
+			make_test)	make test &> /dev/null					&& echo "INFO: '${step}' success" || echo "WARN: '${step}' failed!"		;;
+			make_clean)	make clean &> /dev/null					&& echo "INFO: '${step}' success" || echo "WARN: '${step}' failed!"		;;
+			make_install)	make ${zbox_ins_make_install_cmd:-install} &> /dev/null	&& echo "INFO: '${step}' success" || func_die "ERROR: '${step}' failed!"	;;
+			configure)	./configure ${configure_opts} &> /dev/null		&& echo "INFO: '${step}' success" || func_die "ERROR: '${step}' failed!"	;;
 			*)		func_die "ERROR: can not handle '${step}', exit!"	;;
 		esac
 	done
