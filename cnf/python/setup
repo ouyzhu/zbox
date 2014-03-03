@@ -1,6 +1,0 @@
-zbox_process                = "download uncompress ins_dep ins_make gen_env as_default"
-zbox_process_ins_make_steps = "configure make make_install"
-
-zbox_dependency_apt_get_install   = "build-essential libgdbm-dev libreadline-dev libsqlite3-dev libbz2-dev libssl-dev libncursesw5-dev libncurses5-dev libncursesw5-dev zlib1g-dev"
-
-zbox_ins_make_install_cmd         = altinstall

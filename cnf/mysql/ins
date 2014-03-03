@@ -1,0 +1,2 @@
+ins_steps = "src ucd dep move default"
+ins_verify = "ZBOX_INS_FULLPATH/bin/mysql --version | grep ' Ver ' &> /dev/null"

@@ -1,0 +1,2 @@
+ins_steps  = "src ucd move default"
+ins_verify = "ZBOX_INS_FULLPATH/bin/groovy --version | grep '^Groovy Version' &> /dev/null"

@@ -1,0 +1,4 @@
+ins_src_addr = https://download.elasticsearch.org/logstash/logstash/logstash-1.3.2-flatjar.jar
+
+# the bash "eval" will make ".*" as pathname expansion, could only use simple grep string yet
+ins_verify       = "zip -T ZBOX_INS_FULLPATH/logstash-1.3.2-flatjar.jar | grep 'OK$' &> /dev/null"

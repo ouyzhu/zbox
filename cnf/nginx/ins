@@ -1,0 +1,3 @@
+ins_steps      = "src ucd dep make default"
+ins_make_steps = "configure make install"
+ins_verify     = "ZBOX_INS_FULLPATH/sbin/nginx -v 2>&1 | grep '^nginx version' &> /dev/null"

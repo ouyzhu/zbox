@@ -1,0 +1,5 @@
+ins_steps  = "src"
+
+# HG/Mucurial
+ins_src_addr = https://code.google.com/p/robotframework/
+

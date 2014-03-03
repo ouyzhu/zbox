@@ -1,0 +1,7 @@
+ins_steps                  = "src ucd"
+ins_src_addr           = http://archive.apache.org/dist/httpd/httpd-2.4.6-deps.tar.gz
+ins_ucd_post_script = "mv ZBOX_TMP/httpd-2.4.6-deps/srclib/* ZBOX_TMP/httpd-2.4.6/srclib/"
+
+# need to define these inherited var to empty
+ins_verify                 = ""
+ins_dep_zbox_ins           = ""

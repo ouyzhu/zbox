@@ -1,4 +1,0 @@
-zbox_process                      = "download uncompress ins_dep ins_make ins_move as_default"
-zbox_process_ins_make_steps       = "make"
-#zbox_process_ins_make_steps      = "make make_test"
-zbox_process_ins_move_post_script = "mkdir bin; find src -iregex 'src/redis-[^.]*' -exec cp {} bin \;"

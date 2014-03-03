@@ -1,2 +1,0 @@
-zbox_url                     = http://cache.ruby-lang.org/pub/ruby/2.1/ruby-2.1.0.tar.gz
-zbox_ins_make_configure_opts = "--prefix=ZBOX_EXE_FULLPATH"

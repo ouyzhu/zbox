@@ -90,7 +90,7 @@ function func_download_wget() {
 	\cd - &> /dev/null
 }
 
-function func_uncompress {
+function func_uncompress() {
 	local usage="Usage: $FUNCNAME <source> [target_dir]"
 	local desc="Desc: uncompress file, based on filename extension, <target_dir> will be the top level dir for uncompressed content" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
@@ -127,24 +127,72 @@ function func_uncompress {
 	\cd - &> /dev/null
 }
 
-function func_validate_path_exist() {
-	local usage="Usage: $FUNCNAME <path> ..."
-	local desc="Desc: the path must be not exist, otherwise will exit" 
-	func_param_check 1 "${desc} \n ${usage} \n" "$@"
-	
-	for p in "$@" ; do
-		[ ! -e "${p}" ] && echo "ERROR: ${p} NOT exist!" && exit 1
-	done
+function func_vcs_update() {
+	local usage="Usage: $FUNCNAME <src_type> <src_addr> <target_dir>"
+	local desc="Desc: init or update vcs like hg/git/svn"
+	func_param_check 3 "${desc} \n ${usage} \n" "$@"
+
+	src_type="${1}"
+	shift
+	echo "INFO: init/update source, type=${src_type}, addr=${1}, target=${2}"
+	case "${src_type}" in
+		hg)	func_vcs_update_hg "$@"		;;
+		svn)	func_vcs_update_svn "$@"	;;
+		git)	func_vcs_update_git "$@"	;;
+		*)	func_die "ERROR: Can not handle src_type (${src_type})"	;;
+	esac
 }
 
-function func_validate_path_inexist() {
+function func_vcs_update_git() {
+	func_die "ERROR: $FUNCNAME not implemented yet!"
+}
+function func_vcs_update_svn() {
+	func_die "ERROR: $FUNCNAME not implemented yet!"
+}
+function func_vcs_update_hg() {
+	local usage="Usage: $FUNCNAME <src_addr> <target_dir>"
+	local desc="Desc: init or update hg/mercurial source code"
+	func_param_check 2 "${desc} \n ${usage} \n" "$@"
+
+	func_validate_cmd_exist hg
+	local target_dir="${2}"
+
+	if [ -e "${target_dir}" ] ; then
+		\cd "${target_dir}" &> /dev/null
+		hg pull || func_die "ERROR: hg pull failed"
+		\cd - &> /dev/null
+	else
+		mkdir -p "$(dirname ${target_dir})"
+		hg clone "$@" || func_die "ERROR: hg clone failed"
+	fi
+}
+
+function func_validate_path_exist() {
 	local usage="Usage: $FUNCNAME <path> ..."
 	local desc="Desc: the path must be exist, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 	
 	for p in "$@" ; do
-		[ -e "${p}" ] && echo "ERROR: ${p} already exist!" && exit 1
+		[ ! -e "${p}" ] && echo "ERROR: path (${p}) NOT exist!" && exit 1
 	done
+}
+
+function func_validate_path_inexist() {
+	local usage="Usage: $FUNCNAME <path> ..."
+	local desc="Desc: the path must be NOT exist, otherwise will exit" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+	
+	for p in "$@" ; do
+		[ -e "${p}" ] && echo "ERROR: path (${p}) already exist!" && exit 1
+	done
+}
+
+function func_validate_cmd_exist() {
+	local usage="Usage: $FUNCNAME <cmd> ..."
+	local desc="Desc: the cmd must be exist, otherwise will exit" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+
+	( ! command -v "${1}" &> /dev/null) && echo "ERROR: cmd (${1}) NOT exist!" && exit 1
 }
 
 function func_validate_dir_not_empty() {
