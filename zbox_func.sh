@@ -455,11 +455,13 @@ function func_zbox_gen_stage_cnf_vars() {
 
 	# TODO: need eval twice to get ZBOX var substituted, since need to get "${stg_tver}" "${stg_tadd}" first. Any better way?
 	eval $(func_zbox_gen_stage_cnf_vars_raw "$@")
-	local stg_fullpath="$(func_zbox_gen_stg_fullpath "${@}")"
+	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
+	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
 
 	func_zbox_gen_stage_cnf_vars_raw "$@"		|\
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
+		s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;
 		s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;"
 }
@@ -494,6 +496,7 @@ function func_zbox_gen_ins_cnf_vars() {
 	
 	local cnfs=$(func_zbox_gen_ins_cnf_files "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
+	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
 
 	#cat ${cnfs} 2>> ${ZBOX_LOG} | sed -e "/^\s*#/d;/^\s*$/d;s/^/local /"
 	cat ${cnfs} 2>> ${ZBOX_LOG}						|\
@@ -502,5 +505,6 @@ function func_zbox_gen_ins_cnf_vars() {
 		s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
 		s/^/local /"							|\
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
+		s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;" 
 }
