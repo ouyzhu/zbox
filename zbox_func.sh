@@ -208,16 +208,21 @@ function func_zbox_ins_src() {
 	local ver="${2:-pkg}"
 
 	case "${ver}" in
-		pkg)		func_download "${ins_src_addr}" "${src_dir}"				| tee -a "${ZBOX_LOG}"	;;
-		svn|hg|git)	func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}"	| tee -a "${ZBOX_LOG}"	;;
-		*)		func_log_die "${ZBOX_LOG}" "ERROR: (install) can not get source, ver=${ver}, src_addr=${ins_src_addr}"	;;
+		pkg)		
+				func_download "${ins_src_addr}" "${src_dir}" | tee -a "${ZBOX_LOG}"
+
+				# create symboic link if the download name is not 'standard'
+				func_cd "${src_dir}" 
+				ln -s "${ins_src_addr##*/}" "${src_fullpath_expect}" &>> ${ZBOX_LOG} 
+				\cd - &>> ${ZBOX_LOG}										
+				;;
+		svn|hg|git)	
+				func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}" | tee -a "${ZBOX_LOG}"	
+				;;
+		*)		
+				func_log_die "${ZBOX_LOG}" "ERROR: (install) can not get source, ver=${ver}, src_addr=${ins_src_addr}"	
+				;;
 	esac
-
-
-	# create symboic link if the download name is not 'standard'
-	func_cd "${src_dir}" 
-	ln -s "${ins_src_addr##*/}" "${src_fullpath_expect}" &>> ${ZBOX_LOG} 
-	\cd - &>> ${ZBOX_LOG}
 }
 
 function func_zbox_ins_default() {

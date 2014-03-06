@@ -127,43 +127,45 @@ function func_uncompress() {
 	\cd - &> /dev/null
 }
 
+function func_bak_file() {
+	local usage="Usage: $FUNCNAME <file> ..."
+	local desc="Desc: backup file, with suffixed date" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+	
+	for p in "$@" ; do
+		func_validate_path_exist "${p}"
+		[ -d "${p}" ] && func_die "WARN: skipping backup directory ${p}" 
+
+		[ -w "${p}" ] && cp "${p}"{,.bak.$(func_dati)} || sudo cp "${p}"{,.bak.$(func_dati)}
+		[ "$?" != "0" ] && func_die "ERROR: backup file ${p} failed!"
+	done
+}
+
 function func_vcs_update() {
 	local usage="Usage: $FUNCNAME <src_type> <src_addr> <target_dir>"
 	local desc="Desc: init or update vcs like hg/git/svn"
 	func_param_check 3 "${desc} \n ${usage} \n" "$@"
 
-	src_type="${1}"
-	shift
+	local src_type="${1}"
+	local src_addr="${2}"
+	local target_dir="${3}"
 	echo "INFO: init/update source, type=${src_type}, addr=${1}, target=${2}"
 	case "${src_type}" in
-		hg)	func_vcs_update_hg "$@"		;;
-		svn)	func_vcs_update_svn "$@"	;;
-		git)	func_vcs_update_git "$@"	;;
+		hg)	local cmd="hg"  ; local cmd_init="hg clone"     ; local cmd_update="hg pull"	;;
+		git)	local cmd="git" ; local cmd_init="git clone"    ; local cmd_update="git pull"	;;
+		svn)	local cmd="svn" ; local cmd_init="svn checkout" ; local cmd_update="svn update"	;;
 		*)	func_die "ERROR: Can not handle src_type (${src_type})"	;;
 	esac
-}
 
-function func_vcs_update_git() {
-	func_die "ERROR: $FUNCNAME not implemented yet!"
-}
-function func_vcs_update_svn() {
-	func_die "ERROR: $FUNCNAME not implemented yet!"
-}
-function func_vcs_update_hg() {
-	local usage="Usage: $FUNCNAME <src_addr> <target_dir>"
-	local desc="Desc: init or update hg/mercurial source code"
-	func_param_check 2 "${desc} \n ${usage} \n" "$@"
-
-	func_validate_cmd_exist hg
-	local target_dir="${2}"
-
+	func_validate_cmd_exist ${cmd}
+	
 	if [ -e "${target_dir}" ] ; then
 		\cd "${target_dir}" &> /dev/null
-		hg pull || func_die "ERROR: hg pull failed"
+		${cmd_update} || func_die "ERROR: ${cmd_update} failed"
 		\cd - &> /dev/null
 	else
 		mkdir -p "$(dirname ${target_dir})"
-		hg clone "$@" || func_die "ERROR: hg clone failed"
+		${cmd_init} "${src_addr}" "${target_dir}" || func_die "ERROR: ${cmd_init} failed"
 	fi
 }
 
@@ -173,7 +175,7 @@ function func_validate_path_exist() {
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 	
 	for p in "$@" ; do
-		[ ! -e "${p}" ] && echo "ERROR: path (${p}) NOT exist!" && exit 1
+		[ ! -e "${p}" ] && echo "ERROR: ${p} NOT exist!" && exit 1
 	done
 }
 
@@ -183,7 +185,7 @@ function func_validate_path_inexist() {
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 	
 	for p in "$@" ; do
-		[ -e "${p}" ] && echo "ERROR: path (${p}) already exist!" && exit 1
+		[ -e "${p}" ] && echo "ERROR: ${p} already exist!" && exit 1
 	done
 }
 
@@ -216,3 +218,4 @@ function func_validate_dir_empty() {
 		[ "$(ls -A "${p}" 2> /dev/null)" ] && echo "ERROR: ${p} not empty!" && exit 1
 	done
 }
+

@@ -1,0 +1,3 @@
+ins_steps    = "src"
+ins_src_addr = https://vim.googlecode.com/hg/
+
