@@ -26,6 +26,27 @@ function func_param_check {
 	[ $# -lt ${count} ] && func_die "${error_msg}"
 }
 
+function func_log_die() {
+	local usage="Usage: $FUNCNAME <log_file> <info>" 
+	local desc="Desc: echo error info to log_file, them to stderr and exit" 
+	func_param_check 2 "${desc} \n ${usage} \n" "$@"
+	
+	local logfile="${1}"
+	echo "[$(date)] $@" >> "${logfile}"
+	shift
+	func_die "$@"
+}
+
+function func_log_echo() {
+	local usage="Usage: $FUNCNAME <log_file> <info>"
+	local desc="Desc: echo information and also record into log" 
+	func_param_check 2 "${desc} \n ${usage} \n" "$@"
+	
+	local logfile="${1}"
+	shift
+	echo "[$(date)] $@" | tee -a "${logfile}"
+}
+
 function func_cd() {
 	local usage="Usage: $FUNCNAME <path>" 
 	local desc="Desc: (fail fast) change dir, exit whole process if fail"

@@ -17,27 +17,6 @@ ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <sname>"
 source ${ZBOX}/zbox_lib.sh || eval "$(wget -q -O - "https://raw.github.com/ouyzhu/zbox/master/zbox_lib.sh")" || exit 1
 
 # Common Functions
-function func_log_die() {
-	local usage="Usage: $FUNCNAME <log_file> <info>" 
-	local desc="Desc: echo error info to log_file, them to stderr and exit" 
-	func_param_check 2 "${desc} \n ${usage} \n" "$@"
-	
-	local logfile="${1}"
-	echo "[$(date)] $@" >> "${logfile}"
-	shift
-	func_die "$@"
-}
-
-function func_log_echo() {
-	local usage="Usage: $FUNCNAME <log_file> <info>"
-	local desc="Desc: echo information and also record into log" 
-	func_param_check 2 "${desc} \n ${usage} \n" "$@"
-	
-	local logfile="${1}"
-	shift
-	echo "[$(date)] $@" | tee -a "${logfile}"
-}
-
 function func_zbox_run_script() {
 	local usage="Usage: $FUNCNAME <script_name> <run_path> <script>"
 	local desc="Desc: run user defined scripts" 
