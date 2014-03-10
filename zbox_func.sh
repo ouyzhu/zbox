@@ -16,6 +16,11 @@ ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <sname>"
 # Source Library
 source ${ZBOX}/zbox_lib.sh || eval "$(wget -q -O - "https://raw.github.com/ouyzhu/zbox/master/zbox_lib.sh")" || exit 1
 
+# Init Check
+[ ! -e "${ZBOX_INS}" ] && mkdir "${ZBOX_INS}"
+[ ! -e "${ZBOX_STG}" ] && mkdir "${ZBOX_STG}"
+[ ! -e "${ZBOX_TMP}" ] && mkdir "${ZBOX_TMP}"
+
 # Common Functions
 function func_zbox_run_script() {
 	local usage="Usage: $FUNCNAME <script_name> <run_path> <script>"
@@ -187,19 +192,16 @@ function func_zbox_ins_src() {
 	local ver="${2:-pkg}"
 
 	case "${ver}" in
-		pkg)		
+		svn|hg|git)	
+				func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}" | tee -a "${ZBOX_LOG}"	
+				;;
+		*)		
 				func_download "${ins_src_addr}" "${src_dir}" | tee -a "${ZBOX_LOG}"
 
 				# create symboic link if the download name is not 'standard'
 				func_cd "${src_dir}" 
 				ln -s "${ins_src_addr##*/}" "${src_fullpath_expect}" &>> ${ZBOX_LOG} 
 				\cd - &>> ${ZBOX_LOG}										
-				;;
-		svn|hg|git)	
-				func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}" | tee -a "${ZBOX_LOG}"	
-				;;
-		*)		
-				func_log_die "${ZBOX_LOG}" "ERROR: (install) can not get source, ver=${ver}, src_addr=${ins_src_addr}"	
 				;;
 	esac
 }
