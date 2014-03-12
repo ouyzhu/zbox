@@ -1,0 +1,9 @@
+# File is empty yet, just give a clue that its source is HG/Mucurial
+ins_pre_script          = "command -v ruby && command -v python"
+ins_gen_src_fullpath    = "only_tname_tver"
+ins_make_pre_script     = 'make_conf=ZBOX_SRC_FULLPATH/src/Make_mvc.mak; ruby_ver=$(ruby -v | cut -c6-8); cp ${make_conf}{,.bak.$(date "+%Y-%m-%d_%H-%M-%S")} && sed -i "s/^RUBY_VER = .*/RUBY_VER = ${ruby_ver/./}/;s/^RUBY_VER_LONG = .*/RUBY_VER_LONG = ${ruby_ver}/" ${make_conf}'
+                        # CFLAGS="-O2" LDFLAGS="-static" ./configure \			# CFLAGS to avoid the -g flag. Failed: cause "no terminal library found", install libncurses5-dev/libncursesw5-dev not works since already installed
+                        # env CFLAGS="-O2" LDFLAGS="-static" ./configure \		# CFLAGS to avoid the -g flag. Failed: cause "no terminal library found", install libncurses5-dev/libncursesw5-dev not works since already installed
+                        # more: --enable-perlinterp --enable-python3interp --enable-tclinterp --enable-rubyinterp
+ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH --with-features=huge --enable-pythoninterp --enable-rubyinterp --enable-multibyte --enable-gui=gtk2 --enable-fontset --enable-xim"
+

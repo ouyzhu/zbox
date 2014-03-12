@@ -15,6 +15,15 @@ function func_die() {
 	exit 1
 }
 
+function func_check_exit_code() {
+	# NOTE: should NOT do anything before check, since need check exit status of last command
+	if [ "$?" = "0" ] ; then 
+		echo  "INFO: '${1}' success"
+	else
+		func_die "ERROR: '${1}' failed!"
+	fi
+}
+
 function func_param_check {
 	local usage="Usage: $FUNCNAME <count> <error_msg> <string> ..."
 	local desc="Desc: string counts should 'greater than' or 'equal to' expected count, otherwise print the <error_msg> and exit. Good for parameter amount check." 

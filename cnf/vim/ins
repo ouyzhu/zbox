@@ -1,3 +1,10 @@
-ins_steps    = "src"
-ins_src_addr = https://vim.googlecode.com/hg/
+ins_steps               = "src dep make"
+ins_src_addr            = https://vim.googlecode.com/hg/
+                        # "libgtk2.0-dev libx11-dev xorg-dev" is for GUI version
+ins_dep_apt_install     = "libgtk2.0-dev libx11-dev xorg-dev python-dev libncurses5-dev libtinfo-dev "
+ins_dep_apt_build_dep   = "vim"
 
+ins_make_steps          = "clean configure make install"
+ins_make_clean_cmd      = "clean distclean"
+ins_verify              = "ZBOX_INS_FULLPATH/bin/gvim --version | grep '^VIM - Vi IMproved' &> /dev/null"
+use_env                 = 'VIM_HOME=ZBOX_INS_FULLPATH PATH=${VIM_HOME}/bin:${PATH}'

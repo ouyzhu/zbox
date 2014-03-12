@@ -1,1 +1,1 @@
-# File is empty yet, just give a clue that its source is HG/Mucurial
+ins_make_configure_opts = "--prefix=$target_base --with-features=huge --enable-pythoninterp --enable-rubyinterp --enable-multibyte --enable-gui=gtk2 --enable-fontset --enable-xim"
