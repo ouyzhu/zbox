@@ -248,4 +248,3 @@ function func_validate_dir_empty() {
 		[ "$(ls -A "${p}" 2> /dev/null)" ] && echo "ERROR: ${p} not empty!" && exit 1
 	done
 }
-

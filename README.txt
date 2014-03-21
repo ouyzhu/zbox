@@ -3,6 +3,9 @@
 Zbox want to unify the installation of tools. 
 Still under developing, quite incomplete.
 
+## Status
+Developing, lots need to add, and lots will be changed!
+
 ## Concept
 
 | Abbreviation | Concept            | Description                                                         |

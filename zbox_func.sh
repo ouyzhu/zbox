@@ -64,7 +64,9 @@ function func_zbox_ins() {
 		if [ "$?" = "0" ] ; then 
 			func_log_echo "${ZBOX_LOG}" "INFO: (install) verify installation success"
 		else
-			func_log_die "${ZBOX_LOG}" "ERROR: (install) verify installation failed!"
+			func_log_echo "${ZBOX_LOG}" "ERROR: (install) verify installation failed!"
+			# verify is usually the last step, not terminate process seems better
+			#func_log_die "${ZBOX_LOG}" "ERROR: (install) verify installation failed!"
 		fi
 	fi
 }
