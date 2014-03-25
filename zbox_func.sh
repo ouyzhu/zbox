@@ -21,7 +21,60 @@ source ${ZBOX}/zbox_lib.sh || eval "$(wget -q -O - "https://raw.github.com/ouyzh
 [ ! -e "${ZBOX_STG}" ] && mkdir "${ZBOX_STG}"
 [ ! -e "${ZBOX_TMP}" ] && mkdir "${ZBOX_TMP}"
 
-# ZBOX Functions
+# create the zbox alias
+alias zbox='func_zbox'
+
+# Functions
+function func_zbox() {
+	local desc="Desc: zbox functions"
+	local usage="Usage: zbox <list | install | use> <tool> <version> <addition>"
+
+	# Better way to check parameters?
+	[ "${1}" = "install" -o  "${1}" = "use" ] && [ $# -lt 3 ] && echo "${desc} \n ${usage} \n ERROR: need provide tool name and version info" && return
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && return
+	
+	local action="${1}"
+	shift
+	case "${action}" in
+		use)		func_zbox_use "$@"	;;
+		list)		func_zbox_lst "$@"	;;
+		install)	func_zbox_ins "$@"	;;
+		*)		echo -e "ERROR: can not handle action '${action}' ! \n ${desc} \n ${usage}" && return 1	;;
+	esac
+}
+
+function func_zbox_lst() {
+	local desc="Desc: list status"
+
+	\cd $ZBOX_CNF 
+	func_zbox_lst_print_head
+	for tool in * ; do 
+		\cd "${tool}" > /dev/null
+		for file in ins-* ; do 
+			local va=${file#ins-}
+			local version=${va%-*}
+			local addition=$(echo $va | sed -e "s/[^-]*//;s/^-//")
+			local ins_fullpath=$(func_zbox_gen_ins_fullpath "${tool}" "${version}" "${addition}")
+			local installed=$([ -e "${ins_fullpath}" ] && echo Y)
+			func_zbox_lst_print_item "${tool}" "${version}" "${addition}" "${installed}"
+		done 
+		\cd .. > /dev/null
+	done
+}
+
+function func_zbox_lst_print_head() {
+	echo "|------------------|---------|---------|-----------|"
+	echo "|       Name       | Version | Addtion | Installed |"
+	echo "|------------------|---------|---------|-----------|"
+}
+
+function func_zbox_lst_print_item() {
+	local desc="Desc: format the output of list"
+	func_param_check 4 "${desc} \n ${FUNCNAME} <name> <version> <addtion> <installed> \n" "$@"
+
+	printf "| %-16s | %-7s | %-7s | %-9s | \n" "$@"
+}
+
 function func_zbox_ins() {
 	local desc="Desc: install tool, this should be the single entrance for installing tools"
 	func_param_check 2 "${desc} \n ${ZBOX_FUNC_INS_USAGE} \n" "$@"

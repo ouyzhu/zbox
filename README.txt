@@ -1,12 +1,51 @@
-# ZBOX
+#ZBOX
 
-Zbox want to unify the installation of tools. 
-Still under developing, quite incomplete.
+##Background
 
-## Status
-Developing, lots need to add, and lots will be changed!
+###Target
+Zbox want to:
+- make the installation/compilation of tools easier
+- make the tools NOT system wide, which means more "green"
+- make the usage of tool more easier
 
-## Concept
+### Status
+- Still under developing, quite incomplete. Lots need to add, and lots will be changed!
+
+### Requirement
+- Currently only tested on ubuntu 13.10 (some tool dependency need apt-get)
+- Script language is in bash
+
+##Usage
+
+###Basic
+Checkout source
+	`cd ~ && git clone https://github.com/ouyzhu/zbox.git .zbox`
+Source the script
+	`cd ~/.zbox && source zbox_func.sh`
+Check what could be installed out of box
+	`zbox list`
+Install a some tool
+	`zbox install python 3.3.4`
+Find out the "Installed" status changed to Y
+	`zbox list`
+Use it
+	`zbox use maven 3.1.1 && mvn -version`
+Make it more convenient if you like it. Source it in .bashrc
+	`vi ~/.bashrc`
+Add content
+	zbox_func=${HOME}/.zbox/zbox_func.sh
+	if [ -e "${zbox_func}" ]  ; then
+		source "${zbox_func}"
+		func_zbox_use python 3.3.4
+	fi
+
+###Tips
+- Find better place for source 
+  Source downloading is usually a time costing task. Put .zbox/src to another place, and make a symbolic link. So the source could survive even after OS re-install.
+
+##Develop
+
+### Concept
 
 | Abbreviation | Concept            | Description                                                         |
 | ----         | ----               | ----                                                                |
@@ -26,24 +65,15 @@ Developing, lots need to add, and lots will be changed!
 | usname       | unique stage name  | the unique stage name, <tname>-<sname>                              |
 |              |                    |                                                                     |
 
-## Features
-
-
-
-## Dev
-
-### TODO
+###TODO
 logging
 verify
 
-### Guide
+###Guide
 all logic in function
 variable as "local" as possible
 
-
-## Unsorted notes
-
-Layout
+###Layout
 	ins					for builds, executable binaries
 		<tname>				dir,
 			<tname>			symbolic link, to the real build, 1st build will create this link, need manual update afterwards
@@ -67,37 +97,3 @@ Layout
 
 	zbox_func.sh				(bash) zbox scripts
 	zbox_lib.sh				(bash) common scripts which not zbox specific
-
-Record
-
-	Refactoring - (2014-02-14, renaming for better consistency)
-
-		Rename
-			exe/setup > ins						done
-			zbox_process > zbox_ins_process				done
-			zbox_ins_process_ins > zbox_ins_process			done
-			zbox_url > zbox_src_url					done
-			zbox_dependency > zbox_dep				done
-			zbox_stage > zbox_stg					done
-			zbox_gen_env_vars > zbox_ins_gen_env_vars		done
-			zbox_ins_process > ins_steps				done
-			zbox_src_url > src_url					done
-			zbox_ins_make_configure_opts > ins_make_configure_opts	done
-			ins_steps_make_steps > ins_make_steps			done
-			ins_steps_uncompress > ins_uncompress			done
-			ins_steps_pre_script > ins_pre_script			done
-			zbox_dep_apt_get > ins_dep_apt				done
-			zbox_ins_make_install_cmd > ins_make_install_cmd	done
-			src_url > ins_download_url				done
-			gen_env > env						done
-			zbox_ins_env_vars > ins_env_vars			done
-			ins_steps_move_post_script > ins_move_post_script	done
-
-			zbox_stg_ > stg_					done	(NOTE: not include func_zbox_stg)
-
-			make_install > install					done	(NOTE: only in "ins_make_steps")
-			ins_copy/ins_make/ins_move/ins_dep > copy/make/move/dep	done	(NOTE: only in "ins_steps")
-			(more ...)
-		
-		Test - ins
-		Test - stg
