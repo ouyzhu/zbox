@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Global Variables
-ZBOX="${ZBOX:="~/.zbox"}"
+ZBOX="${ZBOX:="${HOME}/.zbox"}"
 ZBOX_CNF="${ZBOX_CNF:-"${ZBOX}/cnf"}"
 ZBOX_INS="${ZBOX_INS:-"${ZBOX}/ins"}"
 ZBOX_SRC="${ZBOX_SRC:-"${ZBOX}/src"}"
@@ -46,7 +46,7 @@ function func_zbox() {
 function func_zbox_lst() {
 	local desc="Desc: list status"
 
-	\cd $ZBOX_CNF 
+	pushd $ZBOX_CNF > /dev/null 
 	func_zbox_lst_print_head
 	for tool in * ; do 
 		\cd "${tool}" > /dev/null
@@ -60,6 +60,7 @@ function func_zbox_lst() {
 		done 
 		\cd .. > /dev/null
 	done
+	popd > /dev/null
 }
 
 function func_zbox_lst_print_head() {
