@@ -145,6 +145,7 @@ function func_zbox_ins() {
 	# Verify if installation success
 	if [ -n "${ins_verify}" ] ; then
 		func_log_echo "${ZBOX_LOG}" "INFO: (install) verify installation with script ins_verify='${ins_verify}'"
+		[ -e "${ins_fullpath}_env" ] && source "${ins_fullpath}_env"
 		eval "${ins_verify}"
 		if [ "$?" = "0" ] ; then 
 			func_log_echo "${ZBOX_LOG}" "INFO: (install) verify installation success"
