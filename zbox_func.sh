@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: tee makes func_die in some function not really work because of subshell, how to replace it?
+
 # Global Variables
 ZBOX="${ZBOX:="${HOME}/.zbox"}"
 ZBOX_CNF="${ZBOX_CNF:-"${ZBOX}/cnf"}"
@@ -88,7 +90,7 @@ function func_zbox_ins() {
 	func_zbox_ins_init_dir "$1"
 
 	# execute pre script
-	func_zbox_run_script "ins_pre_script" "${ZBOX_TMP}" "${ins_pre_script}"
+	func_zbox_run_script "ins_pre_script" "${ZBOX_TMP}" "${ins_pre_script}" "${ins_pre_script_desc}"
 
 	local step
 	for step in ${ins_steps} ; do
@@ -300,11 +302,11 @@ function func_zbox_ins_make() {
 	func_log_echo "${ZBOX_LOG}" "INFO: (install) start make, make_steps='${make_steps}', configure_opts='${configure_opts}'"
 	for step in ${make_steps} ; do
 		case "${step}" in 
-			make)		make ${ins_make_make_opts} &>> ${ZBOX_LOG}	; func_check_exit_code "(install) make - ${step}" &>> ${ZBOX_LOG} ;;
-			test)		make test &>> ${ZBOX_LOG}			; func_check_exit_code "(install) make - ${step}" &>> ${ZBOX_LOG} ;;
-			clean)		make ${clean_cmd} &>> ${ZBOX_LOG}		; func_check_exit_code "(install) make - ${step}" &>> ${ZBOX_LOG} ;;
-			install)	make ${install_cmd} &>> ${ZBOX_LOG}		; func_check_exit_code "(install) make - ${step}" &>> ${ZBOX_LOG} ;;
-			configure)	./configure ${configure_opts} &>> ${ZBOX_LOG}	; func_check_exit_code "(install) make - ${step}" &>> ${ZBOX_LOG} ;;
+			make)		make ${ins_make_make_opts} &>> ${ZBOX_LOG}	; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			test)		make test &>> ${ZBOX_LOG}			; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			clean)		make ${clean_cmd} &>> ${ZBOX_LOG}		; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			install)	make ${install_cmd} &>> ${ZBOX_LOG}		; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			configure)	./configure ${configure_opts} &>> ${ZBOX_LOG}	; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
 			*)		func_log_die "${ZBOX_LOG}" "ERROR: (install) can not handle ${step}, exit!"				;;
 		esac
 	done
@@ -509,18 +511,20 @@ function func_zbox_gen_ins_cnf_vars() {
 }
 
 function func_zbox_run_script() {
-	local usage="Usage: $FUNCNAME <script_name> <run_path> <script>"
+	local usage="Usage: $FUNCNAME <script_name> <run_path> <script> <script_desc>"
 	local desc="Desc: run user defined scripts" 
 
 	[ $# -lt 3 -o -z "${3}" ] && func_log_echo "${ZBOX_LOG}" "INFO: user defined script (${1}) not set, skip run it" && return 0
 	
 	local script_name="${1}"
 	local run_path="${2}"
-	shift; shift
+	local script="${3}"
+	local script_desc="${4}"
 
-	func_log_echo "${ZBOX_LOG}" "INFO: executing ${script_name}, run in path: ${run_path}, script: $@"
+	func_log_echo "${ZBOX_LOG}" "INFO: executing ${script_name}, run in path: ${run_path}, script: ${script}"
 	func_cd "${run_path}" 
-	eval "$*" 
-	func_check_exit_code "script execution of ${script_name}" 2>&1 | tee -a ${ZBOX_LOG}
+	eval "${script}" 
+	# NOTE, do NOT use pipe here, which makes the func_die fail (since pipe creates sub-shell). But how to put a copy in log?
+	func_check_exit_code "${script_name} execution success" "${script_desc:-${script_name} execution failed}" 2>&1 
 	\cd - &>> ${ZBOX_LOG}
 }

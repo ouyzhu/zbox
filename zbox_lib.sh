@@ -17,11 +17,7 @@ function func_die() {
 
 function func_check_exit_code() {
 	# NOTE: should NOT do anything before check, since need check exit status of last command
-	if [ "$?" = "0" ] ; then 
-		echo  "INFO: '${1}' success"
-	else
-		func_die "ERROR: '${1}' failed!"
-	fi
+	[ "$?" = "0" ]  && echo  "INFO: ${1}" || func_die "ERROR: ${2:-${1}}"
 }
 
 function func_param_check {

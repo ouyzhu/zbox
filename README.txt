@@ -15,6 +15,10 @@ Zbox want to:
 - Currently only tested on ubuntu 13.10 (some tool dependency need apt-get)
 - Script language is in bash
 
+###Tips
+- Find better place for source 
+  Source downloading is usually a time costing task. Put .zbox/src to another place, and make a symbolic link. So the source could survive even after OS re-install.
+
 ##Usage
 
 ###Basic
@@ -38,8 +42,4 @@ Add content
 		source "${zbox_func}"
 		func_zbox_use python 3.3.4
 	fi
-
-###Tips
-- Find better place for source 
-  Source downloading is usually a time costing task. Put .zbox/src to another place, and make a symbolic link. So the source could survive even after OS re-install.
 

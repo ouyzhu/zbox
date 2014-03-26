@@ -1,3 +1,5 @@
-ins_steps  = "src ucd move default"
-ins_verify = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/mvn --version | grep '^Apache Maven' &> /dev/null"
-use_env    = 'MAVEN_HOME=ZBOX_INS_FULLPATH M2_HOME=ZBOX_INS_FULLPATH PATH=${MAVEN_HOME}/bin:${PATH}'
+ins_steps           = "src ucd move default"
+ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/mvn --version | grep '^Apache Maven' &> /dev/null"
+ins_pre_script      = '[ -n "${JAVA_HOME}" ] && command -v java'
+ins_pre_script_desc = "env variable JAVA_HOME must be set, and java must exist in PATH"
+use_env             = 'MAVEN_HOME=ZBOX_INS_FULLPATH M2_HOME=ZBOX_INS_FULLPATH PATH=${MAVEN_HOME}/bin:${PATH}'
