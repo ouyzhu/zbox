@@ -1,0 +1,6 @@
+ins_steps           = "src ucd move"
+ins_pre_script      = 'command -v java'
+ins_pre_script_desc = "java must exist in PATH"
+use_env             = 'ECLIPSE_HOME=ZBOX_INS_FULLPATH PATH=${ECLIPSE_HOME}/:${PATH} '
+
+#ins_verify         = "ZBOX_INS_FULLPATH/bin/java -version 2>&1 | grep '^java version' &> /dev/null"

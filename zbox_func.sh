@@ -39,7 +39,9 @@ function func_zbox() {
 	shift
 	case "${action}" in
 		# use background job to 
-		use)		func_zbox_use "$@"	;;
+		use)		func_zbox_use "$@"	;;	# do NOT use () here, since need source env
+		purge)		( func_zbox_pur "$@" )	;;
+		remove)		( func_zbox_rem "$@" )	;;
 		list)		( func_zbox_lst "$@" )	;;
 		install)	( func_zbox_ins "$@" )	;;
 		*)		echo -e "ERROR: can not handle action '${action}' ! \n ${desc}\n${usage}" && return 1	;;
@@ -77,6 +79,32 @@ function func_zbox_lst_print_item() {
 	func_param_check 4 "${desc}\n${FUNCNAME} <name> <version> <addtion> <installed> \n" "$@"
 
 	printf "| %-16s | %-7s | %-7s | %-9s | %-18s |\n" "$@"
+}
+
+function func_zbox_rem() {
+	local desc="Desc: remove tool (uninstall but keep downloaded source)"
+	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+
+	func_log_echo "${ZBOX_LOG}" "INFO: remove tool (uninstall but keep downloaded source) for $@"
+	eval $(func_zbox_gen_ins_cnf_vars "$@")
+	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
+
+	[ -e "${ins_fullpath}" ] && rm -rf ${ins_fullpath}{,_env}
+}
+
+function func_zbox_pur() {
+	local desc="Desc: purge tool (uninstall and delete downloaded source)"
+	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+
+	func_log_echo "${ZBOX_LOG}" "INFO: purge tool (uninstall and delete downloaded source) for $@"
+	eval $(func_zbox_gen_ins_cnf_vars "$@")
+	local dl_fullpath=$(func_zbox_gen_src_fullpath "$@")
+	local dl_fullpath_real=$(readlink -f "${dl_fullpath}")
+	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
+
+	[ -e "${dl_fullpath}" ] && rm -rf "${dl_fullpath}"
+	[ -e "${ins_fullpath}" ] && rm -rf ${ins_fullpath}{,_env}
+	[ -e "${dl_fullpath_real}" ] && rm -rf "${dl_fullpath_real}"
 }
 
 function func_zbox_ins() {
