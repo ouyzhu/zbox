@@ -1,0 +1,6 @@
+ins_steps            = "src"
+#ins_steps            = "src ucd dep make"
+#ins_make_steps       = "configure make install"
+#ins_dep_apt_install  = "build-essential libgdbm-dev libreadline-dev libsqlite3-dev libbz2-dev libssl-dev libncursesw5-dev libncurses5-dev libncursesw5-dev zlib1g-dev"
+#use_env              = 'PHP_HOME=ZBOX_INS_FULLPATH PATH=${PHP_HOME}/bin:${PATH}'
+#build-essential openssl libcurl4-openssl-dev libreadline-dev libicu-dev libxslt1.1 libxslt1-dev libfreetype6 libfreetype6-dev libmcrypt4 libmcrypt-dev libmhash-dev libpcre3-dev libjpeg-dev libpng12-dev libbz2-1.0 libbz2-dev libxpm-dev autoconf libtool libxml2 libxml2-dev libmysqlclient-dev libzip-dev libxt-dev libldap-2.4-2 libldap2-dev
