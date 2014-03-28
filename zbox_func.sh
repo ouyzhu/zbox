@@ -39,11 +39,11 @@ function func_zbox() {
 	shift
 	case "${action}" in
 		# use background job to 
-		use)		func_zbox_use "$@"	;;	# do NOT use () here, since need source env
-		purge)		( func_zbox_pur "$@" )	;;
-		remove)		( func_zbox_rem "$@" )	;;
-		list)		( func_zbox_lst "$@" )	;;
-		install)	( func_zbox_ins "$@" )	;;
+		use)		func_zbox_use "$@"									;;	# do NOT use pipe here, since need source env
+		list)		( func_zbox_lst "$@" )									;;
+		purge)		func_zbox_pur "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(INFO\|WARN\|ERROR\):/p" 	;;
+		remove)		func_zbox_rem "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(INFO\|WARN\|ERROR\):/p" 	;;
+		install)	func_zbox_ins "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(INFO\|WARN\|ERROR\):/p" 	;;
 		*)		echo -e "ERROR: can not handle action '${action}' ! \n ${desc}\n${usage}" && return 1	;;
 	esac
 }
@@ -51,10 +51,10 @@ function func_zbox() {
 function func_zbox_lst() {
 	local desc="Desc: list status"
 
-	pushd $ZBOX_CNF > /dev/null 
+	pushd $ZBOX_CNF
 	func_zbox_lst_print_head
 	for tool in * ; do 
-		\cd "${tool}" > /dev/null
+		\cd "${tool}"
 		for file in ins-* ; do 
 			local va=${file#ins-}
 			local version=${va%-*}
@@ -63,9 +63,9 @@ function func_zbox_lst() {
 			local installed=$([ -e "${ins_fullpath}" ] && echo Y)
 			func_zbox_lst_print_item "${tool}" "${version}" "${addition}" "${installed}"
 		done 
-		\cd .. > /dev/null
+		\cd ..
 	done
-	popd > /dev/null
+	popd
 }
 
 function func_zbox_lst_print_head() {
@@ -85,7 +85,7 @@ function func_zbox_rem() {
 	local desc="Desc: remove tool (uninstall but keep downloaded source)"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
-	func_log_echo "${ZBOX_LOG}" "INFO: remove tool (uninstall but keep downloaded source) for $@"
+	echo "INFO: remove tool (uninstall but keep downloaded source) for $@"
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
@@ -96,7 +96,7 @@ function func_zbox_pur() {
 	local desc="Desc: purge tool (uninstall and delete downloaded source)"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
-	func_log_echo "${ZBOX_LOG}" "INFO: purge tool (uninstall and delete downloaded source) for $@"
+	echo "INFO: purge tool (uninstall and delete downloaded source) for $@"
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local dl_fullpath=$(func_zbox_gen_src_fullpath "$@")
 	local dl_fullpath_real=$(readlink -f "${dl_fullpath}")
@@ -111,7 +111,7 @@ function func_zbox_ins() {
 	local desc="Desc: install tool"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
-	func_log_echo "${ZBOX_LOG}" "INFO: (install) start installation for $@"
+	echo "INFO: (install) start installation for $@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
@@ -130,7 +130,7 @@ function func_zbox_ins() {
 			dep)		func_zbox_ins_dep "$@"		;;
 			make)		func_zbox_ins_make "$@"		;;
 			default)	func_zbox_ins_default "$@"	;;
-			*)		func_log_die "${ZBOX_LOG}" "ERROR: (install) can not handle installation process step:'${step}', exit!"	;;
+			*)		func_die "ERROR: (install) can not handle installation process step:'${step}', exit!"	;;
 		esac
 	done
 	# gen env, this step not need to define
@@ -144,15 +144,15 @@ function func_zbox_ins() {
 
 	# Verify if installation success
 	if [ -n "${ins_verify}" ] ; then
-		func_log_echo "${ZBOX_LOG}" "INFO: (install) verify installation with script ins_verify='${ins_verify}'"
+		echo "INFO: (install) verify installation with script ins_verify='${ins_verify}'"
 		[ -e "${ins_fullpath}_env" ] && source "${ins_fullpath}_env"
 		eval "${ins_verify}"
 		if [ "$?" = "0" ] ; then 
-			func_log_echo "${ZBOX_LOG}" "INFO: (install) verify installation success"
+			echo "INFO: (install) verify installation success"
 		else
-			func_log_echo "${ZBOX_LOG}" "ERROR: (install) verify installation failed!"
+			echo "ERROR: (install) verify installation failed!"
 			# verify is usually the last step, not terminate process seems better
-			#func_log_die "${ZBOX_LOG}" "ERROR: (install) verify installation failed!"
+			#func_die "ERROR: (install) verify installation failed!"
 		fi
 	fi
 }
@@ -179,7 +179,7 @@ function func_zbox_mkstage() {
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
 
 	func_validate_path_exist "${ins_fullpath}"
-	[ -z "${stg_tver}" ] && func_log_die "${ZBOX_LOG}" "ERROR: (stage) 'stg_tver' must NOT be empty!"
+	[ -z "${stg_tver}" ] && func_die "ERROR: (stage) 'stg_tver' must NOT be empty!"
 
 	func_zbox_stg_init_dir "$@"
 
@@ -203,7 +203,7 @@ function func_zbox_stg_gen_ctrl_scripts() {
 	local stg_ctrl_client="${stg_fullpath}/bin/client.sh"
 	local stg_ctrl_status="${stg_fullpath}/bin/status.sh"
 
-	func_log_echo "${ZBOX_LOG}" "INFO: (stage) Generating control scripts: ${stg_ctrl_stop}, ${stg_ctrl_start}, ${stg_ctrl_status}, ${stg_ctrl_client}"
+	echo "INFO: (stage) Generating control scripts: ${stg_ctrl_stop}, ${stg_ctrl_start}, ${stg_ctrl_status}, ${stg_ctrl_client}"
 	rm "${stg_ctrl_stop}" "${stg_ctrl_start}" "${stg_ctrl_status}" "${stg_ctrl_client}"
 
 	echo "#!/bin/bash" >> "${stg_ctrl_stop}"
@@ -223,7 +223,7 @@ function func_zbox_ins_init_dir() {
 	local desc="Desc: init directories for <tname>, currently only <tname> is necessary"
 	func_param_check 1 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
-	func_log_echo "${ZBOX_LOG}"  "INFO: (Install) init dir for ${1}"
+	echo  "INFO: (Install) init dir for ${1}"
 	mkdir -p "${ZBOX_CNF}/${1}" "${ZBOX_SRC}/${1}" "${ZBOX_INS}/${1}" 
 }
 
@@ -233,7 +233,7 @@ function func_zbox_stg_init_dir() {
 
 	eval $(func_zbox_gen_stage_cnf_vars "$@")
 
-	func_log_echo "${ZBOX_LOG}" "INFO: (stage) init dir for ${1}"
+	echo "INFO: (stage) init dir for ${1}"
 	func_mkdir_cd "$(func_zbox_gen_stg_fullpath "$@")"
 	local p
 	for p in ${stg_dirs:-bin conf logs data} ; do
@@ -253,10 +253,10 @@ function func_zbox_ins_src() {
 
 	case "${ver}" in
 		svn|hg|git)	
-				func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}" | tee -a "${ZBOX_LOG}"	
+				func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}"
 				;;
 		*)		
-				func_download "${ins_src_addr}" "${src_dir}" | tee -a "${ZBOX_LOG}"
+				func_download "${ins_src_addr}" "${src_dir}"
 
 				# create symboic link if the download name is not 'standard'
 				func_cd "${src_dir}" 
@@ -275,7 +275,7 @@ function func_zbox_ins_default() {
 	local ins_fullpath_default="$(func_zbox_gen_ins_fullpath_default "$@")"
 
 	rm "${ins_fullpath_default}" &>> ${ZBOX_LOG}
-	func_log_echo "${ZBOX_LOG}" "INFO: (install) make this installation as defaut, linking: ${ins_fullpath_default} -> ${ins_fullpath}"
+	echo "INFO: (install) make this installation as defaut, linking: ${ins_fullpath_default} -> ${ins_fullpath}"
 	func_cd "$(dirname "${ins_fullpath}")" 
 	ln -s "$(basename "${ins_fullpath}")" "${ins_fullpath_default}" 
 	\cd - &>> ${ZBOX_LOG}
@@ -288,12 +288,12 @@ function func_zbox_ins_dep() {
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 
 	if [ -n "${ins_dep_apt_install}" ] ; then
-		func_log_echo "${ZBOX_LOG}" "INFO: (install) dependencies: sudo apt-get install -y ${ins_dep_apt_install}"
+		echo "INFO: (install) dependencies: sudo apt-get install -y ${ins_dep_apt_install}"
 		sudo apt-get install -y ${ins_dep_apt_install} &>> ${ZBOX_LOG}
 	fi
 
 	if [ -n "${ins_dep_apt_build_dep}" ] ; then
-		func_log_echo "${ZBOX_LOG}" "INFO: (install) dependencies: sudo apt-get build-dep ${ins_dep_apt_build_dep}"
+		echo "INFO: (install) dependencies: sudo apt-get build-dep ${ins_dep_apt_build_dep}"
 		sudo apt-get build-dep -y ${ins_dep_apt_build_dep} &>> ${ZBOX_LOG}
 	fi
 
@@ -302,7 +302,7 @@ function func_zbox_ins_dep() {
 		local dep_zbox
 		for dep_zbox in "${ins_dep_zbox_ins[@]}" ; do
 			[ -z "${dep_zbox}" ] && continue
-			func_log_echo "${ZBOX_LOG}" "INFO: (install) dependencies: func_zbox_ins ${dep_zbox}"
+			echo "INFO: (install) dependencies: func_zbox_ins ${dep_zbox}"
 			func_zbox_ins ${dep_zbox}
 		done
 	fi
@@ -319,7 +319,7 @@ function func_zbox_ins_make() {
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 	local configure_opts="${ins_make_configure_opts}"
 	func_validate_path_inexist "${ins_fullpath}"
-	[ -z "${make_steps}" ] && func_log_die "${ZBOX_LOG}" "ERROR: (install) 'ins_make_steps' not defined, can not make"
+	[ -z "${make_steps}" ] && func_die "ERROR: (install) 'ins_make_steps' not defined, can not make"
 
 	# execute pre script
 	func_zbox_run_script "ins_make_pre_script" "${ZBOX_TMP}" "${ins_make_pre_script}"
@@ -328,7 +328,7 @@ function func_zbox_ins_make() {
 	local clean_cmd=${ins_make_clean_cmd:-clean} 
 	local install_cmd=${ins_make_install_cmd:-install} 
 	func_cd "$(func_zbox_gen_ucd_fullpath "$@")"
-	func_log_echo "${ZBOX_LOG}" "INFO: (install) start make, make_steps='${make_steps}', configure_opts='${configure_opts}'"
+	echo "INFO: (install) start make, make_steps='${make_steps}', configure_opts='${configure_opts}'"
 	for step in ${make_steps} ; do
 		case "${step}" in 
 			make)		make ${ins_make_make_opts} &>> ${ZBOX_LOG}	; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
@@ -336,7 +336,7 @@ function func_zbox_ins_make() {
 			clean)		make ${clean_cmd} &>> ${ZBOX_LOG}		; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
 			install)	make ${install_cmd} &>> ${ZBOX_LOG}		; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
 			configure)	./configure ${configure_opts} &>> ${ZBOX_LOG}	; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
-			*)		func_log_die "${ZBOX_LOG}" "ERROR: (install) can not handle ${step}, exit!"				;;
+			*)		func_die "ERROR: (install) can not handle ${step}, exit!"				;;
 		esac
 	done
 	\cd - &>> ${ZBOX_LOG}
@@ -349,7 +349,7 @@ function func_zbox_use_gen_env() {
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local env_fullpath="$(func_zbox_gen_env_fullpath "$@")"
 
-	[ -z "${use_env}" ] && func_log_die "${ZBOX_LOG}" "ERROR: (install) 'use_env' is empty, can NOT gen env file!"
+	[ -z "${use_env}" ] && func_die "ERROR: (install) 'use_env' is empty, can NOT gen env file!"
 	rm -f "${env_fullpath}"
 	for var in ${use_env} ; do
 		echo "export ${var}" >> "${env_fullpath}"
@@ -365,7 +365,7 @@ function func_zbox_ins_copy() {
 	local dl_fullpath_actual=$(readlink -f "${dl_fullpath}")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
-	func_log_echo "${ZBOX_LOG}" "INFO: (install) copy source, from: ${dl_fullpath_actual} to: ${ins_fullpath}"
+	echo "INFO: (install) copy source, from: ${dl_fullpath_actual} to: ${ins_fullpath}"
 	func_validate_path_inexist "${ins_fullpath}"
 	func_validate_path_exist "${dl_fullpath_actual}"
 	func_mkdir "${ins_fullpath}" 
@@ -380,7 +380,7 @@ function func_zbox_ins_move() {
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
 
-	func_log_echo "${ZBOX_LOG}" "INFO: (install) move source, from: ${ucd_fullpath} to: ${ins_fullpath}"
+	echo "INFO: (install) move source, from: ${ucd_fullpath} to: ${ins_fullpath}"
 	func_validate_path_inexist "${ins_fullpath}"
 	func_validate_path_exist "${ucd_fullpath}"
 	mv "${ucd_fullpath}" "${ins_fullpath}"
@@ -397,8 +397,8 @@ function func_zbox_ins_ucd() {
 	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
 
-	rm -rf "${ucd_fullpath}" &> /dev/null
-	func_uncompress "${src_fullpath}" "${ucd_fullpath}" | tee -a "${ZBOX_LOG}"
+	rm -rf "${ucd_fullpath}"
+	func_uncompress "${src_fullpath}" "${ucd_fullpath}" 
 
 	# execute post script
 	func_zbox_run_script "ins_ucd_post_script" "${ucd_fullpath}" "${ins_ucd_post_script}"
@@ -527,6 +527,7 @@ function func_zbox_gen_ins_cnf_vars() {
 	local cnfs=$(func_zbox_gen_ins_cnf_files "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
+	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
 
 	#cat ${cnfs} 2>> ${ZBOX_LOG} | sed -e "/^\s*#/d;/^\s*$/d;s/^/local /"
 	cat ${cnfs} 2>> ${ZBOX_LOG}						|\
@@ -536,6 +537,7 @@ function func_zbox_gen_ins_cnf_vars() {
 		s/^/local /"							|\
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
 		s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
+		s+ZBOX_UCD_FULLPATH+${ucd_fullpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;" 
 }
 
@@ -543,14 +545,14 @@ function func_zbox_run_script() {
 	local usage="Usage: $FUNCNAME <script_name> <run_path> <script> <script_desc>"
 	local desc="Desc: run user defined scripts" 
 
-	[ $# -lt 3 -o -z "${3}" ] && func_log_echo "${ZBOX_LOG}" "INFO: user defined script (${1}) not set, skip run it" && return 0
+	[ $# -lt 3 -o -z "${3}" ] && echo "INFO: user defined script (${1}) not set, skip run it" && return 0
 	
 	local script_name="${1}"
 	local run_path="${2}"
 	local script="${3}"
 	local script_desc="${4}"
 
-	func_log_echo "${ZBOX_LOG}" "INFO: executing ${script_name}, run in path: ${run_path}, script: ${script}"
+	echo "INFO: executing ${script_name}, run in path: ${run_path}, script: ${script}"
 	func_cd "${run_path}" 
 	eval "${script}" 
 	# NOTE, do NOT use pipe here, which makes the func_die fail (since pipe creates sub-shell). But how to put a copy in log?
