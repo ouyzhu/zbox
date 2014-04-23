@@ -1,0 +1,7 @@
+ZBOX_INS_FULLPATH/scripts/mysql_install_db \
+--basedir=ZBOX_INS_FULLPATH                \
+--datadir=ZBOX_STG_FULLPATH/data           \
+--user=ZBOX_USERNAME                       \
+--lc-messages-dir=ZBOX_INS_FULLPATH/share/ \
+--lc-messages=en_US                        \
+--explicit_defaults_for_timestamp=TRUE

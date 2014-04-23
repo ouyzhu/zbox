@@ -200,7 +200,7 @@ function func_zbox_stg() {
 	local desc="Desc: make a working stage, this should be the single entrance for create stage"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
-	eval $(func_zbox_gen_stage_cnf_vars "$@")
+	eval $(func_zbox_gen_stg_cnf_vars "$@")
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
 
@@ -209,8 +209,9 @@ function func_zbox_stg() {
 
 	func_zbox_stg_init_dir "$@"
 
-	# execute pre script
+	# execute pre script and pre translate
 	func_zbox_run_script "stg_pre_script" "${stg_fullpath}" "${stg_pre_script}"
+	func_zbox_stg_pre_translate "$@"
 
 	func_zbox_stg_gen_ctrl_scripts "$@"
 
@@ -218,11 +219,36 @@ function func_zbox_stg() {
 	func_zbox_run_script "stg_post_script" "${stg_fullpath}" "${stg_post_script}"
 }
 
+function func_zbox_stg_pre_translate() {
+	local desc="Desc: generate control scripts for stage"
+	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+
+	eval $(func_zbox_gen_stg_cnf_vars "$@")
+	local zbox_username="$(whoami)"
+	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
+	local src_fullpath="$(func_zbox_gen_src_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
+	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
+
+	[ -z "${stg_pre_translate}" ] && echo "INFO: stg_pre_translate var empty, skip" && return 0
+
+	local f=""
+	for f in ${stg_pre_translate} ; do
+		[ ! -f "${f}" ] && func_die "ERROR: pre translate failed, can NOT find file: ${f}"
+		echo "INFO: translate files defined in var stg_pre_translate: ${f}"
+		sed -i -e "s+ZBOX_TMP+${ZBOX_TMP}+g;
+			   s+ZBOX_CNF+${ZBOX_CNF}+g;
+			   s+ZBOX_USERNAME+${zbox_username}+g;
+			   s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
+			   s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;
+			   s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;" "${f}"
+	done
+}
+
 function func_zbox_stg_gen_ctrl_scripts() {
 	local desc="Desc: generate control scripts for stage"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
-	eval $(func_zbox_gen_stage_cnf_vars "$@")
+	eval $(func_zbox_gen_stg_cnf_vars "$@")
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
 
 	for cmd in ${stg_cmds:-start stop status} ; do
@@ -267,7 +293,7 @@ function func_zbox_stg_init_dir() {
 	local desc="Desc: generate a list of related configure files for stage"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
-	eval $(func_zbox_gen_stage_cnf_vars "$@")
+	eval $(func_zbox_gen_stg_cnf_vars "$@")
 
 	echo "INFO: (stage) init dir for ${1}"
 	func_mkdir_cd "$(func_zbox_gen_stg_fullpath "$@")"
@@ -505,7 +531,7 @@ function func_zbox_gen_stg_fullpath() {
 	echo "${ZBOX_STG}/${1}/$(func_zbox_gen_usname "$@")"
 }
 
-function func_zbox_gen_stage_cnf_files() {
+function func_zbox_gen_stg_cnf_files() {
 	local desc="Desc: generate a list of related configure files for stage"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 	
@@ -515,28 +541,29 @@ function func_zbox_gen_stage_cnf_files() {
 	echo "${stage_default} ${stage_version}"
 }
 
-function func_zbox_gen_stage_cnf_vars() {
+function func_zbox_gen_stg_cnf_vars() {
 	local desc="Desc: generate a list of related configure variables for stage, with ZBOX varibles substituted"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
 	# TODO: need eval twice to get ZBOX var substituted, since need to get "${stg_tver}" "${stg_tadd}" first. Any better way?
-	eval $(func_zbox_gen_stage_cnf_vars_raw "$@")
+	eval $(func_zbox_gen_stg_cnf_vars_raw "$@")
 	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
 
-	func_zbox_gen_stage_cnf_vars_raw "$@"		|\
+	func_zbox_gen_stg_cnf_vars_raw "$@"		|\
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
+		s+ZBOX_CNF+${ZBOX_CNF}+g;
 		s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;
 		s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;"
 }
 
-function func_zbox_gen_stage_cnf_vars_raw() {
+function func_zbox_gen_stg_cnf_vars_raw() {
 	local desc="Desc: generate a list of related configure variables for stage, with ZBOX varibles NOT substituted"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 	
-	local cnfs=$(func_zbox_gen_stage_cnf_files "$@")
+	local cnfs=$(func_zbox_gen_stg_cnf_files "$@")
 
 	cat ${cnfs} 2>> ${ZBOX_LOG}						|\
 	sed -e 	"/^\s*#/d;
