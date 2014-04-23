@@ -43,3 +43,10 @@ Add content
 		func_zbox_use python 3.3.4
 	fi
 
+###Command
+
+####list
+| Command       | Desc                   |
+| ----          | ----                   |
+| zbox list     | list all tool status   |
+| zbox list xxx | list 'xxx' tool status |

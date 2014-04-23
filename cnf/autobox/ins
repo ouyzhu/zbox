@@ -1,3 +1,0 @@
-ins_steps    = "src"
-ins_src_addr = git://github.com/ouyzhu/autobox.git
-

@@ -29,7 +29,7 @@ alias zbox='func_zbox'
 # Functions
 function func_zbox() {
 	local desc="Desc: zbox functions"
-	local usage="Usage: zbox <list | install | use> <tool> <version> <addition>"
+	local usage="Usage: zbox <list | install | use | mkstg> <tool> <version> <addition>"
 
 	# Better way to check parameters?
 	[ "${1}" = "install" -o  "${1}" = "use" ] && [ $# -lt 3 ] && echo "${desc}\n${usage} \n ERROR: need provide tool name and version info" && return
@@ -41,44 +41,70 @@ function func_zbox() {
 		# use background job to 
 		use)		func_zbox_use "$@"									;;	# do NOT use pipe here, since need source env
 		list)		( func_zbox_lst "$@" )									;;
-		purge)		func_zbox_pur "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(INFO\|WARN\|ERROR\):/p" 	;;
-		remove)		func_zbox_rem "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(INFO\|WARN\|ERROR\):/p" 	;;
-		install)	func_zbox_ins "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(INFO\|WARN\|ERROR\):/p" 	;;
+		mkstg)		func_zbox_stg "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
+		purge)		func_zbox_pur "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
+		remove)		func_zbox_rem "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
+		install)	func_zbox_ins "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
 		*)		echo -e "ERROR: can not handle action '${action}' ! \n ${desc}\n${usage}" && return 1	;;
 	esac
 }
 
 function func_zbox_lst() {
-	local desc="Desc: list status"
+	local desc="Desc: list tool status"
 
-	pushd $ZBOX_CNF
 	func_zbox_lst_print_head
+	pushd "${ZBOX_CNF}" > /dev/null
 	for tool in * ; do 
-		\cd "${tool}"
+		# $1 not empty means only need show one tool
+		[ -n "${1}" ] && [ ! "${tool}" = "${1}" ] && continue
+
+		pushd "${tool}" > /dev/null
 		for file in ins-* ; do 
 			local va=${file#ins-}
 			local version=${va%-*}
 			local addition=$(echo $va | sed -e "s/[^-]*//;s/^-//")
 			local ins_fullpath=$(func_zbox_gen_ins_fullpath "${tool}" "${version}" "${addition}")
-			local installed=$([ -e "${ins_fullpath}" ] && echo Y)
-			func_zbox_lst_print_item "${tool}" "${version}" "${addition}" "${installed}"
+			local ins=$([ -e "${ins_fullpath}" ] && echo ' Y')
+
+			local stg_in_cnf=""
+			if [ -e "stg" ] ; then
+				for stgincnf in stg-* ; do 
+					local stg_in_cnf="${stgincnf##*-},${stg_in_cnf}"
+				done
+			fi
+			
+			local stg_in_stg=""
+			if [ -e "${ZBOX_STG}/${tool}" ] ; then
+				pushd "${ZBOX_STG}/${tool}" > /dev/null
+				for stginstg in $(find . -maxdepth 1 -name "${tool}-*") ; do 
+					local stg_in_stg="${stginstg##*-},${stg_in_stg}"
+				done
+				popd > /dev/null
+			fi
+
+			func_zbox_lst_print_item "${tool}" "${version}" "${addition}" "${ins}" "${stg_in_cnf}" "${stg_in_stg}"
 		done 
-		\cd ..
+		popd > /dev/null
 	done
-	popd
+	popd > /dev/null
+	func_zbox_lst_print_tail
 }
 
 function func_zbox_lst_print_head() {
-	echo "|------------------|---------|---------|-----------|--------------------|"
-	echo "|       Name       | Version | Addtion | Installed |        Note        |"
-	echo "|------------------|---------|---------|-----------|--------------------|"
+	echo "|------------------|---------|---------|-----|--------------|--------------|"
+	echo "|       Name       | Version | Addtion | ins |  stg in cnf  |  stg in stg  |"
+	echo "|------------------|---------|---------|-----|--------------|--------------|"
+}
+
+function func_zbox_lst_print_tail() {
+	echo "|------------------|---------|---------|-----|--------------|--------------|"
 }
 
 function func_zbox_lst_print_item() {
 	local desc="Desc: format the output of list"
-	func_param_check 4 "${desc}\n${FUNCNAME} <name> <version> <addtion> <installed> \n" "$@"
+	func_param_check 4 "${desc}\n${FUNCNAME} <name> <version> <addtion> <ins> <stg_in_cnf> <stg_in_stg>\n" "$@"
 
-	printf "| %-16s | %-7s | %-7s | %-9s | %-18s |\n" "$@"
+	printf "| %-16s | %-7s | %-7s | %-3s | %-12s | %-12s |\n" "$@"
 }
 
 function func_zbox_rem() {
@@ -170,7 +196,7 @@ function func_zbox_use() {
 	[ -e "${env_fullpath}" ] && source "${env_fullpath}" || echo "ERROR: failed to source ${env_fullpath}, pls check!"
 }
 
-function func_zbox_mkstage() {
+function func_zbox_stg() {
 	local desc="Desc: make a working stage, this should be the single entrance for create stage"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
@@ -198,25 +224,35 @@ function func_zbox_stg_gen_ctrl_scripts() {
 
 	eval $(func_zbox_gen_stage_cnf_vars "$@")
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
-	local stg_ctrl_stop="${stg_fullpath}/bin/stop.sh"
-	local stg_ctrl_start="${stg_fullpath}/bin/start.sh"
-	local stg_ctrl_client="${stg_fullpath}/bin/client.sh"
-	local stg_ctrl_status="${stg_fullpath}/bin/status.sh"
 
-	echo "INFO: (stage) Generating control scripts: ${stg_ctrl_stop}, ${stg_ctrl_start}, ${stg_ctrl_status}, ${stg_ctrl_client}"
-	rm "${stg_ctrl_stop}" "${stg_ctrl_start}" "${stg_ctrl_status}" "${stg_ctrl_client}"
+	for cmd in ${stg_cmds:-start stop status} ; do
+		local cmd_path="${stg_fullpath}/bin/${cmd}.sh"
+		local cmd_var_name="stg_cmd_${cmd}"
 
-	echo "#!/bin/bash" >> "${stg_ctrl_stop}"
-	echo "${stg_cmd_stop}" >> "${stg_ctrl_stop}"
+		rm "${cmd_path}" &> /dev/null
+		echo "INFO: (stage) Generating control scripts: ${cmd_path}"
+		echo "${!cmd_var_name}" >> "${cmd_path}"
+	done
 
-	echo "#!/bin/bash" >> "${stg_ctrl_start}"
-	echo "${stg_cmd_start} &" >> "${stg_ctrl_start}"
+	#local stg_ctrl_stop="${stg_fullpath}/bin/stop.sh"
+	#local stg_ctrl_start="${stg_fullpath}/bin/start.sh"
+	#local stg_ctrl_client="${stg_fullpath}/bin/client.sh"
+	#local stg_ctrl_status="${stg_fullpath}/bin/status.sh"
 
-	echo "#!/bin/bash" >> "${stg_ctrl_status}"
-	echo "${stg_cmd_status}" >> "${stg_ctrl_status}"
+	#echo "INFO: (stage) Generating control scripts: ${stg_ctrl_stop}, ${stg_ctrl_start}, ${stg_ctrl_status}, ${stg_ctrl_client}"
+	#rm "${stg_ctrl_stop}" "${stg_ctrl_start}" "${stg_ctrl_status}" "${stg_ctrl_client}"
 
-	echo "#!/bin/bash" >> "${stg_ctrl_client}"
-	echo "${stg_cmd_client}" >> "${stg_ctrl_client}"
+	#echo "#!/bin/bash" >> "${stg_ctrl_stop}"
+	#echo "${stg_cmd_stop}" >> "${stg_ctrl_stop}"
+
+	#echo "#!/bin/bash" >> "${stg_ctrl_start}"
+	#echo "${stg_cmd_start} &" >> "${stg_ctrl_start}"
+
+	#echo "#!/bin/bash" >> "${stg_ctrl_status}"
+	#echo "${stg_cmd_status}" >> "${stg_ctrl_status}"
+
+	#echo "#!/bin/bash" >> "${stg_ctrl_client}"
+	#echo "${stg_cmd_client}" >> "${stg_ctrl_client}"
 }
 
 function func_zbox_ins_init_dir() {
@@ -473,8 +509,8 @@ function func_zbox_gen_stage_cnf_files() {
 	local desc="Desc: generate a list of related configure files for stage"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 	
-	local stage_default=${ZBOX_CNF}/${1}/stage 
-	local stage_version=${ZBOX_CNF}/${1}/stage-${2}
+	local stage_default=${ZBOX_CNF}/${1}/stg 
+	local stage_version=${ZBOX_CNF}/${1}/stg-${2}
 
 	echo "${stage_default} ${stage_version}"
 }
@@ -545,7 +581,7 @@ function func_zbox_run_script() {
 	local usage="Usage: $FUNCNAME <script_name> <run_path> <script> <script_desc>"
 	local desc="Desc: run user defined scripts" 
 
-	[ $# -lt 3 -o -z "${3}" ] && echo "INFO: user defined script (${1}) not set, skip run it" && return 0
+	[ $# -lt 3 -o -z "${3}" ] && echo "INFO: user defined script (${1}) not set, skip" && return 0
 	
 	local script_name="${1}"
 	local run_path="${2}"

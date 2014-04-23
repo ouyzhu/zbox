@@ -1,1 +1,6 @@
 stg_dirs = "bin conf logs data"
+
+# Following is for version older than 5.6, which have a my.cnf in base after extract
+# NOTE 2: (strange but yes), --defaults-file must as first option!
+#stg_pre_script  = "cp ZBOX_INS_FULLPATH/my.cnf ZBOX_STG_FULLPATH/conf"
+#stg_post_script = "ZBOX_INS_FULLPATH/scripts/mysql_install_db --defaults-file=ZBOX_INS_FULLPATH/my.cnf --basedir=ZBOX_INS_FULLPATH --datadir=ZBOX_STG_FULLPATH/data --user=`whoami` --lc-messages-dir=ZBOX_INS_FULLPATH/share/ --lc-messages=en_US --explicit_defaults_for_timestamp=TRUE"
