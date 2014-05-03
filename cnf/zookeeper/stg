@@ -1,0 +1,13 @@
+stg_dirs = "bin lib conf logs data"
+
+
+stg_pre_script = "sed -e '/^#/d;s+^zookeeper.\(log\|tracelog\).dir=.*+zookeeper.\1.dir=ZBOX_STG_FULLPATH/logs+;s/^zookeeper.root.logger=.*/zookeeper.root.logger=INFO,ROLLINGFILE,TRACEFILE/' ZBOX_INS_FULLPATH/conf/log4j.properties > ZBOX_STG_FULLPATH/conf/log4j.properties; sed -e '/=/!d;s+^dataDir=.*+dataDir=ZBOX_STG_FULLPATH/data+' ZBOX_INS_FULLPATH/conf/zoo_sample.cfg > ZBOX_STG_FULLPATH/conf/zoo.cfg"
+stg_post_script = ""
+
+stg_cmds = "start stop status restart client"
+# zkServer.sh (which uses zkEnv.sh) set ZOO_LOG_DIR/ZOO_LOG4J_PROP explicitly, so need set here even already in log4j.properties
+stg_cmd_start   = "ZOO_LOG4J_PROP=INFO,ROLLINGFILE,TRACEFILE ZOO_LOG_DIR=ZBOX_STG_FULLPATH/logs ZOOCFGDIR=ZBOX_STG_FULLPATH/conf ZBOX_INS_FULLPATH/bin/zkServer.sh start"
+stg_cmd_stop    = "ZOO_LOG4J_PROP=INFO,ROLLINGFILE,TRACEFILE ZOO_LOG_DIR=ZBOX_STG_FULLPATH/logs ZOOCFGDIR=ZBOX_STG_FULLPATH/conf ZBOX_INS_FULLPATH/bin/zkServer.sh stop"
+stg_cmd_status  = "ZOO_LOG4J_PROP=INFO,ROLLINGFILE,TRACEFILE ZOO_LOG_DIR=ZBOX_STG_FULLPATH/logs ZOOCFGDIR=ZBOX_STG_FULLPATH/conf ZBOX_INS_FULLPATH/bin/zkServer.sh status"
+stg_cmd_restart = "ZOO_LOG4J_PROP=INFO,ROLLINGFILE,TRACEFILE ZOO_LOG_DIR=ZBOX_STG_FULLPATH/logs ZOOCFGDIR=ZBOX_STG_FULLPATH/conf ZBOX_INS_FULLPATH/bin/zkServer.sh restart"
+stg_cmd_client  = "ZOO_LOG4J_PROP=INFO,ROLLINGFILE,TRACEFILE ZOO_LOG_DIR=ZBOX_STG_FULLPATH/logs ZOOCFGDIR=ZBOX_STG_FULLPATH/conf ZBOX_INS_FULLPATH/bin/zkCli.sh -server 127.0.0.1:2181"
