@@ -15,6 +15,15 @@ function func_die() {
 	exit 1
 }
 
+function func_cry() {
+	local usage="Usage: $FUNCNAME <error_info>" 
+	local desc="Desc: echo error info to stderr and kill current job (exit the function stack without exiting shell)" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+	
+	echo -e "$@" 1>&2
+	kill -INT $$
+}
+
 function func_check_exit_code() {
 	# NOTE: should NOT do anything before check, since need check exit status of last command
 	[ "$?" = "0" ]  && echo  "INFO: ${1}" || func_die "ERROR: ${2:-${1}}"

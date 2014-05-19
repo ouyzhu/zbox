@@ -1,0 +1,5 @@
+ins_src_addr    = http://mirrors.jenkins-ci.org/war/1.563/jenkins.war
+
+# PROBLEM: currently only support one jenkins version, since its filename in download url not contains the verison info (like: xxx/1.563/jenkins.war)
+#          the stupid naming of jenkins, need rename to work with zbox, how to improve?
+#ins_post_script = "mv ZBOX_SRC_FULLPATH/jenkins-ZBOX_TVER.war ZBOX_SRC_FULLPATH/jenkins-ZBOX_TVER.war; ln -s ZBOX_SRC_FULLPATH/jenkins-ZBOX_TVER.war ZBOX_SRC_FULLPATH/jenkins.war"

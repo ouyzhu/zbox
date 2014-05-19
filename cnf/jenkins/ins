@@ -1,0 +1,3 @@
+ins_steps            = "src copy"
+
+# PROBLEM: currently only support one jenkins version, since its filename in download url not contains the verison info (like: xxx/1.563/jenkins.war)

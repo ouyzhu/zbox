@@ -554,6 +554,7 @@ function func_zbox_gen_stg_cnf_vars() {
 	func_zbox_gen_stg_cnf_vars_raw "$@"		|\
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
 		s+ZBOX_CNF+${ZBOX_CNF}+g;
+		s+ZBOX_STG_TVER+${stg_tver}+g;
 		s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;
 		s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;"
@@ -599,6 +600,7 @@ function func_zbox_gen_ins_cnf_vars() {
 		s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
 		s/^/local /"							|\
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
+	        s+ZBOX_TVER+${2}+g;
 		s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
 		s+ZBOX_UCD_FULLPATH+${ucd_fullpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;" 
