@@ -1,1 +1,1 @@
-stg_dirs = "bin conf logs data"
+stg_dirs = "bin conf logs data/webroot data/jenkins_home"

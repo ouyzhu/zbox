@@ -310,22 +310,24 @@ function func_zbox_ins_src() {
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local src_fullpath_expect=$(func_zbox_gen_src_fullpath "$@")
-	local src_dir="$(dirname "${src_fullpath_expect}")"
+	local src_fulldir="$(dirname "${src_fullpath_expect}")"
 	local ver="${2:-pkg}"
 
+	[ -e "${src_fullpath_expect}" ] && echo "INFO: ${src_fullpath_expect} already exist, skip" && return 0
 	case "${ver}" in
-		svn|hg|git)	
-				func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}"
-				;;
-		*)		
-				func_download "${ins_src_addr}" "${src_dir}"
-
-				# create symboic link if the download name is not 'standard'
-				func_cd "${src_dir}" 
-				ln -s "${ins_src_addr##*/}" "${src_fullpath_expect}" &>> ${ZBOX_LOG} 
-				\cd - &>> ${ZBOX_LOG}										
-				;;
+		svn|hg|git)	func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}"	;;
+		*)		func_download "${ins_src_addr}" "${src_fulldir}"				;;
 	esac
+
+	# execute post script
+	func_zbox_run_script "ins_src_post_script" "${src_fulldir}" "${ins_src_post_script}"
+
+	# create symboic link if the download name is not 'standard'
+	if [ ! -e "${src_fullpath_expect}" ] ; then
+		func_cd "${src_fulldir}" 
+		ln -s "${ins_src_addr##*/}" "${src_fullpath_expect}" &>> ${ZBOX_LOG} 
+		\cd - &>> ${ZBOX_LOG}										
+	fi
 }
 
 function func_zbox_ins_default() {
@@ -590,8 +592,9 @@ function func_zbox_gen_ins_cnf_vars() {
 	
 	local cnfs=$(func_zbox_gen_ins_cnf_files "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
-	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
+	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
+	local src_fulldir="$(dirname "${src_fullpath}")"
 
 	#cat ${cnfs} 2>> ${ZBOX_LOG} | sed -e "/^\s*#/d;/^\s*$/d;s/^/local /"
 	cat ${cnfs} 2>> ${ZBOX_LOG}						|\
@@ -601,6 +604,7 @@ function func_zbox_gen_ins_cnf_vars() {
 		s/^/local /"							|\
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
 	        s+ZBOX_TVER+${2}+g;
+		s+ZBOX_SRC_FULLDIR+${src_fulldir}+g;
 		s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
 		s+ZBOX_UCD_FULLPATH+${ucd_fullpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;" 
