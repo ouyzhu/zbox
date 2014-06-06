@@ -1,0 +1,4 @@
+ins_pre_script      = '[ -n "${JAVA_HOME}" ] && command -v java'
+ins_pre_script_desc = "java must exist in PATH"
+ins_post_script     = "\cd ZBOX_INS_FULLPATH/bin; tar xvfz commons-daemon-native.tar.gz; \cd commons-daemon-*-native-src/unix; ./configure; make ; cp jsvc ../..; \cd ../.."
+ins_verify          = '[ -e "ZBOX_INS_FULLPATH/bin/jsvc" ]'

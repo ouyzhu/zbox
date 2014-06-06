@@ -1,0 +1,7 @@
+stg_tver = 7.0.54
+stg_tadd = "jsvc"
+
+stg_cmds          = "start stop status start_jsvc"
+stg_cmd_start_jsvc= 'CATALINA_HOME=ZBOX_INS_FULLPATH CATALINA_BASE=ZBOX_STG_FULLPATH ZBOX_INS_FULLPATH/bin/jsvc -jvm server -classpath $CATALINA_HOME/bin/bootstrap.jar:$CATALINA_HOME/bin/tomcat-juli.jar:$CATALINA_HOME/bin/commons-daemon.jar -pidfile $CATALINA_BASE/pidfile -outfile $CATALINA_BASE/logs/catalina.out -errfile \&1 -Dcatalina.home=$CATALINA_HOME -Dcatalina.base=$CATALINA_BASE -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager -Djava.io.tmpdir=$CATALINA_BASE/temp -Djava.endorsed.dirs= -Djava.util.logging.config.file=$CATALINA_BASE/conf/logging.properties org.apache.catalina.startup.Bootstrap'
+# More jsvc options (for production): "-wait 10 -Dnop -Xms1024m -Xmx3500m -Xmn512m -XX:PermSize=192m -Xss256k -XX:+DisableExplicitGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:+UseCMSCompactAtFullCollection -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods -XX:+UseCMSInitiatingOccupancyOnly -XX:CMSInitiatingOccupancyFraction=70 -Djava.awt.headless=true -Djava.net.preferIPv4Stack=true -Duser.timezone=Asia/Shanghai -Dfile.encoding=UTF-8"
+
