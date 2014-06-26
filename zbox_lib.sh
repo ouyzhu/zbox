@@ -112,7 +112,7 @@ function func_uncompress() {
 	func_validate_path_exist "${1}"
 
 	# use readlink to avoid relative path
-	source_file="$(readlink -f "${1}")"
+	local source_file="$(readlink -f "${1}")"
 	[ -n "${2}" ] && target_dir="$(readlink -f "${2}")" || target_dir="${source_file}_EXTRACT"
 
 	echo "INFO: uncompress file, from: ${source_file} to: ${target_dir}"
