@@ -29,7 +29,7 @@ alias zbox='func_zbox'
 # Functions
 function func_zbox() {
 	local desc="Desc: zbox functions"
-	local usage="Usage: zbox <list | install | use | mkstg> <tool> <version> <addition>"
+	local usage="Usage: zbox <list | install | use | mkstg | remove | purge> <tool> <version> <addition>"
 
 	# Better way to check parameters?
 	[ "${1}" = "install" -o  "${1}" = "use" ] && [ $# -lt 3 ] && echo "${desc}\n${usage} \n ERROR: need provide tool name and version info" && return
@@ -91,20 +91,20 @@ function func_zbox_lst() {
 }
 
 function func_zbox_lst_print_head() {
-	echo "|------------------|---------|---------|-----|--------------|--------------|"
-	echo "|       Name       | Version | Addtion | ins |  stg in cnf  |  stg in stg  |"
-	echo "|------------------|---------|---------|-----|--------------|--------------|"
+	echo "|------------------|---------------|-----------|-----|--------------|--------------|"
+	echo "|       Name       |    Version    |  Addtion  | ins |  stg in cnf  |  stg in stg  |"
+	echo "|------------------|---------------|-----------|-----|--------------|--------------|"
 }
 
 function func_zbox_lst_print_tail() {
-	echo "|------------------|---------|---------|-----|--------------|--------------|"
+	echo "|------------------|---------------|-----------|-----|--------------|--------------|"
 }
 
 function func_zbox_lst_print_item() {
 	local desc="Desc: format the output of list"
 	func_param_check 4 "${desc}\n${FUNCNAME} <name> <version> <addtion> <ins> <stg_in_cnf> <stg_in_stg>\n" "$@"
 
-	printf "| %-16s | %-7s | %-7s | %-3s | %-12s | %-12s |\n" "$@"
+	printf "| %-16s | %-13s | %-9s | %-3s | %-12s | %-12s |\n" "$@"
 }
 
 function func_zbox_rem() {
@@ -259,26 +259,6 @@ function func_zbox_stg_gen_ctrl_scripts() {
 		echo "INFO: (stage) Generating control scripts: ${cmd_path}"
 		echo "${!cmd_var_name}" >> "${cmd_path}"
 	done
-
-	#local stg_ctrl_stop="${stg_fullpath}/bin/stop.sh"
-	#local stg_ctrl_start="${stg_fullpath}/bin/start.sh"
-	#local stg_ctrl_client="${stg_fullpath}/bin/client.sh"
-	#local stg_ctrl_status="${stg_fullpath}/bin/status.sh"
-
-	#echo "INFO: (stage) Generating control scripts: ${stg_ctrl_stop}, ${stg_ctrl_start}, ${stg_ctrl_status}, ${stg_ctrl_client}"
-	#rm "${stg_ctrl_stop}" "${stg_ctrl_start}" "${stg_ctrl_status}" "${stg_ctrl_client}"
-
-	#echo "#!/bin/bash" >> "${stg_ctrl_stop}"
-	#echo "${stg_cmd_stop}" >> "${stg_ctrl_stop}"
-
-	#echo "#!/bin/bash" >> "${stg_ctrl_start}"
-	#echo "${stg_cmd_start} &" >> "${stg_ctrl_start}"
-
-	#echo "#!/bin/bash" >> "${stg_ctrl_status}"
-	#echo "${stg_cmd_status}" >> "${stg_ctrl_status}"
-
-	#echo "#!/bin/bash" >> "${stg_ctrl_client}"
-	#echo "${stg_cmd_client}" >> "${stg_ctrl_client}"
 }
 
 function func_zbox_ins_init_dir() {
@@ -416,7 +396,8 @@ function func_zbox_use_gen_env() {
 	[ -z "${use_env}" ] && func_die "ERROR: (install) 'use_env' is empty, can NOT gen env file!"
 	rm -f "${env_fullpath}"
 	for var in ${use_env} ; do
-		echo "export ${var}" >> "${env_fullpath}"
+		[ -e "${var}" ] && echo "source ${var}" >> "${env_fullpath}" && break	# use "source" if it is a file
+		echo "export ${var}" >> "${env_fullpath}"				# use "export" otherwise
 	done
 }
 
