@@ -1,0 +1,10 @@
+ins_steps               = "src ucd dep make"
+ins_verify              = "ZBOX_INS_FULLPATH/bin/git --version | grep '^git version' &> /dev/null"
+ins_make_steps          = "make install"
+ins_make_make_opts      = "prefix=ZBOX_INS_FULLPATH all"
+ins_make_install_cmd    = "install"
+ins_make_install_opts   = "prefix=ZBOX_INS_FULLPATH"
+
+use_env                 = 'GIT_HOME=ZBOX_INS_FULLPATH PATH=${GIT_HOME}/bin:${PATH} '
+
+#ins_dep_apt_install	= "libcurl4-gnutls-dev libexpat1-dev gettext libz-dev libssl-dev"

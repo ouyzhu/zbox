@@ -111,11 +111,12 @@ function func_zbox_rem() {
 	local desc="Desc: remove tool (uninstall but keep downloaded source)"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
-	echo "INFO: remove tool (uninstall but keep downloaded source) for $@"
+	echo "INFO: remove $@ (uninstall but keep downloaded source)"
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
 	[ -e "${ins_fullpath}" ] && rm -rf ${ins_fullpath}{,_env}
+	[ ! -e "${ins_fullpath}" ] && echo "INFO: remove ${ins_fullpath}{,_env} success" || func_die "ERROR: failed to remove ${ins_fullpath}{,_env}"
 }
 
 function func_zbox_pur() {
@@ -360,8 +361,10 @@ function func_zbox_ins_make() {
 
 	# Pre-Conditions
 	local make_steps="${ins_make_steps}"
-	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
+	local make_opts="${ins_make_make_opts}"
+	local install_opts="${ins_make_install_opts}"
 	local configure_opts="${ins_make_configure_opts}"
+	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 	func_validate_path_inexist "${ins_fullpath}"
 	[ -z "${make_steps}" ] && func_die "ERROR: (install) 'ins_make_steps' not defined, can not make"
 
@@ -372,14 +375,14 @@ function func_zbox_ins_make() {
 	local clean_cmd=${ins_make_clean_cmd:-clean} 
 	local install_cmd=${ins_make_install_cmd:-install} 
 	func_cd "$(func_zbox_gen_ucd_fullpath "$@")"
-	echo "INFO: (install) start make, make_steps='${make_steps}', configure_opts='${configure_opts}'"
+	echo "INFO: (install) start make, make_steps='${make_steps}', make_opts='${make_opts}', install_opts='${install_opts}', install_cmd='${install_cmd}', configure_opts='${configure_opts}', clean_cmd='${clean_cmd}'"
 	for step in ${make_steps} ; do
 		case "${step}" in 
-			make)		make ${ins_make_make_opts} &>> ${ZBOX_LOG}	; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
-			test)		make test &>> ${ZBOX_LOG}			; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
-			clean)		make ${clean_cmd} &>> ${ZBOX_LOG}		; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
-			install)	make ${install_cmd} &>> ${ZBOX_LOG}		; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
-			configure)	./configure ${configure_opts} &>> ${ZBOX_LOG}	; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			make)		make ${make_opts} &>> ${ZBOX_LOG}			; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			test)		make test &>> ${ZBOX_LOG}				; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			clean)		make ${clean_cmd} &>> ${ZBOX_LOG}			; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			install)	make ${install_opts} ${install_cmd} &>> ${ZBOX_LOG}	; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			configure)	./configure ${configure_opts} &>> ${ZBOX_LOG}		; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
 			*)		func_die "ERROR: (install) can not handle ${step}, exit!"				;;
 		esac
 	done
