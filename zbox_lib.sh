@@ -37,7 +37,8 @@ function func_param_check {
 	local count=$1
 	local error_msg=$2
 	shift;shift;
-	[ $# -lt ${count} ] && func_die "${error_msg}"
+	#[ $# -lt ${count} ] && func_die "${error_msg}"
+	[ $# -lt ${count} ] && func_cry "${error_msg}"
 }
 
 function func_cd() {

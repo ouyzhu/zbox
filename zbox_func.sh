@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO: tee makes func_die in some function not really work because of subshell, how to replace it?
-
 # Global Variables
 ZBOX="${ZBOX:="${HOME}/.zbox"}"
 ZBOX_CNF="${ZBOX_CNF:-"${ZBOX}/cnf"}"
@@ -29,7 +27,7 @@ alias zbox='func_zbox'
 # Functions
 function func_zbox() {
 	local desc="Desc: zbox functions"
-	local usage="Usage: zbox <list | install | use | mkstg | remove | purge> <tool> <version> <addition>"
+	local usage="Usage: zbox <list | install | use | using | mkstg | remove | purge> <tool> <version> <addition>"
 
 	# Better way to check parameters?
 	[ "${1}" = "install" -o  "${1}" = "use" ] && [ $# -lt 3 ] && echo "${desc}\n${usage} \n ERROR: need provide tool name and version info" && return
@@ -41,6 +39,7 @@ function func_zbox() {
 		# use background job to 
 		use)		func_zbox_use "$@"									;;	# do NOT use pipe here, since need source env
 		list)		( func_zbox_lst "$@" )									;;
+		using)		func_zbox_uig "$@"									;;
 		mkstg)		func_zbox_stg "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
 		purge)		func_zbox_pur "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
 		remove)		func_zbox_rem "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
@@ -184,6 +183,13 @@ function func_zbox_ins() {
 	fi
 }
 
+func_zbox_uig() {
+	local desc="Desc: show which tool is in using"
+	for v in "${!ZBOX_USING_@}" ; do
+		echo ${!v}
+	done
+} 
+
 function func_zbox_use() {
 	local desc="Desc: use the tool, usually source the env variables"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
@@ -191,9 +197,11 @@ function func_zbox_use() {
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local env_fullpath="$(func_zbox_gen_env_fullpath "$@")"
 
-	# Note: only need to echo, and not terminate process here
-	echo "INFO: using ${env_fullpath}"
-	[ ! -e "${env_fullpath}" ] && echo "WARN: ${env_fullpath} not exist, seems no env need to source" && return 0
+	# Note: suppress echo here, since could use "zbox using" to check
+	#echo "INFO: using ${env_fullpath}"
+	#[ ! -e "${env_fullpath}" ] && echo "WARN: ${env_fullpath} not exist, seems no env need to source" && return 0
+
+	eval "export ZBOX_USING_${1}='$*'"
 	[ -e "${env_fullpath}" ] && source "${env_fullpath}" || echo "ERROR: failed to source ${env_fullpath}, pls check!"
 }
 

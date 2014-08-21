@@ -22,21 +22,44 @@ Zbox want to:
 ##Usage
 
 ###Basic
+
 Checkout source
-	`cd ~ && git clone https://github.com/ouyzhu/zbox.git .zbox`
+
+	# works
+	cd $HOME && git clone https://github.com/ouyzhu/zbox.git .zbox
+	# works, seems can NOT direct pipe the zip content to unzip
+	wget https://github.com/ouyzhu/zbox/archive/master.zip -O /tmp/zbox.zip; unzip /tmp/zbox.zip -d $HOME && mv $HOME/{zbox-master,.zbox}
+
 Source the script
-	`cd ~/.zbox && source zbox_func.sh`
+
+	cd ~/.zbox && source zbox_func.sh
+
 Check what could be installed out of box
-	`zbox list`
+
+	zbox list
+
 Install a some tool
-	`zbox install python 3.3.4`
+
+	zbox install python 3.3.4
+
 Find out the "Installed" status changed to Y
-	`zbox list`
-Use it
-	`zbox use maven 3.1.1 && mvn -version`
+
+	zbox list
+
+Use some installed tool
+
+	zbox use maven 3.1.1 && mvn -version
+
+Check what tool is in use
+
+	zbox using
+
 Make it more convenient if you like it. Source it in .bashrc
-	`vi ~/.bashrc`
+
+	vi ~/.bashrc
+
 Add content
+
 	zbox_func=${HOME}/.zbox/zbox_func.sh
 	if [ -e "${zbox_func}" ]  ; then
 		source "${zbox_func}"
@@ -46,6 +69,7 @@ Add content
 ###Command
 
 ####list
+
 | Command       | Desc                   |
 | ----          | ----                   |
 | zbox list     | list all tool status   |
