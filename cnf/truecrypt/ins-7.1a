@@ -1,0 +1,4 @@
+ins_steps    = "src ucd move"
+
+# Offical download is NOT available any more
+ins_src_addr = http://not_exist_url.fake_url.com.cxx/truecrypt-7.1a.zip
