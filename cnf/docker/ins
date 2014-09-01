@@ -1,0 +1,6 @@
+ins_steps           = "src copy"
+use_env             = 'DOCKER_HOME=ZBOX_INS_FULLPATH PATH=${DOCKER_HOME}:${PATH} '
+ins_pre_script      = 'cut -d: -f1 /etc/group | grep -q docker'
+ins_pre_script_desc = 'Must have a user group named "docker", use "sudo groupadd docker" to add'
+ins_post_script     = "sudo adduser ${USER} docker && chmod u+x ZBOX_INS_FULLPATH/docker-ZBOX_TVER && ln -s ZBOX_INS_FULLPATH/docker-ZBOX_TVER ZBOX_INS_FULLPATH/docker"
+ins_verify          = "ZBOX_INS_FULLPATH/docker-ZBOX_TVER version | grep 'Client version:' &> /dev/null"

@@ -39,7 +39,7 @@ function func_zbox() {
 		# use background job to 
 		use)		func_zbox_use "$@"									;;	# do NOT use pipe here, since need source env
 		list)		( func_zbox_lst "$@" )									;;
-		using)		func_zbox_uig "$@"									;;
+		using)		func_zbox_uig "$@" | column -t								;;
 		mkstg)		func_zbox_stg "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
 		purge)		func_zbox_pur "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
 		remove)		func_zbox_rem "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
