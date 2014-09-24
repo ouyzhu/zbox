@@ -1,0 +1,5 @@
+ins_steps           = "src ucd move"
+ins_pre_script      = 'command -v java'
+ins_pre_script_desc = "java must exist in PATH"
+use_env             = 'ANDROIDSTUDIO_HOME=ZBOX_INS_FULLPATH PATH=${ANDROIDSTUDIO_HOME}/bin:${PATH} '
+ins_src_addr        = http://fake_address_since_need_manually_accept_agreement

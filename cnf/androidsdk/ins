@@ -1,0 +1,6 @@
+ins_steps           = "src ucd move"
+ins_pre_script      = 'command -v java'
+ins_pre_script_desc = "java must exist in PATH"
+ins_post_script      = 'ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 ZBOX_INS_FULLPATH/tools/lib/libGL.so'
+ins_post_script_desc = "To advoid the error: 'Failed to load libGL.so'"
+use_env             = 'ANDROID_HOME=ZBOX_INS_FULLPATH PATH=${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:${PATH} '

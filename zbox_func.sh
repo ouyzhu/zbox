@@ -408,7 +408,7 @@ function func_zbox_use_gen_env() {
 	rm -f "${env_fullpath}"
 	for var in ${use_env} ; do
 		[ -e "${var}" ] && echo "source ${var}" >> "${env_fullpath}" && break	# use "source" if it is a file
-		echo "export ${var//ZBOX_SPACE/ }" >> "${env_fullpath}"			# use "export" otherwise. Any better way to handle the "space"?
+		echo "export ${var//|||ZBOX_SPACE|||/ }" >> "${env_fullpath}"			# use "export" otherwise. Any better way to handle the "space"?
 	done
 }
 

@@ -1,0 +1,8 @@
+ins_steps           = "src ucd move"
+ins_pre_script      = 'command -v java'
+ins_pre_script_desc = "java must exist in PATH"
+
+# use sdk inside
+#use_env             = 'ANDROID_HOME=ZBOX_INS_FULLPATH/sdk ADTBUNDLE_HOME=ZBOX_INS_FULLPATH PATH=${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:${ADTBUNDLE_HOME}/:${PATH} '
+# not use sdk inside
+use_env             = 'ADTBUNDLE_HOME=ZBOX_INS_FULLPATH PATH=${ADTBUNDLE_HOME}/:${PATH} '

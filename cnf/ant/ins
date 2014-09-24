@@ -1,0 +1,6 @@
+ins_steps           = "src ucd move"
+ins_src_addr        = http://mirrors.cnnic.cn/apache//ant/binaries/apache-ant-ZBOX_TVER-bin.zip
+ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/ant -version | grep '^Apache Ant' &> /dev/null"
+ins_pre_script      = '[ -n "${JAVA_HOME}" ] && command -v java'
+ins_pre_script_desc = "env variable JAVA_HOME must be set, and java must exist in PATH"
+use_env             = 'ANT_HOME=ZBOX_INS_FULLPATH PATH=${ANT_HOME}/bin:${PATH}'

@@ -1,0 +1,4 @@
+ins_src_addr    = Fake_address_since_download_need_agreement
+
+# special: use another name, so not conflict with eclipse
+ins_post_script = 'cd ZBOX_INS_FULLPATH && ln -s eclipse/eclipse adtbundle'

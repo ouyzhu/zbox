@@ -1,4 +1,4 @@
 ins_steps    = "src copy"
 ins_src_addr = http://repo.spring.io/libs-release-local/org/springframework/springloaded/ZBOX_TVER/springloaded-ZBOX_TVER.jar
 ins_verify   = "zip -T ZBOX_INS_FULLPATH/springloaded-ZBOX_TVER.jar | grep 'OK$' &> /dev/null"
-use_env      = 'MAVEN_OPTS="-javaagent:ZBOX_INS_FULLPATH/springloaded-ZBOX_TVER.jarZBOX_SPACE-noverify"'
+use_env      = 'MAVEN_OPTS="$MAVEN_OPTS|||ZBOX_SPACE|||-javaagent:ZBOX_INS_FULLPATH/springloaded-ZBOX_TVER.jar|||ZBOX_SPACE|||-noverify"'
