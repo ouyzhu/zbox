@@ -1,0 +1,6 @@
+ins_steps            = "src"
+ins_pre_script       = 'mkdir -p ZBOX_INS_FULLPATH'
+ins_pre_script_desc  = 'post script need jump to this dir first, make this dir to avoid error'
+ins_post_script      = 'echo y | bash ZBOX_SRC_FULLPATH --destination ZBOX_INS_FULLPATH/.. && cd ZBOX_INS_FULLPATH/.. && mv genymotion/* ZBOX_INS_FULLPATH/ && rmdir genymotion'
+ins_post_script_desc = ".bin format, need install by cmd"
+use_env              = 'GENYMOTION_HOME=ZBOX_INS_FULLPATH PATH=${GENYMOTION_HOME}:${PATH} '
