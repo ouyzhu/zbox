@@ -1,0 +1,4 @@
+ins_src_addr = ftp://public.dhe.ibm.com/software/websphere/appserv/support/tools/HeapAnalyzer/ha456.jar
+
+# the bash "eval" will make ".*" as pathname expansion, could only use simple grep string yet
+ins_verify       = "zip -T ZBOX_INS_FULLPATH/ha455.jar | grep 'OK$' &> /dev/null"
