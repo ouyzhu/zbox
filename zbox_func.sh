@@ -400,7 +400,7 @@ function func_zbox_ins_make() {
 					;;
 			configure)	./configure ${configure_opts} >> ${ZBOX_LOG} 2>&1
 					func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1
-					func_zbox_run_script "ins_move_post_script" "${ins_fullpath}" "${ins_move_post_script}"
+					func_zbox_run_script "ins_configure_post_script" "${ins_fullpath}" "${ins_configure_post_script}"
 					;;
 			*)		func_die "ERROR: (install) can not handle ${step}, exit!"				
 					;;
