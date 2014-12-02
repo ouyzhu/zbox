@@ -386,12 +386,24 @@ function func_zbox_ins_make() {
 	echo "INFO: (install) start make, make_steps='${make_steps}', make_opts='${make_opts}', install_opts='${install_opts}', install_cmd='${install_cmd}', configure_opts='${configure_opts}', clean_cmd='${clean_cmd}'"
 	for step in ${make_steps} ; do
 		case "${step}" in 
-			make)		make ${make_opts} >> ${ZBOX_LOG} 2>&1			; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
-			test)		make test >> ${ZBOX_LOG} 2>&1				; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
-			clean)		make ${clean_cmd} >> ${ZBOX_LOG} 2>&1			; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
-			install)	make ${install_opts} ${install_cmd} >> ${ZBOX_LOG} 2>&1	; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
-			configure)	./configure ${configure_opts} >> ${ZBOX_LOG} 2>&1		; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
-			*)		func_die "ERROR: (install) can not handle ${step}, exit!"				;;
+			make)		make ${make_opts} >> ${ZBOX_LOG} 2>&1
+					func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 
+					;;
+			test)		make test >> ${ZBOX_LOG} 2>&1
+					func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 
+					;;
+			clean)		make ${clean_cmd} >> ${ZBOX_LOG} 2>&1
+					func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 
+					;;
+			install)	make ${install_opts} ${install_cmd} >> ${ZBOX_LOG} 2>&1
+					func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 
+					;;
+			configure)	./configure ${configure_opts} >> ${ZBOX_LOG} 2>&1
+					func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1
+					func_zbox_run_script "ins_move_post_script" "${ins_fullpath}" "${ins_move_post_script}"
+					;;
+			*)		func_die "ERROR: (install) can not handle ${step}, exit!"				
+					;;
 		esac
 	done
 	\cd - >> ${ZBOX_LOG} 2>&1
