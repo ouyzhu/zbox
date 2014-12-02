@@ -1,4 +1,4 @@
 ins_steps           = "src ucd move"
 ins_pre_script      = 'command -v java'
 ins_pre_script_desc = "java must exist in PATH"
-use_env             = 'INTELLIJ_HOME=ZBOX_INS_FULLPATH PATH=${INTELLIJ_HOME}/bin:${PATH} '
+use_env             = 'IDEA_HOME=ZBOX_INS_FULLPATH PATH=${IDEA_HOME}/bin:${PATH}'

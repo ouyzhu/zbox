@@ -290,7 +290,7 @@ function func_zbox_stg_init_dir() {
 	for p in ${stg_dirs:-bin conf logs data} ; do
 		mkdir -p "${p}"
 	done
-	\cd - &>> ${ZBOX_LOG}
+	\cd - >> ${ZBOX_LOG} 2>&1
 }
 
 function func_zbox_ins_src() {
@@ -314,8 +314,8 @@ function func_zbox_ins_src() {
 	# create symboic link if the download name is not 'standard'
 	if [ ! -e "${src_fullpath_expect}" ] ; then
 		func_cd "${src_fulldir}" 
-		ln -s "${ins_src_addr##*/}" "${src_fullpath_expect}" &>> ${ZBOX_LOG} 
-		\cd - &>> ${ZBOX_LOG}										
+		ln -s "${ins_src_addr##*/}" "${src_fullpath_expect}" >> ${ZBOX_LOG} 2>&1 
+		\cd - >> ${ZBOX_LOG} 2>&1										
 	fi
 }
 
@@ -327,11 +327,11 @@ function func_zbox_ins_default() {
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 	local ins_fullpath_default="$(func_zbox_gen_ins_fullpath_default "$@")"
 
-	rm "${ins_fullpath_default}" &>> ${ZBOX_LOG}
+	rm "${ins_fullpath_default}" >> ${ZBOX_LOG} 2>&1
 	echo "INFO: (install) make this installation as defaut, linking: ${ins_fullpath_default} -> ${ins_fullpath}"
 	func_cd "$(dirname "${ins_fullpath}")" 
 	ln -s "$(basename "${ins_fullpath}")" "${ins_fullpath_default}" 
-	\cd - &>> ${ZBOX_LOG}
+	\cd - >> ${ZBOX_LOG} 2>&1
 }
 
 function func_zbox_ins_dep() {
@@ -342,12 +342,12 @@ function func_zbox_ins_dep() {
 
 	if [ -n "${ins_dep_apt_install}" ] ; then
 		echo "INFO: (install) dependencies: sudo apt-get install -y ${ins_dep_apt_install}"
-		sudo apt-get install -y ${ins_dep_apt_install} &>> ${ZBOX_LOG}
+		sudo apt-get install -y ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
 	fi
 
 	if [ -n "${ins_dep_apt_build_dep}" ] ; then
 		echo "INFO: (install) dependencies: sudo apt-get build-dep ${ins_dep_apt_build_dep}"
-		sudo apt-get build-dep -y ${ins_dep_apt_build_dep} &>> ${ZBOX_LOG}
+		sudo apt-get build-dep -y ${ins_dep_apt_build_dep} >> ${ZBOX_LOG} 2>&1
 	fi
 
 	if [ -n "${ins_dep_zbox_ins}" ] ; then
@@ -386,15 +386,15 @@ function func_zbox_ins_make() {
 	echo "INFO: (install) start make, make_steps='${make_steps}', make_opts='${make_opts}', install_opts='${install_opts}', install_cmd='${install_cmd}', configure_opts='${configure_opts}', clean_cmd='${clean_cmd}'"
 	for step in ${make_steps} ; do
 		case "${step}" in 
-			make)		make ${make_opts} &>> ${ZBOX_LOG}			; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
-			test)		make test &>> ${ZBOX_LOG}				; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
-			clean)		make ${clean_cmd} &>> ${ZBOX_LOG}			; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
-			install)	make ${install_opts} ${install_cmd} &>> ${ZBOX_LOG}	; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
-			configure)	./configure ${configure_opts} &>> ${ZBOX_LOG}		; func_check_exit_code "${step} success" "${step} failed" &>> ${ZBOX_LOG} ;;
+			make)		make ${make_opts} >> ${ZBOX_LOG} 2>&1			; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
+			test)		make test >> ${ZBOX_LOG} 2>&1				; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
+			clean)		make ${clean_cmd} >> ${ZBOX_LOG} 2>&1			; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
+			install)	make ${install_opts} ${install_cmd} >> ${ZBOX_LOG} 2>&1	; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
+			configure)	./configure ${configure_opts} >> ${ZBOX_LOG} 2>&1		; func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 ;;
 			*)		func_die "ERROR: (install) can not handle ${step}, exit!"				;;
 		esac
 	done
-	\cd - &>> ${ZBOX_LOG}
+	\cd - >> ${ZBOX_LOG} 2>&1
 }
 
 function func_zbox_use_gen_env() {
@@ -618,5 +618,5 @@ function func_zbox_run_script() {
 	eval "${script}" 
 	# NOTE, do NOT use pipe here, which makes the func_die fail (since pipe creates sub-shell). But how to put a copy in log?
 	func_check_exit_code "${script_name} execution success" "${script_desc:-${script_name} execution failed}" 2>&1 
-	\cd - &>> ${ZBOX_LOG}
+	\cd - >> ${ZBOX_LOG} 2>&1
 }
