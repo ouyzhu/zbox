@@ -373,6 +373,7 @@ function func_zbox_ins_make() {
 	local install_opts="${ins_make_install_opts}"
 	local configure_opts="${ins_make_configure_opts}"
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
+	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
 	func_validate_path_inexist "${ins_fullpath}"
 	[ -z "${make_steps}" ] && func_die "ERROR: (install) 'ins_make_steps' not defined, can not make"
 
@@ -382,7 +383,7 @@ function func_zbox_ins_make() {
 	# Make
 	local clean_cmd=${ins_make_clean_cmd:-clean} 
 	local install_cmd=${ins_make_install_cmd:-install} 
-	func_cd "$(func_zbox_gen_ucd_fullpath "$@")"
+	func_cd "${ucd_fullpath}"
 	echo "INFO: (install) start make, make_steps='${make_steps}', make_opts='${make_opts}', install_opts='${install_opts}', install_cmd='${install_cmd}', configure_opts='${configure_opts}', clean_cmd='${clean_cmd}'"
 	for step in ${make_steps} ; do
 		case "${step}" in 
@@ -400,7 +401,7 @@ function func_zbox_ins_make() {
 					;;
 			configure)	./configure ${configure_opts} >> ${ZBOX_LOG} 2>&1
 					func_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1
-					func_zbox_run_script "ins_configure_post_script" "${ins_fullpath}" "${ins_configure_post_script}"
+					func_zbox_run_script "ins_configure_post_script" "${ucd_fullpath}" "${ins_configure_post_script}"
 					;;
 			*)		func_die "ERROR: (install) can not handle ${step}, exit!"				
 					;;
