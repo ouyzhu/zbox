@@ -1,3 +1,4 @@
-ins_steps      = "src ucd dep make default"
+ins_steps      = "src ucd dep make"
 ins_make_steps = "configure make install"
 ins_verify     = "ZBOX_INS_FULLPATH/bin/ruby --version | grep '^ruby ' &> /dev/null"
+use_env        = 'RUBY_HOME=ZBOX_INS_FULLPATH PATH=${RUBY_HOME}/bin:${PATH}'

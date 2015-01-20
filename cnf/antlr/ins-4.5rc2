@@ -1,0 +1,8 @@
+ins_src_addr = http://www.antlr.org/download/antlr-4.5-rc-2-complete.jar
+
+# the bash "eval" will make ".*" as pathname expansion, could only use simple grep string yet
+ins_verify       = "zip -T ZBOX_INS_FULLPATH/antlr-4.5-rc-2-complete.jar | grep 'OK$' &> /dev/null"
+
+use_env_alias_array["antlr4gen"] = 'java -Xmx500M -cp "ZBOX_INS_FULLPATH/antlr-4.5-rc-2-complete.jar:$CLASSPATH" org.antlr.v4.Tool'
+use_env_alias_array["antlr4run"] = 'java -Xmx500M -cp "ZBOX_INS_FULLPATH/antlr-4.5-rc-2-complete.jar:$CLASSPATH" org.antlr.v4.runtime.misc.TestRig'
+use_env_alias_array["antlr4javac"] = 'javac -cp "ZBOX_INS_FULLPATH/antlr-4.5-rc-2-complete.jar:$CLASSPATH"'

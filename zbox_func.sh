@@ -160,7 +160,7 @@ function func_zbox_ins() {
 		esac
 	done
 	# gen env, this step not need to define
-	[ -n "${use_env}" ] && func_zbox_use_gen_env "$@"
+	[ -n "${use_env}" -o ${#use_env_alias_array[@]} -ne 0 ] && func_zbox_use_gen_env "$@"
 
 	# Record what have done for that build
 	[ -e "${ins_fullpath}" ] && env > "${ins_fullpath}/zbox_ins_record.txt"
@@ -414,15 +414,28 @@ function func_zbox_use_gen_env() {
 	local desc="Desc: generate env file, some tools need export some env to use (like python)"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
+	# NEED support array, but not want to mess in "ins" file
+	declare -A use_env_alias_array
+
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local env_fullpath="$(func_zbox_gen_env_fullpath "$@")"
-
-	[ -z "${use_env}" ] && func_die "ERROR: (install) 'use_env' is empty, can NOT gen env file!"
 	rm -f "${env_fullpath}"
-	for var in ${use_env} ; do
-		[ -e "${var}" ] && echo "source ${var}" >> "${env_fullpath}" && break	# use "source" if it is a file
-		echo "export ${var//|||ZBOX_SPACE|||/ }" >> "${env_fullpath}"			# use "export" otherwise. Any better way to handle the "space"?
-	done
+
+	# TODO: update use_env to use_env_arary, so could stop using "|||ZBOX_SPACE|||"
+	if [ -n "${use_env}" ] ; then
+		echo "INFO: (install) gen env with 'use_env', target: ${env_fullpath}"
+		for var in ${use_env} ; do
+			[ -e "${var}" ] && echo "source ${var}" >> "${env_fullpath}" && break	# use "source" if it is a file
+			echo "export ${var//|||ZBOX_SPACE|||/ }" >> "${env_fullpath}"		# use "export" otherwise. Any better way to handle the "space"?
+		done
+	fi
+
+	if [ ${#use_env_alias_array[@]} -ne 0 ] ; then 
+		echo "INFO: (install) gen env with 'use_env_alias_array', target: ${env_fullpath}"
+		for alias_name in "${!use_env_alias_array[@]}" ; do
+			echo "alias ${alias_name}='${use_env_alias_array[$alias_name]}'" >> "${env_fullpath}"
+		done
+	fi
 }
 
 function func_zbox_ins_copy() {
