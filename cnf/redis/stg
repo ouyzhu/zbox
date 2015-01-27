@@ -1,0 +1,18 @@
+stg_dirs = "bin conf logs data"
+
+# updates config of "pidfile/logfile/data" to use path in STG
+stg_pre_script = "sed -e 's+^\(pidfile\|logifle\|dir\) +#&+' -e '1ipidfile ZBOX_STG_FULLPATH/pidfile\nlogfile ZBOX_STG_FULLPATH/logs/redis.log\ndir ZBOX_STG_FULLPATH/data' ZBOX_INS_FULLPATH/redis.conf > ZBOX_STG_FULLPATH/conf/redis.conf"
+stg_post_script = ""
+
+stg_cmds = "start client stop status"
+stg_cmd_start  = "ZBOX_INS_FULLPATH/bin/redis-server ZBOX_STG_FULLPATH/conf/redis.conf > ZBOX_STG_FULLPATH/logs/redis.out 2>&1 &"
+stg_cmd_client = "ZBOX_INS_FULLPATH/bin/redis-cli -p 6379"
+
+# MNT: need update the port if config updated
+stg_cmd_stop   = "ZBOX_INS_FULLPATH/bin/redis-cli -p 6379 shutdown"
+#stg_cmd_stop   = "kill \$(cat ZBOX_STG_FULLPATH/pidfile)"
+#stg_cmd_stop  = "[ -e ZBOX_STG_FULLPATH/pidfile ] && kill \$(cat ZBOX_STG_FULLPATH/pidfile)"
+
+# TODO: not works, seems not pidfile generated
+stg_cmd_status = "ps -ef | grep bin/redis-server | grep -v grep && echo 'Running.' || echo 'Not running.'"
+#stg_cmd_status = "[ -e ZBOX_STG_FULLPATH/pidfile ] && echo 'Running.' && ps -ef | grep \$(cat ZBOX_STG_FULLPATH/pidfile) | grep -v grep || echo 'Not running.'"

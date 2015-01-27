@@ -1,4 +1,4 @@
-ins_steps            = "src ucd dep make move default"
+ins_steps            = "src ucd dep make move"
 ins_verify           = "ZBOX_INS_FULLPATH/bin/redis-server --version | grep '^Redis server v=' &> /dev/null"
 ins_make_steps       = "make"
 ins_move_post_script = "mkdir bin; find src -iregex 'src/redis-[^.]*' -exec cp {} bin \;"
