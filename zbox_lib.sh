@@ -81,7 +81,7 @@ function func_download() {
 	[ -f "${2}" ] && echo "INFO: file (${2}) already exist, skip download" && return 0
 
 	case "${1}" in
-		*)		func_download_wget "$@"		;;
+		*)		func_download_wget "$@"	;;
 		#http://*)	func_download_wget "$@" ;;
 		#https://*)	func_download_wget "$@" ;;
 	esac

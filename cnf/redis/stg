@@ -14,5 +14,5 @@ stg_cmd_stop   = "ZBOX_INS_FULLPATH/bin/redis-cli -p 6379 shutdown"
 #stg_cmd_stop  = "[ -e ZBOX_STG_FULLPATH/pidfile ] && kill \$(cat ZBOX_STG_FULLPATH/pidfile)"
 
 # TODO: not works, seems not pidfile generated
-stg_cmd_status = "ps -ef | grep bin/redis-server | grep -v grep && echo 'Running.' || echo 'Not running.'"
+stg_cmd_status = "ps -ef | grep 'bin/redis-server.*6379' | grep -v grep && echo 'Running.' || echo 'Not running.'"
 #stg_cmd_status = "[ -e ZBOX_STG_FULLPATH/pidfile ] && echo 'Running.' && ps -ef | grep \$(cat ZBOX_STG_FULLPATH/pidfile) | grep -v grep || echo 'Not running.'"

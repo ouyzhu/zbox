@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# Check Platform
+if [ "$(uname)" == "Darwin" ]; then
+	# after osx 10.6.8, "expr" is NOT installed by default
+	ZBOX_PLF="osx"
+	ZBOX_PLF_PREFIX="osx_"
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+	# the default platform where zbox borned
+	ZBOX_PLF=""
+	ZBOX_PLF_PREFIX=""
+else
+	# NOT support other platform yet
+	echo "ERROR: current platform is NOT supported!"
+	exit 1
+fi
+
 # Global Variables
 ZBOX="${ZBOX:="${HOME}/.zbox"}"
 ZBOX_CNF="${ZBOX_CNF:-"${ZBOX}/cnf"}"
@@ -282,10 +297,13 @@ function func_zbox_stg_init_dir() {
 	local desc="Desc: generate a list of related configure files for stage"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
+	echo "INFO: (stage) init dir for $*"
 	eval $(func_zbox_gen_stg_cnf_vars "$@")
 
-	echo "INFO: (stage) init dir for ${1}"
-	func_mkdir_cd "$(func_zbox_gen_stg_fullpath "$@")"
+	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
+	[ -e "${stg_fullpath}" ] && func_die "ERROR: stg dir already exist, pls check!"
+
+	func_mkdir_cd "${stg_fullpath}"
 	local p
 	for p in ${stg_dirs:-bin conf logs data} ; do
 		mkdir -p "${p}"
@@ -305,7 +323,7 @@ function func_zbox_ins_src() {
 	[ -e "${src_fullpath_expect}" ] && echo "INFO: ${src_fullpath_expect} already exist, skip" && return 0
 	case "${ver}" in
 		svn|hg|git)	func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}"	;;
-		*)		func_download "${ins_src_addr}" "${src_fulldir}"				;;
+		*)		func_download "${ins_src_addr}" "${src_fulldir}"			;;
 	esac
 
 	# execute post script
@@ -526,8 +544,10 @@ function func_zbox_gen_src_fullpath() {
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	if [ "${ins_gen_src_fullpath}" = "only_tname_tver" ] ; then
+		#echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "${1}" "${2}")"
 		echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "${1}" "${2}")"
 	else
+		#echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "$@")"
 		echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "$@")"
 	fi
 }
