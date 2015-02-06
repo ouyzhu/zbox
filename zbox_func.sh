@@ -168,6 +168,7 @@ function func_zbox_ins() {
 			ucd)		func_zbox_ins_ucd "$@"		;;
 			move)		func_zbox_ins_move "$@"		;;
 			copy)		func_zbox_ins_copy "$@"		;;
+			copyucd)	func_zbox_ins_copyucd "$@"	;;
 			dep)		func_zbox_ins_dep "$@"		;;
 			make)		func_zbox_ins_make "$@"		;;
 			default)	func_zbox_ins_default "$@"	;;
@@ -456,6 +457,23 @@ function func_zbox_use_gen_env() {
 	fi
 }
 
+function func_zbox_ins_copyucd() {
+	local desc="Desc: install by copy stuff in ucd, usually for those need copy after 'make', which not need to use 'configure --prefix'"
+	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+
+	eval $(func_zbox_gen_ins_cnf_vars "$@")
+	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
+	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
+
+	echo "INFO: (install) copy stuff in ucd, from: ${ucd_fullpath} to: ${ins_fullpath}"
+	func_validate_path_inexist "${ins_fullpath}"
+	func_validate_path_exist "${ucd_fullpath}"
+
+	# only makedir when name is different
+	[ "${ins_fullpath##*/}" = "${ucd_fullpath##*/}" ] || func_mkdir "${ins_fullpath}" 
+	cp -R "${ucd_fullpath}" "${ins_fullpath}"
+}
+
 function func_zbox_ins_copy() {
 	local desc="Desc: install by copy, this means only need to copy the source package to 'ins' dir"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
@@ -539,8 +557,22 @@ function func_zbox_gen_ins_fullpath_default() {
 	echo "${ZBOX_INS}/${1}/${1}"
 }
 
+function func_zbox_gen_src_plfpath() {
+	local desc="Desc: generate platform dependent path of source package/code, which contains platform prefix (ZBOX_PLF_PREFIX) in filename"
+	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "$@")"
+}
+
+# TODO: is it really necessary? since real path should extract from ins_src_url
+function func_zbox_gen_src_realpath() {
+	local desc="Desc: generate platform in-dependent path of source package/code, only conatins uname, tver, tadd info"
+	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "$@")"
+}
+
+# TODO: deprecate this, should use "func_zbox_gen_src_plfpath" instead
 function func_zbox_gen_src_fullpath() {
-	local desc="Desc: generate full path of the source package or source code"
+	local desc="Desc: generate full path of source package/code"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	if [ "${ins_gen_src_fullpath}" = "only_tname_tver" ] ; then
