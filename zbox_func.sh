@@ -470,8 +470,9 @@ function func_zbox_ins_copyucd() {
 	func_validate_path_exist "${ucd_fullpath}"
 
 	# only makedir when name is different
-	[ "${ins_fullpath##*/}" = "${ucd_fullpath##*/}" ] || func_mkdir "${ins_fullpath}" 
-	cp -R "${ucd_fullpath}" "${ins_fullpath}"
+	#[ "${ins_fullpath##*/}" = "${ucd_fullpath##*/}" ] || func_mkdir "${ins_fullpath}" 
+	func_mkdir "${ins_fullpath}" 
+	cp -R "${ucd_fullpath}"/"${ins_copyucd_filter}" "${ins_fullpath}"
 }
 
 function func_zbox_ins_copy() {
