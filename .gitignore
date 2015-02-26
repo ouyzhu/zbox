@@ -1,10 +1,14 @@
+# misc
+.fl_me.txt
+.dl_me.txt
+.grep_me.txt
+
+# ignore either consolidate dir, or link
 src
 src/
 ins
 ins/
 stg
 stg/
+tmp
 tmp/
-.fl_me.txt
-.dl_me.txt
-.grep_me.txt
