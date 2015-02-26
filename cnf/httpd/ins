@@ -1,4 +1,4 @@
-ins_steps               = "src ucd dep make default"
+ins_steps               = "src ucd dep make"
 ins_verify              = "ZBOX_INS_FULLPATH/usr/bin/ab -V | grep 'This is ApacheBench, Version' &> /dev/null"
 
 ins_dep_apt_install     = "libpcre3-dev"
