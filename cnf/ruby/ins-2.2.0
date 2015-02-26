@@ -1,0 +1,2 @@
+ins_src_addr            = http://cache.ruby-lang.org/pub/ruby/2.2/ruby-2.2.0.tar.gz
+ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH"
