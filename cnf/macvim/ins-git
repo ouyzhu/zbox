@@ -1,0 +1,16 @@
+#ins_steps               = "src dep make"
+ins_steps               = "src make"
+ins_src_addr            = https://github.com/b4winckler/macvim
+
+#ins_make_steps          = "clean configure make install"
+ins_make_steps          = "clean configure make"
+ins_make_clean_cmd      = "clean distclean"
+ins_make_post_script	= "mkdir ZBOX_INS_FULLPATH; mv ZBOX_SRC_FULLPATH/src/MacVim/build/Release/MacVim.app ZBOX_INS_FULLPATH; cp ZBOX_SRC_FULLPATH/src/MacVim/mvim ZBOX_INS_FULLPATH/MacVim.app/Contents/MacOS/"
+ins_make_configure_opts = "--with-features=huge"
+use_env			= 'VIM_APP_DIR=ZBOX_INS_FULLPATH MACVIM_HOME=ZBOX_INS_FULLPATH PATH=${MACVIM_HOME}/MacVim.app/Contents/MacOS/:${PATH}'
+
+#ins_make_post_script	= "mkdir ZBOX_INS_FULLPATH; mv ZBOX_SRC_FULLPATH/src/{vim,MacVim/build/Release/MacVim.app/} ZBOX_INS_FULLPATH"
+#ins_pre_script          = "command -v ruby && command -v python"
+#ins_make_pre_script     = 'make_conf=ZBOX_SRC_FULLPATH/src/Make_mvc.mak; ruby_ver=$(ruby -v | cut -c6-8); cp ${make_conf}{,.bak.$(date "+%Y-%m-%d_%H-%M-%S")} && sed -i "s/^RUBY_VER = .*/RUBY_VER = ${ruby_ver/./}/;s/^RUBY_VER_LONG = .*/RUBY_VER_LONG = ${ruby_ver}/" ${make_conf}'
+#ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH --with-features=huge --enable-pythoninterp --enable-rubyinterp --enable-multibyte --enable-gui=gtk2 --enable-fontset --enable-xim"
+

@@ -165,7 +165,7 @@ function func_vcs_update() {
 	local src_type="${1}"
 	local src_addr="${2}"
 	local target_dir="${3}"
-	echo "INFO: init/update source, type=${src_type}, addr=${1}, target=${2}"
+	echo "INFO: init/update source, type: ${src_type}, addr: ${src_addr}, target: ${target_dir}"
 	case "${src_type}" in
 		hg)	local cmd="hg"  ; local cmd_init="hg clone"     ; local cmd_update="hg pull"	;;
 		git)	local cmd="git" ; local cmd_init="git clone"    ; local cmd_update="git pull"	;;

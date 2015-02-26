@@ -1,0 +1,2 @@
+#ins_verify              = "ZBOX_INS_FULLPATH/bin/gvim --version | grep '^VIM - Vi IMproved' &> /dev/null"
+#use_env                 = 'VIM_HOME=ZBOX_INS_FULLPATH VIM_CONF=${HOME}/.vim PATH=${VIM_HOME}/bin:${PATH}'

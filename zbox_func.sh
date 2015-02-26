@@ -139,13 +139,13 @@ function func_zbox_pur() {
 
 	echo "INFO: purge tool (uninstall and delete downloaded source) for $@"
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
-	local dl_fullpath=$(func_zbox_gen_src_fullpath "$@")
-	local dl_fullpath_real=$(readlink -f "${dl_fullpath}")
+	local src_plfpath=$(func_zbox_gen_src_plfpath "$@")
+	local src_realpath=$(func_zbox_gen_src_realpath "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
-	[ -e "${dl_fullpath}" ] && rm -rf "${dl_fullpath}"
+	[ -e "${src_plfpath}" ] && rm -rf "${src_plfpath}"
+	[ -e "${src_realpath}" ] && rm -rf "${src_realpath}"
 	[ -e "${ins_fullpath}" ] && rm -rf ${ins_fullpath}{,_env}
-	[ -e "${dl_fullpath_real}" ] && rm -rf "${dl_fullpath_real}"
 }
 
 function func_zbox_ins() {
@@ -251,7 +251,7 @@ function func_zbox_stg_pre_translate() {
 	eval $(func_zbox_gen_stg_cnf_vars "$@")
 	local zbox_username="$(whoami)"
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
-	local src_fullpath="$(func_zbox_gen_src_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
+	local src_plfpath="$(func_zbox_gen_src_plfpath "${1}" "${stg_tver}" "${stg_tadd}")"
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
 
 	[ -z "${stg_pre_translate}" ] && echo "INFO: stg_pre_translate var empty, skip" && return 0
@@ -263,7 +263,7 @@ function func_zbox_stg_pre_translate() {
 		sed -i -e "s+ZBOX_TMP+${ZBOX_TMP}+g;
 			   s+ZBOX_CNF+${ZBOX_CNF}+g;
 			   s+ZBOX_USERNAME+${zbox_username}+g;
-			   s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
+			   s+ZBOX_SRC_FULLPATH+${src_plfpath}+g;
 			   s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;
 			   s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;" "${f}"
 	done
@@ -317,23 +317,24 @@ function func_zbox_ins_src() {
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
-	local src_fullpath_expect=$(func_zbox_gen_src_fullpath "$@")
-	local src_fulldir="$(dirname "${src_fullpath_expect}")"
+	local src_plfpath=$(func_zbox_gen_src_plfpath "$@")
+	local src_realpath="$(func_zbox_gen_src_realpath "$@")"
+	local src_fulldir="$(dirname "${src_plfpath}")"
 	local ver="${2:-pkg}"
 
-	[ -e "${src_fullpath_expect}" ] && echo "INFO: ${src_fullpath_expect} already exist, skip" && return 0
+	[ -e "${src_plfpath}" ] && echo "INFO: ${src_plfpath} already exist, skip" && return 0
 	case "${ver}" in
-		svn|hg|git)	func_vcs_update "${ver}" "${ins_src_addr}" "${src_fullpath_expect}"	;;
-		*)		func_download "${ins_src_addr}" "${src_fulldir}"			;;
+		svn|hg|git)	func_vcs_update "${ver}" "${ins_src_addr}" "${src_realpath}"	;;
+		*)		func_download "${ins_src_addr}" "${src_fulldir}"		;;
 	esac
 
 	# execute post script
 	func_zbox_run_script "ins_src_post_script" "${src_fulldir}" "${ins_src_post_script}"
 
 	# create symboic link if the download name is not 'standard'
-	if [ ! -e "${src_fullpath_expect}" ] ; then
+	if [ ! -e "${src_plfpath}" ] ; then
 		func_cd "${src_fulldir}" 
-		ln -s "${ins_src_addr##*/}" "${src_fullpath_expect}" >> ${ZBOX_LOG} 2>&1 
+		ln -s "$(basename ${src_realpath})" "$(basename ${src_plfpath})" >> ${ZBOX_LOG} 2>&1 
 		\cd - >> ${ZBOX_LOG} 2>&1										
 	fi
 }
@@ -426,6 +427,10 @@ function func_zbox_ins_make() {
 					;;
 		esac
 	done
+
+	# execute pre script
+	func_zbox_run_script "ins_make_post_script" "${ZBOX_TMP}" "${ins_make_post_script}"
+
 	\cd - >> ${ZBOX_LOG} 2>&1
 }
 
@@ -444,8 +449,8 @@ function func_zbox_use_gen_env() {
 	if [ -n "${use_env}" ] ; then
 		echo "INFO: (install) gen env with 'use_env', target: ${env_fullpath}"
 		for var in ${use_env} ; do
-			[ -e "${var}" ] && echo "source ${var}" >> "${env_fullpath}" && break	# use "source" if it is a file
-			echo "export ${var//|||ZBOX_SPACE|||/ }" >> "${env_fullpath}"		# use "export" otherwise. Any better way to handle the "space"?
+			[ -e "${var}" ] && echo "source ${var}" >> "${env_fullpath}" && continue	# use "source" if it is a file
+			echo "export ${var//|||ZBOX_SPACE|||/ }" >> "${env_fullpath}"			# use "export" otherwise. Any better way to handle the "space"?
 		done
 	fi
 
@@ -480,15 +485,14 @@ function func_zbox_ins_copy() {
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
-	local dl_fullpath=$(func_zbox_gen_src_fullpath "$@")
-	local dl_fullpath_actual=$(readlink -f "${dl_fullpath}")
+	local src_realpath=$(func_zbox_gen_src_realpath "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
-	echo "INFO: (install) copy source, from: ${dl_fullpath_actual} to: ${ins_fullpath}"
+	echo "INFO: (install) copy source, from: ${src_realpath} to: ${ins_fullpath}"
 	func_validate_path_inexist "${ins_fullpath}"
-	func_validate_path_exist "${dl_fullpath_actual}"
+	func_validate_path_exist "${src_realpath}"
 	func_mkdir "${ins_fullpath}" 
-	cp -R "${dl_fullpath_actual}" "${ins_fullpath}"
+	cp -R "${src_realpath}" "${ins_fullpath}"
 }
 
 function func_zbox_ins_move() {
@@ -513,11 +517,11 @@ function func_zbox_ins_ucd() {
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
-	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
+	local src_plfpath="$(func_zbox_gen_src_plfpath "$@")"
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
 
 	rm -rf "${ucd_fullpath}"
-	func_uncompress "${src_fullpath}" "${ucd_fullpath}" 
+	func_uncompress "${src_plfpath}" "${ucd_fullpath}" 
 
 	# execute post script
 	func_zbox_run_script "ins_ucd_post_script" "${ucd_fullpath}" "${ins_ucd_post_script}"
@@ -564,26 +568,36 @@ function func_zbox_gen_src_plfpath() {
 	echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "$@")"
 }
 
-# TODO: is it really necessary? since real path should extract from ins_src_url
 function func_zbox_gen_src_realpath() {
-	local desc="Desc: generate platform in-dependent path of source package/code, only conatins uname, tver, tadd info"
+	local desc="Desc: generate real path of source package/code, only conatins uname, tver, tadd info"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
-	echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "$@")"
+
+	case "${2}" in
+		svn|hg|git)	
+			# for source code in VS, just use "tver" and "tadd"
+			echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "$1" "$2")"	
+			;;	
+		*)	
+			# for package, use the real name in address
+			eval $(func_zbox_gen_ins_cnf_vars "$@")
+			echo "${ZBOX_SRC}/${1}/${ins_src_addr##*/}"
+			;;
+	esac
 }
 
 # TODO: deprecate this, should use "func_zbox_gen_src_plfpath" instead
-function func_zbox_gen_src_fullpath() {
-	local desc="Desc: generate full path of source package/code"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
-
-	if [ "${ins_gen_src_fullpath}" = "only_tname_tver" ] ; then
-		#echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "${1}" "${2}")"
-		echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "${1}" "${2}")"
-	else
-		#echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "$@")"
-		echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "$@")"
-	fi
-}
+#function func_zbox_gen_src_fullpath() {
+#	local desc="Desc: generate full path of source package/code"
+#	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+#
+#	if [ "${ins_gen_src_fullpath}" = "only_tname_tver" ] ; then
+#		#echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "${1}" "${2}")"
+#		echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "${1}" "${2}")"
+#	else
+#		#echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "$@")"
+#		echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "$@")"
+#	fi
+#}
 
 function func_zbox_gen_ucd_fullpath() {
 	local desc="Desc: generate full path of the uncompressed source packages"
@@ -591,7 +605,7 @@ function func_zbox_gen_ucd_fullpath() {
 
 	if echo "${2}" | grep -q '^\(svn\|hg\|git\)$' ; then
 		# obviously, no ucd there, just use the source path
-		func_zbox_gen_src_fullpath "$@"
+		func_zbox_gen_src_plfpath "$@"
 	else
 		echo "${ZBOX_TMP}/$(func_zbox_gen_uname "$@")"
 	fi
@@ -620,7 +634,7 @@ function func_zbox_gen_stg_cnf_vars() {
 
 	# TODO: need eval twice to get ZBOX var substituted, since need to get "${stg_tver}" "${stg_tadd}" first. Any better way?
 	eval $(func_zbox_gen_stg_cnf_vars_raw "$@")
-	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
+	local src_plfpath="$(func_zbox_gen_src_plfpath "$@")"
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
 
@@ -628,7 +642,7 @@ function func_zbox_gen_stg_cnf_vars() {
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
 		s+ZBOX_CNF+${ZBOX_CNF}+g;
 		s+ZBOX_STG_TVER+${stg_tver}+g;
-		s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
+		s+ZBOX_SRC_FULLPATH+${src_plfpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;
 		s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;"
 }
@@ -664,8 +678,8 @@ function func_zbox_gen_ins_cnf_vars() {
 	local cnfs=$(func_zbox_gen_ins_cnf_files "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
-	local src_fullpath="$(func_zbox_gen_src_fullpath "$@")"
-	local src_fulldir="$(dirname "${src_fullpath}")"
+	local src_plfpath="$(func_zbox_gen_src_plfpath "$@")"
+	local src_fulldir="$(dirname "${src_plfpath}")"
 
 	#cat ${cnfs} 2>> ${ZBOX_LOG} | sed -e "/^\s*#/d;/^\s*$/d;s/^/local /"
 	cat ${cnfs} 2>> ${ZBOX_LOG}						|\
@@ -676,7 +690,7 @@ function func_zbox_gen_ins_cnf_vars() {
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
 	        s+ZBOX_TVER+${2}+g;
 		s+ZBOX_SRC_FULLDIR+${src_fulldir}+g;
-		s+ZBOX_SRC_FULLPATH+${src_fullpath}+g;
+		s+ZBOX_SRC_FULLPATH+${src_plfpath}+g;
 		s+ZBOX_UCD_FULLPATH+${ucd_fullpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;" 
 }
