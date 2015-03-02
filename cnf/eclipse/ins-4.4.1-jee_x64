@@ -1,0 +1,4 @@
+ins_src_addr	= http://mirror.hust.edu.cn/eclipse//technology/epp/downloads/release/luna/SR1a/eclipse-jee-luna-SR1a-linux-gtk-x86_64.tar.gz
+
+# Need this step, otherwise cause error "The Eclipse executable launcher was unable to locate its companion shared library."
+ins_post_script = 'mv ZBOX_INS_FULLPATH/eclipse{,.bak} ; cp ZBOX_INS_FULLPATH/eclipse.bak/eclipse ZBOX_INS_FULLPATH/'
