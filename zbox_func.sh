@@ -53,7 +53,7 @@ function func_zbox() {
 	case "${action}" in
 		# use background job to 
 		use)		func_zbox_use "$@"									;;	# do NOT use pipe here, since need source env
-		list)		( func_zbox_lst "$@" )									;;
+		list)		func_zbox_lst "$@" | column -t -s "|"							;;
 		using)		func_zbox_uig "$@" | column -t								;;
 		mkstg)		func_zbox_stg "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
 		purge)		func_zbox_pur "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/\(Desc\|INFO\|WARN\|ERROR\):/p"	;;
@@ -66,16 +66,23 @@ function func_zbox() {
 function func_zbox_lst() {
 	local desc="Desc: list tool status"
 
+	local tool_line_count=0
 	func_zbox_lst_print_head
 	pushd "${ZBOX_CNF}" > /dev/null
 	for tool in * ; do 
-		# $1 not empty means only need show one tool
-		[ -n "${1}" ] && [ ! "${tool}" = "${1}" ] && continue
+
+		# only show those specified tools, otherwise all
+		#[ -n "$*" ] && !(echo "$*" | grep -q "${tool}") && continue	# works
+		[ -n "$*" ] && [[ "$*" != *${tool}* ]]&& continue
 
 		pushd "${tool}" > /dev/null
-		for file in ins-* ; do 
-			local va=${file#ins-}
+		for file in *ins-* ; do 
+
+			tool_line_count=$((${tool_line_count}+1)) && ((${tool_line_count}%15==0)) && func_zbox_lst_print_head
+
+			local va=${file#*ins-}
 			local version=${va%-*}
+			#local addition=${va#${version}-} # NOT work, will equal version if there is no addition
 			local addition=$(echo $va | sed -e "s/[^-]*//;s/^-//")
 			local ins_fullpath=$(func_zbox_gen_ins_fullpath "${tool}" "${version}" "${addition}")
 			local ins=$([ -e "${ins_fullpath}" ] && echo ' Y')
@@ -102,23 +109,25 @@ function func_zbox_lst() {
 	done
 	popd > /dev/null
 	func_zbox_lst_print_tail
+	echo "${tool_line_count} tool lines."
 }
 
 function func_zbox_lst_print_head() {
-	echo "|------------------|---------------|-----------|-----|--------------|--------------|"
-	echo "|       Name       |    Version    |  Addtion  | ins |  stg in cnf  |  stg in stg  |"
-	echo "|------------------|---------------|-----------|-----|--------------|--------------|"
+	echo "|----|-------|--------|---|----------|----------|"
+	echo "|Name|Version|Addition|ins|stg in cnf|stg in stg|"
+	echo "|----|-------|--------|---|----------|----------|"
 }
 
 function func_zbox_lst_print_tail() {
-	echo "|------------------|---------------|-----------|-----|--------------|--------------|"
+	echo "|----|-------|--------|---|----------|----------|"
 }
 
 function func_zbox_lst_print_item() {
 	local desc="Desc: format the output of list"
 	func_param_check 4 "${desc}\n${FUNCNAME} <name> <version> <addtion> <ins> <stg_in_cnf> <stg_in_stg>\n" "$@"
 
-	printf "| %-16s | %-13s | %-9s | %-3s | %-12s | %-12s |\n" "$@"
+	#printf "| %-16s | %-13s | %-9s | %-3s | %-12s | %-12s |\n" "$@"
+	printf "|%s|%s|%s|%s|%s|%s|\n" "$@"
 }
 
 function func_zbox_rem() {
@@ -622,10 +631,13 @@ function func_zbox_gen_stg_cnf_files() {
 	local desc="Desc: generate a list of related configure files for stage"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 	
-	local stage_default=${ZBOX_CNF}/${1}/stg 
-	local stage_version=${ZBOX_CNF}/${1}/stg-${2}
+	local stg_default=${ZBOX_CNF}/${1}/stg 
+	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_stg_default=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}stg 
 
-	echo "${stage_default} ${stage_version}"
+	local stg_version=${ZBOX_CNF}/${1}/stg-${2}
+	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_stg_version=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}stg-${2}
+
+	echo "${stg_default} ${plf_stg_default} ${stg_version} ${plf_stg_version}"
 }
 
 function func_zbox_gen_stg_cnf_vars() {
@@ -665,10 +677,16 @@ function func_zbox_gen_ins_cnf_files() {
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 	
 	local ins_default=${ZBOX_CNF}/${1}/ins 
-	local ins_version=${ZBOX_CNF}/${1}/ins-${2}
-	[ -n "${3}" ] && local ins_addition=${ZBOX_CNF}/${1}/ins-${2}-${3}
+	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_ins_default=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}ins
 
-	echo "${ins_default} ${ins_version} ${ins_addition}"
+	local ins_version=${ZBOX_CNF}/${1}/ins-${2}
+	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_ins_version=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}ins-${2}
+
+	[ -n "${3}" ] && local ins_addition=${ZBOX_CNF}/${1}/ins-${2}-${3}
+	[ -n "${3}" ] && [ -n "${ZBOX_PLF_PREFIX}" ] && local plf_ins_addition=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}ins-${2}-${3}
+
+	# Note the precedence
+	echo "${ins_default} ${plf_ins_default} ${ins_version} ${plf_ins_version} ${ins_addition} ${plf_ins_addition}"
 }
 
 function func_zbox_gen_ins_cnf_vars() {
