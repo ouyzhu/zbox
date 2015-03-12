@@ -364,7 +364,7 @@ function func_zbox_ins_default() {
 }
 
 function func_zbox_ins_dep() {
-	local desc="Desc: install dependencies (using apt-get)"
+	local desc="Desc: install dependencies (using apt-get on linux, port on osx)"
 	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
@@ -377,6 +377,11 @@ function func_zbox_ins_dep() {
 	if [ -n "${ins_dep_apt_build_dep}" ] ; then
 		echo "INFO: (install) dependencies: sudo apt-get build-dep ${ins_dep_apt_build_dep}"
 		sudo apt-get build-dep -y ${ins_dep_apt_build_dep} >> ${ZBOX_LOG} 2>&1
+	fi
+
+	if [ -n "${ins_dep_port_install}" ] ; then
+		echo "INFO: (install) dependencies: sudo port install ${ins_dep_port_install}"
+		sudo port install ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
 	fi
 
 	if [ -n "${ins_dep_zbox_ins}" ] ; then
