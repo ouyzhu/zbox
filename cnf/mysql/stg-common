@@ -1,4 +1,4 @@
-stg_tver = 5.6.12
+stg_tver = 5.6.23
 stg_tadd = ""
 
 stg_cmds       = "start stop status client"

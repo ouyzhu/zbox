@@ -369,22 +369,26 @@ function func_zbox_ins_dep() {
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 
-	if [ -n "${ins_dep_apt_install}" ] ; then
-		echo "INFO: (install) dependencies: sudo apt-get install -y ${ins_dep_apt_install}"
-		sudo apt-get install -y ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
+	# dep for linux platform
+	if [ -z "${ZBOX_PLF}" ] ; then
+		if [ -n "${ins_dep_apt_install}" ] ; then
+			echo "INFO: (install) dependencies: sudo apt-get install -y ${ins_dep_apt_install}"
+			sudo apt-get install -y ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
+		fi
+
+		if [ -n "${ins_dep_apt_build_dep}" ] ; then
+			echo "INFO: (install) dependencies: sudo apt-get build-dep ${ins_dep_apt_build_dep}"
+			sudo apt-get build-dep -y ${ins_dep_apt_build_dep} >> ${ZBOX_LOG} 2>&1
+		fi
+
+		if [ -n "${ins_dep_port_install}" ] ; then
+			echo "INFO: (install) dependencies: sudo port install ${ins_dep_port_install}"
+			sudo port install ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
+		fi
 	fi
 
-	if [ -n "${ins_dep_apt_build_dep}" ] ; then
-		echo "INFO: (install) dependencies: sudo apt-get build-dep ${ins_dep_apt_build_dep}"
-		sudo apt-get build-dep -y ${ins_dep_apt_build_dep} >> ${ZBOX_LOG} 2>&1
-	fi
-
-	if [ -n "${ins_dep_port_install}" ] ; then
-		echo "INFO: (install) dependencies: sudo port install ${ins_dep_port_install}"
-		sudo port install ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
-	fi
-
-	if [ -n "${ins_dep_zbox_ins}" ] ; then
+	# dep for osx platform
+	if [ -n "${ins_dep_zbox_ins}" && "${ZBOX_PLF}" = "osx" ] ; then
 		# TODO: how to detect infinite loop?
 		local dep_zbox
 		for dep_zbox in "${ins_dep_zbox_ins[@]}" ; do
