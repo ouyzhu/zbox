@@ -369,7 +369,7 @@ function func_zbox_ins_dep() {
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 
-	# dep for linux platform
+	# dep of linux platform
 	if [ -z "${ZBOX_PLF}" ] ; then
 		if [ -n "${ins_dep_apt_install}" ] ; then
 			echo "INFO: (install) dependencies: sudo apt-get install -y ${ins_dep_apt_install}"
@@ -380,16 +380,18 @@ function func_zbox_ins_dep() {
 			echo "INFO: (install) dependencies: sudo apt-get build-dep ${ins_dep_apt_build_dep}"
 			sudo apt-get build-dep -y ${ins_dep_apt_build_dep} >> ${ZBOX_LOG} 2>&1
 		fi
-
-		if [ -n "${ins_dep_port_install}" ] ; then
-			echo "INFO: (install) dependencies: sudo port install ${ins_dep_port_install}"
-			sudo port install ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
-		fi
 	fi
 
-	# dep for osx platform
-	if [ -n "${ins_dep_zbox_ins}" && "${ZBOX_PLF}" = "osx" ] ; then
-		# TODO: how to detect infinite loop?
+
+	# dep of osx platform
+	if [ -n "${ins_dep_port_install}" ] && [ "${ZBOX_PLF}" = "osx" ] ; then
+		echo "INFO: (install) dependencies: sudo port install ${ins_dep_port_install}"
+		sudo port install ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
+	fi
+
+	# dep of zbox self
+	# TODO: how to detect infinite loop?
+	if [ -n "${ins_dep_zbox_ins}" ] ; then
 		local dep_zbox
 		for dep_zbox in "${ins_dep_zbox_ins[@]}" ; do
 			[ -z "${dep_zbox}" ] && continue
