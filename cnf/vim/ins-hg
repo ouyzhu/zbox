@@ -11,7 +11,8 @@ ins_dep_apt_install     = "libgtk2.0-dev libx11-dev xorg-dev python-dev ruby-dev
 ins_dep_apt_build_dep   = "vim"
 			# other options: "vim-gnome"
 
-ins_pre_script          = "command -v ruby && command -v python"
+ins_pre_script          = 'command -v ruby && command -v python && python --version 2>&1 | grep "Python 2"'
+			# (2015-05-08) need python 2.x, since YouCompleteMe@vim NOT compitable with python 3.x
 ins_gen_src_fullpath    = "only_tname_tver"
 ins_make_pre_script     = 'make_conf=ZBOX_SRC_FULLPATH/src/Make_mvc.mak; ruby_ver=$(ruby -v | cut -c6-8); cp ${make_conf}{,.bak.$(date "+%Y-%m-%d_%H-%M-%S")} && sed -i "s/^RUBY_VER = .*/RUBY_VER = ${ruby_ver/./}/;s/^RUBY_VER_LONG = .*/RUBY_VER_LONG = ${ruby_ver}/" ${make_conf}'
 
