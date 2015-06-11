@@ -125,16 +125,21 @@ function func_uncompress() {
 	echo "INFO: uncompress file, from: ${source_file} to: ${target_dir}"
 	func_mkdir_cd "${target_dir}"
 	case "$source_file" in
-		#*.Z)		uncompress "$source_file"		;;
-		*.rar)		7z e "$source_file" &> /dev/null	;;
-		*.7z)		7z e "$source_file" &> /dev/null	;;		# use "-e" will fail
+		# group for 
+		*.tar.gz)	tar -zxvf "$source_file" &> /dev/null	;;	# NOTE, should before "*.gz)"
+		*.tar.bz2)	tar -jxvf "$source_file" &> /dev/null	;;	# NOTE, should before "*.bz2)"
+		*.bz2)		bunzip2 "$source_file" &> /dev/null	;;
+		*.gz)		gunzip "$source_file" &> /dev/null	;;
+		
+		*.7z)		7z e "$source_file" &> /dev/null	;;	# use "-e" will fail, "e" is extract, "x" is extract with full path
 		*.zip)		unzip "$source_file" &> /dev/null	;;
 		*.tar)		tar -xvf "$source_file" &> /dev/null	;;
-		*.gz)		tar -zxvf "$source_file" &> /dev/null	;;
 		*.xz)		tar -Jxvf "$source_file" &> /dev/null	;;
 		*.tgz)		tar -zxvf "$source_file" &> /dev/null	;;
-		*.bz2)		tar -jxvf "$source_file" &> /dev/null	;;
-		#*.tbz2)	tar -jxvf "$source_file" &> /dev/null	;;
+		*.tbz2)		tar -jxvf "$source_file" &> /dev/null	;;
+		*.Z)		uncompress "$source_file"		;;
+		*.rar)		unrar e "$source_file" &> /dev/null	;;	# candidate 1
+		#*.rar)		7z e "$source_file" &> /dev/null	;;	# candidate 2
 		*)		echo "ERROR: unknow format of file: ${source_file}"	;;
 	esac
 
