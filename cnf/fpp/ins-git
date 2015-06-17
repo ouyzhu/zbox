@@ -1,0 +1,1 @@
+use_env      = 'FPP_HOME=ZBOX_INS_FULLPATH PATH=${FPP_HOME}:${PATH} '

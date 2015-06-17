@@ -512,7 +512,14 @@ function func_zbox_ins_copy() {
 	func_validate_path_inexist "${ins_fullpath}"
 	func_validate_path_exist "${src_realpath}"
 	func_mkdir "${ins_fullpath}" 
-	cp -R "${src_realpath}" "${ins_fullpath}"
+	
+	if [ "$(basename "${src_realpath}")" == "$(basename "${ins_fullpath}")" ] ; then
+		# copy content to avoid duplated same dir name in path
+		cp -R "${src_realpath}"/* "${ins_fullpath}"
+		cp -R "${src_realpath}"/.* "${ins_fullpath}"
+	else
+		cp -R "${src_realpath}" "${ins_fullpath}"
+	fi
 }
 
 function func_zbox_ins_move() {
