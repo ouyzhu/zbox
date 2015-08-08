@@ -69,48 +69,83 @@ function func_zbox_lst() {
 	local tool_line_count=0
 	func_zbox_lst_print_head
 	pushd "${ZBOX_CNF}" > /dev/null
+
 	for tool in * ; do 
 
+		# TODO: better fuzzy matching
 		# only show those specified tools, otherwise all
-		#[ -n "$*" ] && !(echo "$*" | grep -q "${tool}") && continue	# works
-		[ -n "$*" ] && [[ "$*" != *${tool}* ]]&& continue
+		#[ -n "$*" ] && !(echo "$*" | grep -q "${tool}") && continue	# works, strict match, not user friendly, not efficent since using pipe
+		[ -n "$*" ] && [[ "$*" != *${tool}* ]] && continue		# works, strict match, not user friendly
 
 		pushd "${tool}" > /dev/null
 		for file in *ins-* ; do 
 
+			# insert head block for better reading
 			tool_line_count=$((${tool_line_count}+1)) && ((${tool_line_count}%15==0)) && func_zbox_lst_print_head
 
+			# extract info: version/addtion
 			local va=${file#*ins-}
 			local version=${va%-*}
 			#local addition=${va#${version}-} # NOT work, will equal version if there is no addition
-			local addition=$(echo $va | sed -e "s/[^-]*//;s/^-//")
-			local ins_fullpath=$(func_zbox_gen_ins_fullpath "${tool}" "${version}" "${addition}")
-			local ins=$([ -e "${ins_fullpath}" ] && echo ' Y')
+			local addition=$(echo ${va} | sed -e "s/[^-]*//;s/^-//")
 
+			# check if already installed
+			local ins_fullpath=$(func_zbox_gen_ins_fullpath "${tool}" "${version}" "${addition}")
+			local ins=$([ -e "${ins_fullpath}" ] && echo ' Y' || echo ' N')
+
+			# check if able to mkstg, and list all of them
 			local stg_in_cnf=""
+			local stg_in_stg=""
 			if [ -e "stg" ] ; then
-				for stgincnf in stg-* ; do 
-					local stg_in_cnf="${stgincnf##*-},${stg_in_cnf}"
+				local stg_tver=""
+				local stg_tadd=""
+				local stg_name=""
+				for stg_cnf_file in stg-* ; do 
+					# check if stg using this version and addtion
+					stg_tver=$(func_zbox_cnf_extract_field "stg_tver" "${stg_cnf_file}")
+					stg_tadd=$(func_zbox_cnf_extract_field "stg_tadd" "${stg_cnf_file}")
+					[[ "${stg_tver}" == "${version}" ]] || continue
+					[[ "${stg_tadd}" == "${addition}" ]] || continue
+
+					# add to cnf list
+					stg_name=${stg_cnf_file##*-}
+					local stg_in_cnf="${stg_name},${stg_in_cnf}"
+
+					# add to stg list
+					if [ -e "${ZBOX_STG}/${tool}/${tool}-${stg_name}" ] ; then
+						local stg_in_stg="${stg_name},${stg_in_stg}"
+					fi
 				done
 			fi
 			
-			local stg_in_stg=""
-			if [ -e "${ZBOX_STG}/${tool}" ] ; then
-				pushd "${ZBOX_STG}/${tool}" > /dev/null
-				for stginstg in $(find . -maxdepth 1 -name "${tool}-*") ; do 
-					local stg_in_stg="${stginstg##*-},${stg_in_stg}"
-				done
-				popd > /dev/null
-			fi
+			# check if already mkstg
+			#local stg_in_stg=""
+			#if [ -e "${ZBOX_STG}/${tool}" ] ; then
+			#	pushd "${ZBOX_STG}/${tool}" > /dev/null
+			#	#for stg_dir in $(find . -maxdepth 1 -name "${tool}-*") ; do 
+			#	for stg_dir in ${tool}-* ; do 
+			#		local stg_in_stg="${stg_dir##*-},${stg_in_stg}"
+			#	done
+			#	popd > /dev/null
+			#fi
 
-			func_zbox_lst_print_item "${tool}" "${version}" "${addition}" "${ins}" "${stg_in_cnf}" "${stg_in_stg}"
+			func_zbox_lst_print_item "${tool:-N/A}" "${version:-N/A}" "${addition:-N/A}" "${ins:-N/A}" "${stg_in_cnf:-N/A}" "${stg_in_stg:-N/A}"
 		done 
 		popd > /dev/null
 	done
+
 	popd > /dev/null
 	func_zbox_lst_print_tail
 	echo "${tool_line_count} tool lines."
 }
+
+function func_zbox_cnf_extract_field() {
+	local desc="Desc: list tool helper: extract version from stg cnf file"
+	func_param_check 2 "${desc}\n${FUNCNAME} <field> <file>\n" "$@"
+
+	sed -n "/${1}.*=/{s/${1}\s*=\s*\(\S*\).*/\1/;s/^\"\|\"$//g;p}" "${2}"
+}
+
 
 function func_zbox_lst_print_head() {
 	echo "|----|-------|--------|---|----------|----------|"
@@ -331,13 +366,14 @@ function func_zbox_ins_src() {
 	local src_fulldir="$(dirname "${src_plfpath}")"
 	local ver="${2:-pkg}"
 
-	[ -e "${src_plfpath}" ] && echo "INFO: ${src_plfpath} already exist, skip" && return 0
 	case "${ver}" in
 		svn|hg|git)	func_vcs_update "${ver}" "${ins_src_addr}" "${src_realpath}"	;;
-		*)		func_download "${ins_src_addr}" "${src_fulldir}"		;;
+		*)		[[ -e "${src_plfpath}" ]]					\
+				&& echo "INFO: ${src_plfpath} already exist, skip"		\
+				|| func_download "${ins_src_addr}" "${src_fulldir}"		;;
 	esac
 
-	# execute post script
+	# execute post script, NOTE: this will execute every time svn/git/hg updates
 	func_zbox_run_script "ins_src_post_script" "${src_fulldir}" "${ins_src_post_script}"
 
 	# create symboic link if the download name is not 'standard'

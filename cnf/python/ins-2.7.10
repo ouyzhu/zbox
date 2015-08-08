@@ -1,0 +1,9 @@
+# NOTE 1: offcial claim pip already buildin, but NOT there on OSX Yosemite after compile. 
+# NOTE 2: run file https://bootstrap.pypa.io/get-pip.py to install pip, which works 
+
+ins_src_addr                 = http://www.python.org/ftp/python/2.7.10/Python-2.7.10.tar.xz
+ins_dep_apt_build_dep        = "python2.7"
+ins_verify                   = "ZBOX_INS_FULLPATH/bin/python --version 2>&1 | grep '^Python 2.7' &> /dev/null"
+ins_post_script              = "cd ZBOX_INS_FULLPATH/bin && ln -s python2.7 python"
+                             # --enable-shared is needed when compile wsgi which used by dijango, --enable-unicode=ucs4 seem need by django/sqllite, why?
+ins_make_configure_opts      = "--prefix=ZBOX_INS_FULLPATH --enable-shared --with-ssl --enable-unicode=ucs4"
