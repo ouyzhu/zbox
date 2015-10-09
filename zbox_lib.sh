@@ -97,7 +97,7 @@ function func_download_wget() {
 	[ -f "${dl_fullpath}" ] && echo "INFO: file (${dl_fullpath}) already exist, skip download" && return 0
 
 	func_mkdir_cd "${2}" 
-	echo "INFO: start download, url=${1} target=${2}"
+	echo "INFO: start download, url=${1} target=${dl_fullpath}"
 
 	# TODO: add control to unsecure options?
 
