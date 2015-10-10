@@ -1,1 +1,14 @@
 stg_dirs = "temp"
+
+# one space to avoid zbox using default value
+stg_cmds       = " "
+
+# just need simply copy
+stg_post_script= "rm -rf ZBOX_STG_FULLPATH;cp -R ZBOX_INS_FULLPATH ZBOX_STG_FULLPATH"
+
+
+#stg_cmd_status = "ps -ef | grep jenkins"
+#stg_cmd_start  = "export JENKINS_HOME=ZBOX_STG_FULLPATH/data/jenkins_home; nohup java -jar ZBOX_INS_FULLPATH/jenkins-ZBOX_STG_TVER.war --webroot=ZBOX_STG_FULLPATH/data/webroot >> ZBOX_STG_FULLPATH/logs/jenkins.log 2>&1 &"
+#stg_cmds       = "start stop status"
+#stg_cmd_stop   = "kill \$(cat ZBOX_STG_FULLPATH/pidfile)"
+#stg_cmd_status = "[ -e ZBOX_STG_FULLPATH/pidfile ] && echo 'Running' && ps -ef | grep \$(cat ZBOX_STG_FULLPATH/pidfile) | grep -v grep || echo 'Not running.'"

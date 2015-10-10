@@ -1,2 +1,2 @@
 # File is empty yet, just give a clue that its source is LOCAL
-ins_pre_script = "mkdir ZBOX_SRC_FULLPATH"
+ins_pre_script = "mkdir ZBOX_SRC_PLFPATH"

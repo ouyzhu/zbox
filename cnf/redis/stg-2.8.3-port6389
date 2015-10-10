@@ -1,9 +1,5 @@
-stg_tver = 2.8.3
-stg_tadd = ""
-
 # only update ports
 stg_cmd_client = "ZBOX_INS_FULLPATH/bin/redis-cli -p 6389"
 stg_cmd_stop   = "ZBOX_INS_FULLPATH/bin/redis-cli -p 6389 shutdown"
-# NOTE, temp solution! If "stg_post_script" used in file "stg", this will override that
 stg_post_script = "sed -i -e 's/^port 6379/port 6389/' ZBOX_STG_FULLPATH/conf/redis.conf"
 stg_cmd_status = "ps -ef | grep 'bin/redis-server.*6389' | grep -v grep && echo 'Running.' || echo 'Not running.'"

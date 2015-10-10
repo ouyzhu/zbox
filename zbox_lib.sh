@@ -29,15 +29,25 @@ function func_check_exit_code() {
 	[ "$?" = "0" ]  && echo  "INFO: ${1}" || func_die "ERROR: ${2:-${1}}"
 }
 
-function func_param_check {
+function func_param_check_die {
 	local usage="Usage: $FUNCNAME <count> <error_msg> <string> ..."
-	local desc="Desc: string counts should 'greater than' or 'equal to' expected count, otherwise print the <error_msg> and exit. Good for parameter amount check." 
+	local desc="Desc: (YOU SCRIPT HAS BUG) string counts should 'greater than' or 'equal to' expected count, otherwise print the <error_msg> and exit. Good for parameter amount check." 
 	[ $# -lt 2 ] && func_die "${desc} \n ${usage} \n"	# use -lt, so the exit status will not changed in legal condition
 	
 	local count=$1
 	local error_msg=$2
 	shift;shift;
-	#[ $# -lt ${count} ] && func_die "${error_msg}"
+	[ $# -lt ${count} ] && func_die "${error_msg}"
+}
+
+function func_param_check {
+	local usage="Usage: $FUNCNAME <count> <error_msg> <string> ..."
+	local desc="Desc: (YOU SCRIPT HAS BUG) string counts should 'greater than' or 'equal to' expected count, otherwise print the <error_msg> and exit. Good for parameter amount check." 
+	[ $# -lt 2 ] && func_die "${desc} \n ${usage} \n"	# use -lt, so the exit status will not changed in legal condition
+	
+	local count=$1
+	local error_msg=$2
+	shift;shift;
 	[ $# -lt ${count} ] && func_cry "${error_msg}"
 }
 

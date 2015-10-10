@@ -1,6 +1,6 @@
 stg_dirs = "bin conf logs webapps temp"
 
-stg_pre_script    = 'cp -R ZBOX_INS_FULLPATH/conf/* ZBOX_STG_FULLPATH/conf/; cp ZBOX_CNF/tomcat/setenv.sh ZBOX_STG_FULLPATH/bin/'
+stg_pre_script    = 'cp ZBOX_CNF/tomcat/dependencies/setenv.sh ZBOX_STG_FULLPATH/bin/; cp -R ZBOX_INS_FULLPATH/conf/* ZBOX_STG_FULLPATH/conf/; cp -R ZBOX_INS_FULLPATH/webapps/* ZBOX_STG_FULLPATH/webapps/;'
 
 stg_cmds          = "start stop status"
 stg_cmd_stop      = "CATALINA_HOME=ZBOX_INS_FULLPATH CATALINA_BASE=ZBOX_STG_FULLPATH bash ZBOX_INS_FULLPATH/bin/catalina.sh stop"

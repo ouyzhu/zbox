@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# TODO
+# 1) refactor stg naming. 4) check still any stg_tver / stg_tadd exist 
+# 5) test & verify 
+#-------
+# 5) update other stg
+# 3) add safety check and not for install/mkstg. (should every stg need a cnf file? ever dump?)
+# 6) remove comments in Line 724. 2) update "zbox list" output. 
+
 # Check Platform
 if [ "$(uname)" == "Darwin" ]; then
 	# after osx 10.6.8, "expr" is NOT installed by default
@@ -25,8 +33,8 @@ ZBOX_TMP="${ZBOX_TMP:-"${ZBOX}/tmp"}"
 ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
 
 # Constants
-ZBOX_FUNC_INS_USAGE="Usage: $FUNCNAME <tname> <tver> <tadd>" 
-ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <sname>" 
+ZBOX_FUNC_INS_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>]"
+ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>] <sname>"
 
 # Source Library
 source ${ZBOX}/zbox_lib.sh || eval "$(wget -q -O - "https://raw.github.com/ouyzhu/zbox/master/zbox_lib.sh")" || exit 1
@@ -141,7 +149,7 @@ function func_zbox_lst() {
 
 function func_zbox_cnf_extract_field() {
 	local desc="Desc: list tool helper: extract version from stg cnf file"
-	func_param_check 2 "${desc}\n${FUNCNAME} <field> <file>\n" "$@"
+	func_param_check_die 2 "${desc}\n${FUNCNAME} <field> <file>\n" "$@"
 
 	sed -n "/${1}.*=/{s/${1}\s*=\s*\(\S*\).*/\1/;s/^\"\|\"$//g;p}" "${2}"
 }
@@ -159,7 +167,7 @@ function func_zbox_lst_print_tail() {
 
 function func_zbox_lst_print_item() {
 	local desc="Desc: format the output of list"
-	func_param_check 4 "${desc}\n${FUNCNAME} <name> <version> <addtion> <ins> <stg_in_cnf> <stg_in_stg>\n" "$@"
+	func_param_check_die 4 "${desc}\n${FUNCNAME} <name> <version> <addtion> <ins> <stg_in_cnf> <stg_in_stg>\n" "$@"
 
 	#printf "| %-16s | %-13s | %-9s | %-3s | %-12s | %-12s |\n" "$@"
 	printf "|%s|%s|%s|%s|%s|%s|\n" "$@"
@@ -167,7 +175,7 @@ function func_zbox_lst_print_item() {
 
 function func_zbox_rem() {
 	local desc="Desc: remove tool (uninstall but keep downloaded source)"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	echo "INFO: remove $@ (uninstall but keep downloaded source)"
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
@@ -179,22 +187,25 @@ function func_zbox_rem() {
 
 function func_zbox_pur() {
 	local desc="Desc: purge tool (uninstall and delete downloaded source)"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	echo "INFO: purge tool (uninstall and delete downloaded source) for $@"
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local src_plfpath=$(func_zbox_gen_src_plfpath "$@")
+	local src_plfpath_to=$(readlink -f ${src_plfpath})
 	local src_realpath=$(func_zbox_gen_src_realpath "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
-	[ -e "${src_plfpath}" ] && rm -rf "${src_plfpath}"
-	[ -e "${src_realpath}" ] && rm -rf "${src_realpath}"
-	[ -e "${ins_fullpath}" ] && rm -rf ${ins_fullpath}{,_env}
+	local f=""
+	for f in "${src_plfpath}" "${src_plfpath_to}" "${src_realpath}" "${ins_fullpath}" "${ins_fullpath}_env" ; do
+		echo "INFO: deleting file: ${f}"
+		rm "${f}"
+	done
 }
 
 function func_zbox_ins() {
 	local desc="Desc: install tool"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	echo "INFO: (install) start installation for $@"
 
@@ -252,7 +263,7 @@ func_zbox_uig() {
 
 function func_zbox_use() {
 	local desc="Desc: use the tool, usually source the env variables"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local env_fullpath="$(func_zbox_gen_env_fullpath "$@")"
@@ -267,14 +278,17 @@ function func_zbox_use() {
 
 function func_zbox_stg() {
 	local desc="Desc: make a working stage, this should be the single entrance for create stage"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_stg_cnf_vars "$@")
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
-	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
+	if [ -n "${4}" ] ; then
+		local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${2}" "${3}")"
+	else
+		local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${2}")"
+	fi
 
 	func_validate_path_exist "${ins_fullpath}"
-	[ -z "${stg_tver}" ] && func_die "ERROR: (stage) 'stg_tver' must NOT be empty!"
 
 	func_zbox_stg_init_dir "$@"
 
@@ -290,13 +304,18 @@ function func_zbox_stg() {
 
 function func_zbox_stg_pre_translate() {
 	local desc="Desc: generate control scripts for stage"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_stg_cnf_vars "$@")
 	local zbox_username="$(whoami)"
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
-	local src_plfpath="$(func_zbox_gen_src_plfpath "${1}" "${stg_tver}" "${stg_tadd}")"
-	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
+	if [ -n "${4}" ] ; then
+		local src_plfpath="$(func_zbox_gen_src_plfpath "${1}" "${2}" "${3}")"
+		local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${2}" "${3}")"
+	else
+		local src_plfpath="$(func_zbox_gen_src_plfpath "${1}" "${2}")"
+		local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${2}")"
+	fi
 
 	[ -z "${stg_pre_translate}" ] && echo "INFO: stg_pre_translate var empty, skip" && return 0
 
@@ -307,7 +326,7 @@ function func_zbox_stg_pre_translate() {
 		sed -i -e "s+ZBOX_TMP+${ZBOX_TMP}+g;
 			   s+ZBOX_CNF+${ZBOX_CNF}+g;
 			   s+ZBOX_USERNAME+${zbox_username}+g;
-			   s+ZBOX_SRC_FULLPATH+${src_plfpath}+g;
+			   s+ZBOX_SRC_PLFPATH+${src_plfpath}+g;
 			   s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;
 			   s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;" "${f}"
 	done
@@ -315,7 +334,7 @@ function func_zbox_stg_pre_translate() {
 
 function func_zbox_stg_gen_ctrl_scripts() {
 	local desc="Desc: generate control scripts for stage"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_stg_cnf_vars "$@")
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
@@ -332,7 +351,7 @@ function func_zbox_stg_gen_ctrl_scripts() {
 
 function func_zbox_ins_init_dir() {
 	local desc="Desc: init directories for <tname>, currently only <tname> is necessary"
-	func_param_check 1 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 1 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	echo  "INFO: (Install) init dir for ${1}"
 	mkdir -p "${ZBOX_CNF}/${1}" "${ZBOX_SRC}/${1}" "${ZBOX_INS}/${1}" 
@@ -340,7 +359,7 @@ function func_zbox_ins_init_dir() {
 
 function func_zbox_stg_init_dir() {
 	local desc="Desc: generate a list of related configure files for stage"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
 	echo "INFO: (stage) init dir for $*"
 	eval $(func_zbox_gen_stg_cnf_vars "$@")
@@ -358,7 +377,7 @@ function func_zbox_stg_init_dir() {
 
 function func_zbox_ins_src() {
 	local desc="Desc: init source package or source code specified by 'ins_src_addr'"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local src_plfpath=$(func_zbox_gen_src_plfpath "$@")
@@ -376,7 +395,7 @@ function func_zbox_ins_src() {
 	# execute post script, NOTE: this will execute every time svn/git/hg updates
 	func_zbox_run_script "ins_src_post_script" "${src_fulldir}" "${ins_src_post_script}"
 
-	# create symboic link if the download name is not 'standard'
+	# create a "standard" naming symboic link, use ins_src_post_script if need customize
 	if [ ! -e "${src_plfpath}" ] ; then
 		func_cd "${src_fulldir}" 
 		ln -s "$(basename ${src_realpath})" "$(basename ${src_plfpath})" >> ${ZBOX_LOG} 2>&1 
@@ -386,7 +405,7 @@ function func_zbox_ins_src() {
 
 function func_zbox_ins_default() {
 	local desc="Desc: make it as the default one. In other word, create a link only have <tname> info"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
@@ -401,7 +420,7 @@ function func_zbox_ins_default() {
 
 function func_zbox_ins_dep() {
 	local desc="Desc: install dependencies (using apt-get on linux, port on osx)"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 
@@ -439,7 +458,7 @@ function func_zbox_ins_dep() {
 
 function func_zbox_ins_make() {
 	local desc="Desc: install by configure > make > make install, the typical installation"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 
@@ -492,7 +511,7 @@ function func_zbox_ins_make() {
 
 function func_zbox_use_gen_env() {
 	local desc="Desc: generate env file, some tools need export some env to use (like python)"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	# NEED support array, but not want to mess in "ins" file
 	declare -A use_env_alias_array
@@ -520,7 +539,7 @@ function func_zbox_use_gen_env() {
 
 function func_zbox_ins_copyucd() {
 	local desc="Desc: install by copy stuff in ucd, usually for those need copy after 'make', which not need to use 'configure --prefix'"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
@@ -538,29 +557,31 @@ function func_zbox_ins_copyucd() {
 
 function func_zbox_ins_copy() {
 	local desc="Desc: install by copy, this means only need to copy the source package to 'ins' dir"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
-	local src_realpath=$(func_zbox_gen_src_realpath "$@")
+	local src_plfpath=$(func_zbox_gen_src_plfpath "$@")
+	local src_plfpath_to=$(readlink -f ${src_plfpath})
+	#local src_realpath=$(func_zbox_gen_src_realpath "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
-	echo "INFO: (install) copy source, from: ${src_realpath} to: ${ins_fullpath}"
+	echo "INFO: (install) copy source, from: ${src_plfpath_to} to: ${ins_fullpath}"
 	func_validate_path_inexist "${ins_fullpath}"
-	func_validate_path_exist "${src_realpath}"
+	func_validate_path_exist "${src_plfpath_to}"
 	func_mkdir "${ins_fullpath}" 
 	
-	if [ "$(basename "${src_realpath}")" == "$(basename "${ins_fullpath}")" ] ; then
+	if [ "$(basename "${src_plfpath_to}")" == "$(basename "${ins_fullpath}")" ] ; then
 		# copy content to avoid duplated same dir name in path
-		cp -R "${src_realpath}"/* "${ins_fullpath}"
-		cp -R "${src_realpath}"/.* "${ins_fullpath}"
+		cp -R "${src_plfpath_to}"/* "${ins_fullpath}"
+		cp -R "${src_plfpath_to}"/.* "${ins_fullpath}"
 	else
-		cp -R "${src_realpath}" "${ins_fullpath}"
+		cp -R "${src_plfpath_to}" "${ins_fullpath}"
 	fi
 }
 
 function func_zbox_ins_move() {
 	local desc="Desc: install by move, this means only need to move the uncompressed dir to 'ins' dir"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
@@ -577,7 +598,7 @@ function func_zbox_ins_move() {
 
 function func_zbox_ins_ucd() {
 	local desc="Desc: uncompress the source package"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local src_plfpath="$(func_zbox_gen_src_plfpath "$@")"
@@ -592,48 +613,49 @@ function func_zbox_ins_ucd() {
 
 function func_zbox_gen_uname() {
 	local desc="Desc: generate the unique tool name"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	[ -n "${3}" ] && echo "${1}-${2}-${3}" || echo "${1}-${2}"
 }
 
 function func_zbox_gen_usname() {
 	local desc="Desc: generate the unique stage name of the tool"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
-	echo "${1}-${2}"
+	local tmp_name="${1}-${2}-${3}"
+	[ -n "${4}" ] && echo "${tmp_name}-${4}" || echo "${tmp_name}"
 }
 
 function func_zbox_gen_env_fullpath() {
 	local desc="Desc: generate full path of the tool's env file"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	echo "$(func_zbox_gen_ins_fullpath "$@")_env"
 }
 
 function func_zbox_gen_ins_fullpath() {
 	local desc="Desc: generate full path of the tool's installation"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	echo "${ZBOX_INS}/${1}/$(func_zbox_gen_uname "$@")"
 }
 
 function func_zbox_gen_ins_fullpath_default() {
 	local desc="Desc: generate full path of default executable, which is a symbloic link"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	echo "${ZBOX_INS}/${1}/${1}"
 }
 
 function func_zbox_gen_src_plfpath() {
 	local desc="Desc: generate platform dependent path of source package/code, which contains platform prefix (ZBOX_PLF_PREFIX) in filename"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 	echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "$@")"
 }
 
 function func_zbox_gen_src_realpath() {
 	local desc="Desc: generate real path of source package/code, only conatins uname, tver, tadd info"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	case "${2}" in
 		svn|hg|git)	
@@ -651,7 +673,7 @@ function func_zbox_gen_src_realpath() {
 # TODO: deprecate this, should use "func_zbox_gen_src_plfpath" instead
 #function func_zbox_gen_src_fullpath() {
 #	local desc="Desc: generate full path of source package/code"
-#	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+#	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 #
 #	if [ "${ins_gen_src_fullpath}" = "only_tname_tver" ] ; then
 #		#echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "${1}" "${2}")"
@@ -664,7 +686,7 @@ function func_zbox_gen_src_realpath() {
 
 function func_zbox_gen_ucd_fullpath() {
 	local desc="Desc: generate full path of the uncompressed source packages"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	if echo "${2}" | grep -q '^\(svn\|hg\|git\)$' ; then
 		# obviously, no ucd there, just use the source path
@@ -676,76 +698,105 @@ function func_zbox_gen_ucd_fullpath() {
 
 function func_zbox_gen_stg_fullpath() {
 	local desc="Desc: generate full path of the stage"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
 	echo "${ZBOX_STG}/${1}/$(func_zbox_gen_usname "$@")"
 }
 
 function func_zbox_gen_stg_cnf_files() {
 	local desc="Desc: generate a list of related configure files for stage"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 	
-	local stg_default=${ZBOX_CNF}/${1}/stg 
-	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_stg_default=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}stg 
+	local stg=${ZBOX_CNF}/${1}/stg 
+	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_stg=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}stg 
 
-	local stg_version=${ZBOX_CNF}/${1}/stg-${2}
-	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_stg_version=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}stg-${2}
+	local stg_tver=${ZBOX_CNF}/${1}/stg-${2}
+	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_stg_tver=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}stg-${2}
 
-	echo "${stg_default} ${plf_stg_default} ${stg_version} ${plf_stg_version}"
+	if [ -n "${4}" ] ; then
+		local stg_tver_tadd=${ZBOX_CNF}/${1}/stg-${2}-${3}
+		[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_stg_tver_tadd=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}stg-${2}-${3}
+		local stg_tver_tadd_sname=${ZBOX_CNF}/${1}/stg-${2}-${3}-${4}
+		[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_stg_tver_tadd_sname=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}stg-${2}-${3}-${4}
+	else
+		local stg_tver_tadd_sname=${ZBOX_CNF}/${1}/stg-${2}-${3}
+		[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_stg_tver_tadd_sname=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}stg-${2}-${3}
+	fi
+
+	echo "${stg} ${plf_stg} ${stg_tver} ${plf_stg_tver} ${stg_tver_tadd} ${plf_stg_tver_tadd} ${stg_tver_tadd_sname} ${plf_stg_tver_tadd_sname}"
 }
 
 function func_zbox_gen_stg_cnf_vars() {
 	local desc="Desc: generate a list of related configure variables for stage, with ZBOX varibles substituted"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
 
-	# TODO: need eval twice to get ZBOX var substituted, since need to get "${stg_tver}" "${stg_tadd}" first. Any better way?
-	eval $(func_zbox_gen_stg_cnf_vars_raw "$@")
-	local src_plfpath="$(func_zbox_gen_src_plfpath "$@")"
+	# TODO: deprecated this after update naming of stg (2015-10)
+	## TODO: need eval twice to get ZBOX var substituted, since need to get "${stg_tver}" "${stg_tadd}" first. Any better way?
+	## UPDATE: should NOT need parse twice after update naming of stg
+	##eval $(func_zbox_gen_stg_cnf_vars_raw "$@")
+
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
-	local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${stg_tver}" "${stg_tadd}")"
+	if [ -n "${4}" ] ; then
+		local src_plfpath="$(func_zbox_gen_src_plfpath "${1}" "${2}" "${3}")"
+		local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${2}" "${3}")"
+	else
+		local src_plfpath="$(func_zbox_gen_src_plfpath "${1}" "${2}")"
+		local ins_fullpath="$(func_zbox_gen_ins_fullpath "${1}" "${2}")"
+	fi
 
-	func_zbox_gen_stg_cnf_vars_raw "$@"		|\
-	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
-		s+ZBOX_CNF+${ZBOX_CNF}+g;
-		s+ZBOX_STG_TVER+${stg_tver}+g;
-		s+ZBOX_SRC_FULLPATH+${src_plfpath}+g;
-		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;
-		s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;"
-}
+	# TODO: deprecated this after update naming of stg (2015-10)
+	#func_zbox_gen_stg_cnf_vars_raw "$@"		|\
 
-function func_zbox_gen_stg_cnf_vars_raw() {
-	local desc="Desc: generate a list of related configure variables for stage, with ZBOX varibles NOT substituted"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
-	
 	local cnfs=$(func_zbox_gen_stg_cnf_files "$@")
-
 	cat ${cnfs} 2>> ${ZBOX_LOG}						|\
 	sed -e 	"/^\s*#/d;
 		/^\s*$/d;
 		s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
-		s/^/local /"
+		s/^/local /"							|\
+	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
+		s+ZBOX_CNF+${ZBOX_CNF}+g;
+		s+ZBOX_STG_TVER+${2}+g;
+		s+ZBOX_PLF+${ZBOX_PLF}+g;
+		s+ZBOX_PLF_PREFIX+${ZBOX_PLF_PREFIX}+g;
+		s+ZBOX_SRC_PLFPATH+${src_plfpath}+g;
+		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;
+		s+ZBOX_STG_FULLPATH+${stg_fullpath}+g;"
 }
+
+# TODO: deprecated this after update naming of stg (2015-10)
+#function func_zbox_gen_stg_cnf_vars_raw() {
+#	local desc="Desc: generate a list of related configure variables for stage, with ZBOX varibles NOT substituted"
+#	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+#	
+#	local cnfs=$(func_zbox_gen_stg_cnf_files "$@")
+#
+#	cat ${cnfs} 2>> ${ZBOX_LOG}						|\
+#	sed -e 	"/^\s*#/d;
+#		/^\s*$/d;
+#		s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
+#		s/^/local /"
+#}
 
 function func_zbox_gen_ins_cnf_files() {
 	local desc="Desc: generate a list of related configure files for installation"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 	
-	local ins_default=${ZBOX_CNF}/${1}/ins 
-	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_ins_default=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}ins
+	local ins=${ZBOX_CNF}/${1}/ins 
+	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_ins=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}ins
 
-	local ins_version=${ZBOX_CNF}/${1}/ins-${2}
-	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_ins_version=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}ins-${2}
+	local ins_tver=${ZBOX_CNF}/${1}/ins-${2}
+	[ -n "${ZBOX_PLF_PREFIX}" ] && local plf_ins_tver=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}ins-${2}
 
-	[ -n "${3}" ] && local ins_addition=${ZBOX_CNF}/${1}/ins-${2}-${3}
-	[ -n "${3}" ] && [ -n "${ZBOX_PLF_PREFIX}" ] && local plf_ins_addition=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}ins-${2}-${3}
+	[ -n "${3}" ] && local ins_tver_tadd=${ZBOX_CNF}/${1}/ins-${2}-${3}
+	[ -n "${3}" ] && [ -n "${ZBOX_PLF_PREFIX}" ] && local plf_ins_tver_tadd=${ZBOX_CNF}/${1}/${ZBOX_PLF_PREFIX}ins-${2}-${3}
 
 	# Note the precedence
-	echo "${ins_default} ${plf_ins_default} ${ins_version} ${plf_ins_version} ${ins_addition} ${plf_ins_addition}"
+	echo "${ins} ${plf_ins} ${ins_tver} ${plf_ins_tver} ${ins_tver_tadd} ${plf_ins_tver_tadd}"
 }
 
 function func_zbox_gen_ins_cnf_vars() {
 	local desc="Desc: 1) generate variable list for functions to source. 2) replace any zbox predefined variales. 3) all variables are prefixed with 'local'"
-	func_param_check 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 	
 	local cnfs=$(func_zbox_gen_ins_cnf_files "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
@@ -761,8 +812,10 @@ function func_zbox_gen_ins_cnf_vars() {
 		s/^/local /"							|\
 	sed -e	"s+ZBOX_TMP+${ZBOX_TMP}+g;
 	        s+ZBOX_TVER+${2}+g;
+		s+ZBOX_PLF+${ZBOX_PLF}+g;
+		s+ZBOX_PLF_PREFIX+${ZBOX_PLF_PREFIX}+g;
 		s+ZBOX_SRC_FULLDIR+${src_fulldir}+g;
-		s+ZBOX_SRC_FULLPATH+${src_plfpath}+g;
+		s+ZBOX_SRC_PLFPATH+${src_plfpath}+g;
 		s+ZBOX_UCD_FULLPATH+${ucd_fullpath}+g;
 		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;" 
 }

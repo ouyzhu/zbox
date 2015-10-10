@@ -1,4 +1,5 @@
 ins_src_addr    = http://mirrors.jenkins-ci.org/war/1.563/jenkins.war
 
-# since file name in url not have version info, need correct this, and also need create the formal link here
-ins_src_post_script = "mv ZBOX_SRC_FULLDIR/jenkins.war ZBOX_SRC_FULLDIR/jenkins-ZBOX_TVER.war; ln -s ZBOX_SRC_FULLDIR/jenkins-ZBOX_TVER.war ZBOX_SRC_FULLPATH"
+# since file name in url have no version info, need "make" correct file, and create formal link here
+#ins_src_post_script = "mv ZBOX_SRC_FULLDIR/jenkins.war ZBOX_SRC_FULLDIR/jenkins-ZBOX_TVER.war; ln -s ZBOX_SRC_FULLDIR/jenkins-ZBOX_TVER.war ZBOX_SRC_PLFPATH"
+ins_src_post_script = "mv jenkins.war jenkins-ZBOX_TVER.war; ln -s jenkins-ZBOX_TVER.war ZBOX_PLF_jenkins-ZBOX_TVER"
