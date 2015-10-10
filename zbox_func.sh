@@ -1,13 +1,5 @@
 #!/bin/bash
 
-# TODO
-# 1) refactor stg naming. 4) check still any stg_tver / stg_tadd exist 
-# 5) test & verify 
-#-------
-# 5) update other stg
-# 3) add safety check and not for install/mkstg. (should every stg need a cnf file? ever dump?)
-# 6) remove comments in Line 724. 2) update "zbox list" output. 
-
 # Check Platform
 if [ "$(uname)" == "Darwin" ]; then
 	# after osx 10.6.8, "expr" is NOT installed by default
@@ -74,86 +66,58 @@ function func_zbox() {
 function func_zbox_lst() {
 	local desc="Desc: list tool status"
 
-	local tool_line_count=0
+	local output_line_count=0
 	func_zbox_lst_print_head
 	pushd "${ZBOX_CNF}" > /dev/null
 
-	for tool in * ; do 
+	local tname=""
+	for tname in * ; do 
 
-		# TODO: better fuzzy matching
 		# only show those specified tools, otherwise all
-		#[ -n "$*" ] && !(echo "$*" | grep -q "${tool}") && continue	# works, strict match, not user friendly, not efficent since using pipe
-		[ -n "$*" ] && [[ "$*" != *${tool}* ]] && continue		# works, strict match, not user friendly
+		#[ -n "$*" ] && !(echo "$*" | grep -q "${tname}") && continue	# works, strict match
+		#[ -n "$*" ] && [[ "$*" != *${tname}* ]] && continue		# works, strict match
+		[ -n "$*" ] && !(echo "${tname}" | grep -q "$*") && continue	# works, fuzzy match
 
-		pushd "${tool}" > /dev/null
+		local file=""
+		pushd "${tname}" > /dev/null
 		for file in *ins-* ; do 
 
 			# insert head block for better reading
-			tool_line_count=$((${tool_line_count}+1)) && ((${tool_line_count}%15==0)) && func_zbox_lst_print_head
+			output_line_count=$((${output_line_count}+1)) && ((${output_line_count}%15==0)) && func_zbox_lst_print_head
 
-			# extract info: version/addtion
-			local va=${file#*ins-}
-			local version=${va%-*}
-			#local addition=${va#${version}-} # NOT work, will equal version if there is no addition
-			local addition=$(echo ${va} | sed -e "s/[^-]*//;s/^-//")
+			# extract info: tver/tadd
+			local tveradd=${file#*ins-}
+			local tver=${tveradd%-*}
+			#local tadd=${tveradd#${tver}-} # NOT work, will equal tver if there is no tadd
+			local tadd=$(echo ${tveradd} | sed -e "s/[^-]*//;s/^-//")
 
 			# check if already installed
-			local ins_fullpath=$(func_zbox_gen_ins_fullpath "${tool}" "${version}" "${addition}")
+			local ins_fullpath=$(func_zbox_gen_ins_fullpath "${tname}" "${tver}" "${tadd}")
 			local ins=$([ -e "${ins_fullpath}" ] && echo ' Y' || echo ' N')
 
-			# check if able to mkstg, and list all of them
+			# check stg in cnf
+			local tmpname=""
 			local stg_in_cnf=""
+			for tmpname in $(\ls ${ZBOX_CNF}/${tname}/ | grep "stg-${tveradd}-[^-]*$") ; do
+				local stg_in_cnf="${tmpname##*-},${stg_in_cnf}"
+			done
+
+			# check stg in stg
+			local tmpname=""
 			local stg_in_stg=""
-			if [ -e "stg" ] ; then
-				local stg_tver=""
-				local stg_tadd=""
-				local stg_name=""
-				for stg_cnf_file in stg-* ; do 
-					# check if stg using this version and addtion
-					stg_tver=$(func_zbox_cnf_extract_field "stg_tver" "${stg_cnf_file}")
-					stg_tadd=$(func_zbox_cnf_extract_field "stg_tadd" "${stg_cnf_file}")
-					[[ "${stg_tver}" == "${version}" ]] || continue
-					[[ "${stg_tadd}" == "${addition}" ]] || continue
+			for tmpname in $(\ls ${ZBOX_STG}/${tname}/ | grep "${tname}-${tveradd}-[^-]*$") ; do
+				local stg_in_stg="${tmpname##*-},${stg_in_stg}"
+			done
 
-					# add to cnf list
-					stg_name=${stg_cnf_file##*-}
-					local stg_in_cnf="${stg_name},${stg_in_cnf}"
-
-					# add to stg list
-					if [ -e "${ZBOX_STG}/${tool}/${tool}-${stg_name}" ] ; then
-						local stg_in_stg="${stg_name},${stg_in_stg}"
-					fi
-				done
-			fi
-			
-			# check if already mkstg
-			#local stg_in_stg=""
-			#if [ -e "${ZBOX_STG}/${tool}" ] ; then
-			#	pushd "${ZBOX_STG}/${tool}" > /dev/null
-			#	#for stg_dir in $(find . -maxdepth 1 -name "${tool}-*") ; do 
-			#	for stg_dir in ${tool}-* ; do 
-			#		local stg_in_stg="${stg_dir##*-},${stg_in_stg}"
-			#	done
-			#	popd > /dev/null
-			#fi
-
-			func_zbox_lst_print_item "${tool:-N/A}" "${version:-N/A}" "${addition:-N/A}" "${ins:-N/A}" "${stg_in_cnf:-N/A}" "${stg_in_stg:-N/A}"
+			func_zbox_lst_print_item "${tname:-N/A}" "${tver:-N/A}" "${tadd:-N/A}" "${ins:-N/A}" "${stg_in_cnf:-N/A}" "${stg_in_stg:-N/A}"
 		done 
 		popd > /dev/null
 	done
 
 	popd > /dev/null
 	func_zbox_lst_print_tail
-	echo "${tool_line_count} tool lines."
+	echo "${output_line_count} tool lines."
 }
-
-function func_zbox_cnf_extract_field() {
-	local desc="Desc: list tool helper: extract version from stg cnf file"
-	func_param_check_die 2 "${desc}\n${FUNCNAME} <field> <file>\n" "$@"
-
-	sed -n "/${1}.*=/{s/${1}\s*=\s*\(\S*\).*/\1/;s/^\"\|\"$//g;p}" "${2}"
-}
-
 
 function func_zbox_lst_print_head() {
 	echo "|----|-------|--------|---|----------|----------|"
@@ -562,7 +526,6 @@ function func_zbox_ins_copy() {
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local src_plfpath=$(func_zbox_gen_src_plfpath "$@")
 	local src_plfpath_to=$(readlink -f ${src_plfpath})
-	#local src_realpath=$(func_zbox_gen_src_realpath "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
 	echo "INFO: (install) copy source, from: ${src_plfpath_to} to: ${ins_fullpath}"
@@ -670,20 +633,6 @@ function func_zbox_gen_src_realpath() {
 	esac
 }
 
-# TODO: deprecate this, should use "func_zbox_gen_src_plfpath" instead
-#function func_zbox_gen_src_fullpath() {
-#	local desc="Desc: generate full path of source package/code"
-#	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
-#
-#	if [ "${ins_gen_src_fullpath}" = "only_tname_tver" ] ; then
-#		#echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "${1}" "${2}")"
-#		echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "${1}" "${2}")"
-#	else
-#		#echo "${ZBOX_SRC}/${1}/${ZBOX_PLF_PREFIX}$(func_zbox_gen_uname "$@")"
-#		echo "${ZBOX_SRC}/${1}/$(func_zbox_gen_uname "$@")"
-#	fi
-#}
-
 function func_zbox_gen_ucd_fullpath() {
 	local desc="Desc: generate full path of the uncompressed source packages"
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
@@ -729,11 +678,6 @@ function func_zbox_gen_stg_cnf_files() {
 function func_zbox_gen_stg_cnf_vars() {
 	local desc="Desc: generate a list of related configure variables for stage, with ZBOX varibles substituted"
 	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_STG_USAGE} \n" "$@"
-
-	# TODO: deprecated this after update naming of stg (2015-10)
-	## TODO: need eval twice to get ZBOX var substituted, since need to get "${stg_tver}" "${stg_tadd}" first. Any better way?
-	## UPDATE: should NOT need parse twice after update naming of stg
-	##eval $(func_zbox_gen_stg_cnf_vars_raw "$@")
 
 	local stg_fullpath="$(func_zbox_gen_stg_fullpath "$@")"
 	if [ -n "${4}" ] ; then
