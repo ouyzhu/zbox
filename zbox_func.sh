@@ -15,8 +15,13 @@ else
 	exit 1
 fi
 
+# Get zbox base dir
+ZBOX_FUNC_PATH="${BASH_SOURCE[0]}"
+echo "${ZBOX_FUNC_PATH}" | grep -q '.*zbox_func.sh$' || func_cry "ERROR: pls put zbox_func.sh as last parameter in source list!"
+ZBOX_BASE="$(readlink -f $(dirname ${ZBOX_FUNC_PATH}))"
+
 # Global Variables
-ZBOX="${ZBOX:="${HOME}/.zbox"}"
+ZBOX="${ZBOX:="${ZBOX_BASE}"}"
 ZBOX_CNF="${ZBOX_CNF:-"${ZBOX}/cnf"}"
 ZBOX_INS="${ZBOX_INS:-"${ZBOX}/ins"}"
 ZBOX_SRC="${ZBOX_SRC:-"${ZBOX}/src"}"
@@ -76,7 +81,7 @@ function func_zbox_lst() {
 		# only show those specified tools, otherwise all
 		#[ -n "$*" ] && !(echo "$*" | grep -q "${tname}") && continue	# works, strict match
 		#[ -n "$*" ] && [[ "$*" != *${tname}* ]] && continue		# works, strict match
-		[ -n "$*" ] && !(echo "${tname}" | grep -q "$*") && continue	# works, fuzzy match
+		[ -n "$*" ] && !(echo "${tname}" | grep -q "${1}") && continue	# works, fuzzy match
 
 		local file=""
 		pushd "${tname}" > /dev/null
