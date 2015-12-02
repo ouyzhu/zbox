@@ -110,6 +110,7 @@ function func_zbox_lst() {
 			for tmpname in $(\ls ${ZBOX_CNF}/${tname}/ 2> /dev/null | grep "stg-${tveradd}-[^-]*$") ; do
 				local stg_in_cnf="${tmpname##*-},${stg_in_cnf}"
 			done
+			[ -z "${stg_in_cnf}" ] && [ -f "${ZBOX_CNF}/${tname}/stg" ] && stg_in_cnf="(default)"
 
 			# check stg in stg
 			local tmpname=""
