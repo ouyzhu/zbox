@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# TODO: support for global use
+#	status: dirty tried on 188: 1) chown every thing to root:root. 2) chmod every thing to 777 (some dir like tmp, data, need this even use "sudo start.sh"). 3) chmod 744 for mysql in stg ./conf/my.cnf (since 777 will be ignored). 4) use "sudo bash start.sh". 5) "sudo bash status.sh" need wait 20 seconds after start, otherwise might fail to detect mysql process
+#	chanllege : 1) can not su as root, just use sudo. 2) can not create user.
+
 # Check Platform
 if [ "$(uname)" == "Darwin" ]; then
 	# after osx 10.6.8, "expr" is NOT installed by default
@@ -103,14 +107,14 @@ function func_zbox_lst() {
 			# check stg in cnf
 			local tmpname=""
 			local stg_in_cnf=""
-			for tmpname in $(\ls ${ZBOX_CNF}/${tname}/ | grep "stg-${tveradd}-[^-]*$") ; do
+			for tmpname in $(\ls ${ZBOX_CNF}/${tname}/ 2> /dev/null | grep "stg-${tveradd}-[^-]*$") ; do
 				local stg_in_cnf="${tmpname##*-},${stg_in_cnf}"
 			done
 
 			# check stg in stg
 			local tmpname=""
 			local stg_in_stg=""
-			for tmpname in $(\ls ${ZBOX_STG}/${tname}/ | grep "${tname}-${tveradd}-[^-]*$") ; do
+			for tmpname in $(\ls ${ZBOX_STG}/${tname}/ 2> /dev/null | grep "${tname}-${tveradd}-[^-]*$") ; do
 				local stg_in_stg="${tmpname##*-},${stg_in_stg}"
 			done
 
