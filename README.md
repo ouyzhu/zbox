@@ -12,12 +12,12 @@ Zbox is an install tool like homebrew, apt-get, with some difference:
 - only based on bash, better portability (homebrew needs ruby)
 - support Linux and OSX (note: need apt-get/macports for dependency)
 
-Zbox是一个开发软件安装工具，类似homebrew，apt-get等。但有自己的一些特点：
-- 完全在用户空间/权限下，“安装”完全绿色（注意：部分软件仍需要系统级依赖）
+Zbox是一个开发软件安装工具，类似homebrew，apt-get。但有自己的特点：
+- 完全在用户空间/权限下，“安装”绿色（部分软件仍需要系统级依赖）
 - 支持安装同一软件的多个版本，一条命令切换使用版本
-- 除可以安装软件外，还支持建立工作空间，“工作空间”也完全绿色，支持多个独立工作空间
+- 支持建立工作空间，“工作空间”也完全绿色，支持多个独立工作空间
 - 完全基于Bash，对了环境最小依赖（homebrew基于ruby）
-- 支持Linux和OSX（注意：安装系统级依赖时需要使用apt-get/macports）
+- 支持Linux和OSX（注意：安装系统级依赖时需要使用apt-get/macports)
 
 ### Status
 - Still under developing. Lots need to add.
@@ -93,9 +93,9 @@ Add content
 | tver   | tool version       | tool version                                                                                                    |
 | tadd   | tool addition info | addition info of tool, useful when need diff build/installation for same version                                |
 | tname  | tool name          | name of the tool, without any version info. E.g. vim, ruby, etc.                                                |
-| uname  | unique name        | the unique tool name: <tname>-<tver>, or <tname>-<tver>-<tadd> if tadd not empty                                |
+| uname  | unique name        | the unique tool name: <tname>-<tver>, or <tname>-<tver>-<tadd> if <tadd> not empty                              |
 | sname  | stage name         | stage name, a name for the working area                                                                         |
-| usname | unique stage name  | the unique stage name: <tname>-<tver>-<sname>                                                                   |
+| usname | unique stage name  | the unique stage name: <tname>-<tver>-<sname>, or <tname>-<tver>-<tadd>-<sname> if <tadd> not empty             |
 
 ### Command list
 

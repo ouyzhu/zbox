@@ -1,0 +1,2 @@
+# for --with-python-config-dir, the path should contains config.c, also no '/' at the end of the path which cause problems!
+ins_make_configure_opts = "--with-features=huge --enable-pythoninterp --enable-rubyinterp --with-python-config-dir=/Users/ouyangzhu/.zbox/ins/python/python-2.7.10/lib/python2.7/config"
