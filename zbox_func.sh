@@ -37,6 +37,10 @@ ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
 ZBOX_FUNC_INS_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>]"
 ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>] <sname>"
 
+# tname alias, for better listing
+declare -A tname_alias
+tname_alias["java"]="jdk"
+
 # Source Library
 source ${ZBOX}/zbox_lib.sh || eval "$(wget -q -O - "https://raw.github.com/ouyzhu/zbox/master/zbox_lib.sh")" || exit 1
 
@@ -75,17 +79,20 @@ function func_zbox() {
 function func_zbox_lst() {
 	local desc="Desc: list tool status"
 
-	local output_line_count=0
-	func_zbox_lst_print_head
-	pushd "${ZBOX_CNF}" > /dev/null
-
 	local tname=""
+	local target_tname="$*"
+	local output_line_count=0
+	pushd "${ZBOX_CNF}" > /dev/null
+	local target_tname_alias="${tname_alias[$target_tname]}"
+	[ -n "${target_tname_alias}" ] && target_tname="${target_tname_alias}"
+
+	func_zbox_lst_print_head
 	for tname in * ; do 
 
 		# only show those specified tools, otherwise all
-		#[ -n "$*" ] && !(echo "$*" | grep -q "${tname}") && continue	# works, strict match
-		#[ -n "$*" ] && [[ "$*" != *${tname}* ]] && continue		# works, strict match
-		[ -n "$*" ] && !(echo "${tname}" | grep -q "${1}") && continue	# works, fuzzy match
+		#[ -n "$*" ] && !(echo "$*" | grep -q "${tname}") && continue				# works, strict match
+		#[ -n "$*" ] && [[ "$*" != *${tname}* ]] && continue					# works, strict match
+		[ -n "${target_tname}" ] && !(echo "${tname}" | grep -q "${target_tname}") && continue	# works, fuzzy match
 
 		local file=""
 		pushd "${tname}" > /dev/null
@@ -126,6 +133,8 @@ function func_zbox_lst() {
 
 	popd > /dev/null
 	func_zbox_lst_print_tail
+
+	#[ -n "${target_tname_alias}" ] && local addition_echo_info="($* is aliased to ${target_tname})"	# cause 1st column too long
 	echo "${output_line_count} tool lines."
 }
 
