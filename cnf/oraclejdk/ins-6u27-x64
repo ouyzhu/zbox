@@ -1,2 +1,3 @@
 # Offical OracleJDK need install, but seems unpack also works, so create a fake zip file, so won't really download
 ins_src_addr = http://not_exist_url.fake_url.com.cxx/oraclejdk-6u27-x64.zip
+ins_plf      = "linux"

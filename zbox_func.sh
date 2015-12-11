@@ -4,14 +4,22 @@
 #	status: dirty tried on 188: 1) chown every thing to root:root. 2) chmod every thing to 777 (some dir like tmp, data, need this even use "sudo start.sh"). 3) chmod 744 for mysql in stg ./conf/my.cnf (since 777 will be ignored). 4) use "sudo bash start.sh". 5) "sudo bash status.sh" need wait 20 seconds after start, otherwise might fail to detect mysql process
 #	chanllege : 1) can not su as root, just use sudo. 2) can not create user.
 
+
+# Constants
+ZBOX_PLF_OSX="osx"
+ZBOX_PLF_LINUX="linux"
+ZBOX_PLF_UNKNOWN="unknown"
+ZBOX_FUNC_INS_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>]"
+ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>] <sname>"
+
 # Check Platform
 if [ "$(uname)" == "Darwin" ]; then
 	# after osx 10.6.8, "expr" is NOT installed by default
-	ZBOX_PLF="osx"
-	ZBOX_PLF_PREFIX="osx_"
+	ZBOX_PLF="${ZBOX_PLF_OSX}"
+	ZBOX_PLF_PREFIX="${ZBOX_PLF_OSX}_"
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
-	# the default platform where zbox borned
-	ZBOX_PLF=""
+	ZBOX_PLF="${ZBOX_PLF_LINUX}"
+	# empty prefix for linux (default) platform where zbox borned
 	ZBOX_PLF_PREFIX=""
 else
 	# NOT support other platform yet
@@ -32,10 +40,6 @@ ZBOX_SRC="${ZBOX_SRC:-"${ZBOX}/src"}"
 ZBOX_STG="${ZBOX_STG:-"${ZBOX}/stg"}"
 ZBOX_TMP="${ZBOX_TMP:-"${ZBOX}/tmp"}"
 ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
-
-# Constants
-ZBOX_FUNC_INS_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>]"
-ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>] <sname>"
 
 # tname alias, for better listing
 declare -A tname_alias
@@ -97,6 +101,11 @@ function func_zbox_lst() {
 		local file=""
 		pushd "${tname}" > /dev/null
 		for file in *ins-* ; do 
+
+			# check if current platform supported, note the regex will not care those commented lines
+			if grep -q "^[[:space:]]*ins_plf.*=" "${file}" ; then
+				grep -v -q "^[[:space:]]*ins_plf.*=.*${ZBOX_PLF}" "${file}" && continue
+			fi
 
 			# insert head block for better reading
 			output_line_count=$((${output_line_count}+1)) && ((${output_line_count}%15==0)) && func_zbox_lst_print_head
@@ -191,9 +200,11 @@ function func_zbox_ins() {
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	echo "INFO: (install) start installation for $@"
-
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
+
+	# pre check and init
+	func_zbox_ins_plf_check "${ins_plf:-$ZBOX_PLF_UNKNOWN}"
 	func_zbox_ins_init_dir "$1"
 
 	# execute pre script
@@ -235,6 +246,19 @@ function func_zbox_ins() {
 			#func_die "ERROR: (install) verify installation failed!"
 		fi
 	fi
+}
+
+func_zbox_ins_plf_check() {
+	local desc="Desc: check platform requirement"
+	func_param_check_die 1 "${desc}\nUsage: $FUNCNAME <ins_plf> \n" "$@"
+
+	echo "INFO: (install) check platform requirement, current platform: ${ZBOX_PLF}, expect: ${1}"
+
+	# ins_plf unknown, just skip
+	[ "${1}" = "${ZBOX_PLF_UNKNOWN}" ] && echo "INFO: (install) platform requirement (ins_plf) unknown, just skip" && return
+
+	# otherwise check if platform supported
+	echo "${1}" | grep -q "${ZBOX_PLF}" || func_die "ERROR: (install) platform NOT supported!"
 }
 
 func_zbox_uig() {
@@ -408,7 +432,7 @@ function func_zbox_ins_dep() {
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 
 	# dep of linux platform
-	if [ -z "${ZBOX_PLF}" ] ; then
+	if [ -z "${ZBOX_PLF}" = "${ZBOX_PLF_LINUX}" ] ; then
 		if [ -n "${ins_dep_apt_install}" ] ; then
 			echo "INFO: (install) dependencies: sudo apt-get install -y ${ins_dep_apt_install}"
 			sudo apt-get install -y ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
@@ -422,7 +446,7 @@ function func_zbox_ins_dep() {
 
 
 	# dep of osx platform
-	if [ -n "${ins_dep_port_install}" ] && [ "${ZBOX_PLF}" = "osx" ] ; then
+	if [ -n "${ins_dep_port_install}" ] && [ "${ZBOX_PLF}" = "${ZBOX_PLF_OSX}" ] ; then
 		echo "INFO: (install) dependencies: sudo port install ${ins_dep_port_install}"
 		sudo port install ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
 	fi
