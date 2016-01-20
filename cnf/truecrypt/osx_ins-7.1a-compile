@@ -24,7 +24,7 @@
 #	# Check: should gets "TrueCrypt 7.1a"
 #	Main/TrueCrypt --version
 
-ins_steps               = "src ucd make"
+ins_steps               = "src ucd dep make"
 ins_src_addr            = "https://fake_address_as_truecrypt_stopped_dev_7.1a_is_the_last_ver"
 
 ins_dep_port_install	= "wxWidgets-3.0 osxfuse wget pkgconfig nasm"

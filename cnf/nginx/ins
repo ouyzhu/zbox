@@ -1,11 +1,3 @@
 ins_steps		= "src ucd dep make"
 ins_make_steps		= "configure make install"
 ins_verify		= "ZBOX_INS_FULLPATH/sbin/nginx -v 2>&1 | grep '^nginx version' &> /dev/null"
-
-ins_dep_apt_install	= "build-essential libpcre3 libpcre3-dev zlib1g zlib1g-dev libssl-dev"
-
-			# almost all modules: --with-http_ssl_module --with-http_realip_module --with-http_addition_module --with-http_xslt_module --with-http_image_filter_module --with-http_geoip_module --with-http_sub_module --with-http_dav_module --with-http_flv_module --with-http_mp4_module --with-http_gzip_static_module --with-http_random_index_module --with-http_secure_link_module --with-http_stub_status_module --with-http_perl_module --with-http_degradation_module
-			# as mail server: --with-mail --with-mail_ssl_module
-ins_make_configure_opts	= "--prefix=ZBOX_INS_FULLPATH --with-http_ssl_module --with-http_realip_module --with-file-aio"
-
-

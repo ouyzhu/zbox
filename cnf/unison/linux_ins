@@ -1,0 +1,9 @@
+﻿ins_steps		= "src ucd dep make copyucd"
+ins_verify		= "ZBOX_INS_FULLPATH/unison -version 2>&1 | grep '^unison version' &> /dev/null"
+ins_copyucd_filter	= "unison"
+
+ins_make_steps		= "make"
+ins_make_make_opts	= "UISTYLE=text"
+
+use_env      		= 'UNISON_HOME=ZBOX_INS_FULLPATH PATH=${UNISON_HOME}:${PATH} '
+

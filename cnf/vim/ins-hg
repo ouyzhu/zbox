@@ -4,13 +4,6 @@ ins_src_addr            = https://vim.googlecode.com/hg/
 ins_make_steps          = "clean configure make install"
 ins_make_clean_cmd      = "clean distclean"
 
-ins_dep_apt_install     = "libgtk2.0-dev libx11-dev xorg-dev python-dev ruby-dev libncurses5-dev libtinfo-dev "
-                        # "libgtk2.0-dev libx11-dev xorg-dev" is for GUI version
-			# more to intall "libgnome2-dev libgnomeui-dev libatk1.0-dev libbonoboui2-dev libcairo2-dev libx11-dev libxpm-dev libxt-dev mercurial"
-
-ins_dep_apt_build_dep   = "vim"
-			# other options: "vim-gnome"
-
 ins_pre_script          = 'command -v ruby && command -v python && python --version 2>&1 | grep "Python 2"'
 			# (2015-05-08) need python 2.x, since YouCompleteMe@vim NOT compitable with python 3.x
 ins_gen_src_fullpath    = "only_tname_tver"

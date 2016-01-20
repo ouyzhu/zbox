@@ -1,6 +1,5 @@
 ins_steps               = "src ucd dep make"
 ins_verify              = "ZBOX_INS_FULLPATH/usr/bin/ab -V | grep 'This is ApacheBench, Version' &> /dev/null"
 
-ins_dep_apt_install     = "libpcre3-dev"
 ins_make_steps          = "configure make install"
 ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH --with-mpm=prefork --enable-shared-mods=all --with-pcre=yes --with-included-apr --enable-so --enable-log-debug --enable-logio=static --enable-suexec=shared --enable-layout=Debian --enable-log-config=static --enable-pie --enable-http --enable-proxy --enable-deflate --enable-headers --enable-rewrite --enable-expires --enable-proxy-fcgi --enable-proxy-http --enable-mime-magic --enable-slotmem-shm --enable-proxy-balancer"

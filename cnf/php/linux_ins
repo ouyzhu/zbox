@@ -1,0 +1,11 @@
+﻿ins_dep_apt_install      = "build-essential openssl libcurl4-openssl-dev libreadline-dev libicu-dev libxslt1.1 libxslt1-dev libfreetype6 libfreetype6-dev libmcrypt4 libmcrypt-dev libmhash-dev libpcre3-dev libjpeg-dev libpng12-dev libbz2-1.0 libbz2-dev libxpm-dev autoconf libtool libxml2 libxml2-dev libmysqlclient-dev libzip-dev libxt-dev libldap-2.4-2 libldap2-dev"
+
+# currently not using: --with-apxs2 which specifies that we want to install PHP as Apache 2 shared module
+# currently not using: --with-pcre-regex which using external pcre instead of the build-in pcre
+ins_make_configure_opts  = "--config-cache --prefix=ZBOX_INS_FULLPATH --sbindir=ZBOX_INS_FULLPATH --sysconfdir=ZBOX_INS_FULLPATH --mandir=ZBOX_INS_FULLPATH/share/man --enable-bcmath --enable-mbstring --disable-cgi --enable-ftp --enable-cli --enable-zip --enable-soap --enable-phar --enable-intl --enable-posix --enable-pcntl --enable-opcache --enable-mbregex --enable-sockets --enable-sysvmsg --enable-sysvsem --enable-sysvshm --enable-inline-optimization --with-gd --with-bz2 --with-curl --with-zlib --with-mysql --with-mhash --with-mcrypt --with-openssl --with-gettext --with-readline --with-regex=php --with-mysqli=mysqlnd --with-pdo-mysql=mysqlnd --with-config-file-path=ZBOX_INS_FULLPATH --with-config-file-scan-dir=ZBOX_INS_FULLPATH/conf.d --enable-fpm"
+
+
+#EXTENSION_DIR="$HOME/php/share/modules" # all shared modules will be installed in ~/php/share/modules phpize binary will configure it accordingly
+#export EXTENSION_DIR
+#PEAR_INSTALLDIR="$HOME/php/share/pear" # pear package directory
+#export PEAR_INSTALLDIR

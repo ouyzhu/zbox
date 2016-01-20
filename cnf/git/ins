@@ -7,4 +7,3 @@ ins_make_install_opts   = "prefix=ZBOX_INS_FULLPATH"
 
 use_env                 = 'GIT_HOME=ZBOX_INS_FULLPATH PATH=${GIT_HOME}/bin:${PATH} '
 
-#ins_dep_apt_install	= "libcurl4-gnutls-dev libexpat1-dev gettext libz-dev libssl-dev"

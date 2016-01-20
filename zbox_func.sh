@@ -8,9 +8,10 @@
 # Constants
 ZBOX_PLF_OSX="osx"
 ZBOX_PLF_LINUX="linux"
-ZBOX_PLF_UNKNOWN="unknown"
 ZBOX_FUNC_INS_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>]"
 ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>] <sname>"
+ZBOX_INS_PLF_DEFAULT="osx,linux"
+ZBOX_STG_PLF_DEFAULT="osx,linux"
 
 # Check Platform. (after osx 10.6.8, "expr" is NOT installed by default)
 if [ "$(uname)" == "Darwin" ]; then
@@ -64,6 +65,7 @@ func_zbox() {
 		# use background job to 
 		use)		func_zbox_use "$@"										;;	# do NOT use pipe here, since need source env
 		uig | using)	func_zbox_uig "$@" | column -t									;;
+		#lst | list)	func_zbox_lst "$@" | tee -a "${ZBOX_LOG}" | sed -e "/^DEBUG:/d" ;;
 		lst | list)	func_zbox_lst "$@" | tee -a "${ZBOX_LOG}" | sed -e "/^DEBUG:/d" | column -t -s "|"		;;
 		tst | test)	func_zbox_tst "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/^\(Desc\|INFO\|WARN\|ERROR\):/p"	;;	# NOT show DEBUG
 		stg | mkstg)	func_zbox_stg "$@" | tee -a "${ZBOX_LOG}" | sed -n -e "/^\(Desc\|INFO\|WARN\|ERROR\):/p"	;;	# NOT show DEBUG
@@ -145,11 +147,13 @@ func_zbox_lst() {
 		# only show those specified tools, otherwise all
 		#[ -n "$*" ] && !(echo "$*" | grep -q "${tname}") && continue				# works, strict match
 		#[ -n "$*" ] && [[ "$*" != *${tname}* ]] && continue					# works, strict match
-		[ -n "${target_tname}" ] && !(echo "${tname}" | grep -q "${target_tname}") && continue	# works, fuzzy match
+		[ -n "${target_tname}" ] && ! (echo "${tname}" | grep -q "${target_tname}") && continue	# works, fuzzy match
 
 		local file=""
 		pushd "${tname}" > /dev/null
 		for file in *ins-* ; do 
+
+			# NOTE: func_zbox_ (especially func_zbox_gen ...) functions cost lots of time
 
 			# extract info: tver/tadd
 			local tveradd=${file#*ins-}
@@ -161,6 +165,10 @@ func_zbox_lst() {
 
 			# insert head block for better reading
 			output_line_count=$((${output_line_count}+1)) && ((${output_line_count}%15==0)) && func_zbox_lst_print_head
+
+			# check if source downloaded
+			local src_plfpath="$(func_zbox_gen_src_plfpath "${tname}" "${tver}" "${tadd}")"
+			local src=$([ -e "${src_plfpath}" ] && echo ' Y' || echo ' N')
 
 			# check if installed
 			local ins_fullpath=$(func_zbox_gen_ins_fullpath "${tname}" "${tver}" "${tadd}")
@@ -183,7 +191,7 @@ func_zbox_lst() {
 				local stg_in_stg="${tmpname##*-},${stg_in_stg}"
 			done
 
-			func_zbox_lst_print_item "${tname:-N/A}" "${tver:-N/A}" "${tadd:-N/A}" "${ins:-N/A}" "${stg_in_cnf:-N/A}" "${stg_in_stg:-N/A}"
+			func_zbox_lst_print_item "${tname:-N/A}" "${tver:-N/A}" "${tadd:-N/A}" "${src:-N/A}" "${ins:-N/A}" "${stg_in_cnf:-N/A}" "${stg_in_stg:-N/A}"
 		done 
 		popd > /dev/null
 	done
@@ -199,14 +207,14 @@ func_zbox_ins_is_plf_support() {
 	local desc="Desc: check if current plf supported ins for selected tname + tver + <tadd>"
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
-	return func_zbox_is_plf_support "ins" "$@"
+	func_zbox_is_plf_support "ins" "$@"
 }
 
 func_zbox_stg_is_plf_support() {
 	local desc="Desc: check if current plf supported stg for selected tname + tver + <tadd> + sname"
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
-	return func_zbox_is_plf_support "stg" "$@"
+	func_zbox_is_plf_support "stg" "$@"
 }
 
 func_zbox_is_plf_support() {
@@ -215,25 +223,47 @@ func_zbox_is_plf_support() {
 
 	local check_for="${1}"
 	shift
-
 	local def_base="${ZBOX_CNF}/${1}/${check_for}"
 	local plf_base="${ZBOX_CNF}/${1}/${ZBOX_PLF}_${check_for}"
-
 	echo "DEBUG: check platform for ${check_for} config, current: ${ZBOX_PLF}, check for: $@"
 
-	# OPTION 1: support if specified by property "ins_plf"/"stg_plf", note the regex ignores commented lines or inline comment
-	grep -q "^[[:space:]]*${check_for}_plf[^#]*=[^#]*${ZBOX_PLF}"					\
-		"${def_base}" "${def_base}-${2}" "${def_base}-${2}-${3}" "${def_base}-${2}-${3}-${4}"	\
-		2>/dev/null										\
-	&& echo "DEBUG: '${check_for}_plf' shows platform supported" 					\
+	# OPTION 1: support if have ins-.../stg-... file with plf prefix
+	[ -f "${plf_base}-${2}" ] || [ -f "${plf_base}-${2}-${3}" ] || [ -f "${plf_base}-${2}-${3}-${4}" ]	\
+	&& echo "DEBUG: ${check_for}-... with ${ZBOX_PLF} prefix config exist, platform supported"		\
 	&& return 0
 
-	# OPTION 2: support if have ins/stg file with plf prefix
-	[ -f "${plf_base}" ]			\
-	|| [ -f "${plf_base}-${2}" ]		\
-	|| [ -f "${plf_base}-${2}-${3}" ]	\
-	|| [ -f "${plf_base}-${2}-${3}-${4}" ]	\
-	&& echo "DEBUG: ${ZBOX_PLF} prefix for ${check_for} config exist, platform supported" \
+	# OPTION 2: NOT support, if <plf>_ins/<plf>_stg-... NOT exist, and ins-.../stg-... NOT exist
+	! ( [ -f "${def_base}-${2}" ] || [ -f "${def_base}-${2}-${3}" ] || [ -f "${def_base}-${2}-${3}-${4}" ] )					\
+	&& echo "DEBUG: ${check_for}-... with ${ZBOX_PLF} prefix config NOT exist, and ${check_for}-... config NOT exist, platform NOT supported"	\
+	&& return 1
+
+	# IMPORTANT: ins_plf/stg_plf property should be defined in specific tver/tadd/sname config file, NOT in overall stg/ins file (unless the tool is only for some platform, e.g. macvim)
+
+	# OPTION 3: "assume" support if no ins_plf/stg_plf property defined
+	! (grep -q "^[[:space:]]*${check_for}_plf[^#]*=[^#]*"								\
+		"${def_base}" "${def_base}-${2}" "${def_base}-${2}-${3}" "${def_base}-${2}-${3}-${4}" 2>/dev/null)	\
+	&& echo "DEBUG: '${check_for}_plf' NOT defined, zbox 'assume' platform supported"				\
+	&& return 0
+
+	# OPTION 4: cnf property defined, check it
+
+	# (version 1) formal way to use cnf property, but too slow
+	#if [ "${check_for}" = "ins" ] ; then
+	#	eval $(func_zbox_gen_ins_cnf_vars "$@")
+	#	ins_plf=${ins_plf:-"${ZBOX_INS_PLF_DEFAULT}"}
+	#	echo "${ins_plf}" | grep -q "${ZBOX_PLF}" && echo "DEBUG: '${check_for}_plf' shows platform supported" && return 0
+	#elif [ "${check_for}" = "stg" ] ; then
+	#	eval $(func_zbox_gen_stg_cnf_vars "$@")
+	#	stg_plf=${stg_plf:-"${ZBOX_STG_PLF_DEFAULT}"}
+	#	echo "${stg_plf}" | grep -q "${ZBOX_PLF}" && echo "DEBUG: '${check_for}_plf' shows platform supported" && return 0
+	#fi
+
+	# (version 2) directly grep cnf file, much faster. Note: 1) "tail -1" makes property override still works! 2) "regex" makes commented lines or inline comment still not effect
+	grep -o "^[[:space:]]*${check_for}_plf[^#]*=[^#]*"								\
+		"${def_base}" "${def_base}-${2}" "${def_base}-${2}-${3}" "${def_base}-${2}-${3}-${4}" 2>/dev/null	\
+	| tail -1													\
+	| grep -q "${ZBOX_PLF}"												\
+	&& echo "DEBUG: '${check_for}_plf' shows platform supported" 							\
 	&& return 0
 
 	echo "DEBUG: platform NOT supported"
@@ -241,21 +271,21 @@ func_zbox_is_plf_support() {
 }
 
 func_zbox_lst_print_head() {
-	echo "|----|-------|--------|---|----------|----------|"
-	echo "|Name|Version|Addition|ins|stg in cnf|stg in stg|"
-	echo "|----|-------|--------|---|----------|----------|"
+	echo "|-----|----|----|---|---|----------|----------|"
+	echo "|tname|tver|tadd|src|ins|stg in cnf|stg in stg|"
+	echo "|-----|----|----|---|---|----------|----------|"
 }
 
 func_zbox_lst_print_tail() {
-	echo "|----|-------|--------|---|----------|----------|"
+	echo "|-----|----|----|---|---|----------|----------|"
 }
 
 func_zbox_lst_print_item() {
 	local desc="Desc: format the output of list"
 	func_param_check_die 4 "${desc}\n${FUNCNAME} <name> <version> <addtion> <ins> <stg_in_cnf> <stg_in_stg>\n" "$@"
 
-	#printf "| %-16s | %-13s | %-9s | %-3s | %-12s | %-12s |\n" "$@"
-	printf "|%s|%s|%s|%s|%s|%s|\n" "$@"
+	#printf "| %-16s | %-13s | %-9s | %-3s | %-3s | %-12s | %-12s |\n" "$@"
+	printf "|%s|%s|%s|%s|%s|%s|%s|\n" "$@"
 }
 
 func_zbox_rem() {
@@ -489,7 +519,7 @@ func_zbox_ins_src() {
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
-	local src_plfpath=$(func_zbox_gen_src_plfpath "$@")
+	local src_plfpath="$(func_zbox_gen_src_plfpath "$@")"
 	local src_realpath="$(func_zbox_gen_src_realpath "$@")"
 	local src_fulldir="$(dirname "${src_plfpath}")"
 	local ver="${2:-pkg}"
