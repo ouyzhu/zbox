@@ -237,6 +237,8 @@ func_zbox_is_plf_support() {
 	&& echo "DEBUG: ${check_for}-... with ${ZBOX_PLF} prefix config NOT exist, and ${check_for}-... config NOT exist, platform NOT supported"	\
 	&& return 1
 
+	# BUG: "ins  linux_ins-7.1a  osx_ins-7.1a-compile" cause linux also shows "truecrypt 7.1a compile", which is incorrect
+
 	# IMPORTANT: ins_plf/stg_plf property should be defined in specific tver/tadd/sname config file, NOT in overall stg/ins file (unless the tool is only for some platform, e.g. macvim)
 
 	# OPTION 3: "assume" support if no ins_plf/stg_plf property defined
