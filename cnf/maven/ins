@@ -3,3 +3,4 @@ ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/mv
 ins_pre_script      = '[ -n "${JAVA_HOME}" ] && command -v java'
 ins_pre_script_desc = "env variable JAVA_HOME must be set, and java must exist in PATH"
 use_env             = 'MAVEN_HOME=ZBOX_INS_FULLPATH M2_HOME=ZBOX_INS_FULLPATH PATH=${MAVEN_HOME}/bin:${PATH}'
+ins_plf             = 'osx,linux'

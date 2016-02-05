@@ -13,16 +13,6 @@ ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>] <sname>"
 ZBOX_INS_PLF_DEFAULT="osx,linux"
 ZBOX_STG_PLF_DEFAULT="osx,linux"
 
-# Check Platform. (after osx 10.6.8, "expr" is NOT installed by default)
-if [ "$(uname)" == "Darwin" ]; then
-	ZBOX_PLF="${ZBOX_PLF_OSX}"
-elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
-	ZBOX_PLF="${ZBOX_PLF_LINUX}"
-else
-	echo "ERROR: current platform is NOT supported yet!"
-	exit 1
-fi
-
 # Get zbox base dir
 ZBOX_FUNC_PATH="${BASH_SOURCE[0]}"
 echo "${ZBOX_FUNC_PATH}" | grep -q '.*zbox_func.sh$' || func_cry "ERROR: pls put zbox_func.sh as last parameter in source list!"
@@ -36,6 +26,18 @@ ZBOX_SRC="${ZBOX_SRC:-"${ZBOX}/src"}"
 ZBOX_STG="${ZBOX_STG:-"${ZBOX}/stg"}"
 ZBOX_TMP="${ZBOX_TMP:-"${ZBOX}/tmp"}"
 ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
+
+# TODO: check bash version (need > v4?)
+
+# Check Platform. 
+if [ "$(uname)" == "Darwin" ]; then
+	ZBOX_PLF="${ZBOX_PLF_OSX}"
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then	# (after osx 10.6.8, "expr" is NOT installed by default)
+	ZBOX_PLF="${ZBOX_PLF_LINUX}"
+else
+	echo "ERROR: current platform is NOT supported yet!"
+	exit 1
+fi
 
 # tname alias, for better listing
 declare -A tname_alias
@@ -232,22 +234,29 @@ func_zbox_is_plf_support() {
 	&& echo "DEBUG: ${check_for}-... with ${ZBOX_PLF} prefix config exist, platform supported"		\
 	&& return 0
 
-	# OPTION 2: NOT support, if <plf>_ins/<plf>_stg-... NOT exist, and ins-.../stg-... NOT exist
-	! ( [ -f "${def_base}-${2}" ] || [ -f "${def_base}-${2}-${3}" ] || [ -f "${def_base}-${2}-${3}-${4}" ] )					\
-	&& echo "DEBUG: ${check_for}-... with ${ZBOX_PLF} prefix config NOT exist, and ${check_for}-... config NOT exist, platform NOT supported"	\
+	# OPTION 2: for install, if <plf>_ins inexist && ins-... inexist, NOT support
+	[ "${chec_for}" = "ins" ]											\
+	&& ! ( [ -f "${def_base}-${2}" ] || [ -f "${def_base}-${2}-${3}" ] || [ -f "${def_base}-${2}-${3}-${4}" ] )	\
+	&& echo "DEBUG: ins-... with platorm prefix config INEXIST, and ins-... config INEXIST, platform NOT supported"	\
+	&& return 1
+
+	# OPTION 3: for stage, if stg inexist, NOT support
+	[ "${chec_for}" = "stg" ]					\
+	&& ! [ -f "${def_base}-${2}" ]					\
+	&& echo "DEBUG: stg conf INEXIST, platform NOT supported"	\
 	&& return 1
 
 	# BUG: "ins  linux_ins-7.1a  osx_ins-7.1a-compile" cause linux also shows "truecrypt 7.1a compile", which is incorrect
 
 	# IMPORTANT: ins_plf/stg_plf property should be defined in specific tver/tadd/sname config file, NOT in overall stg/ins file (unless the tool is only for some platform, e.g. macvim)
 
-	# OPTION 3: "assume" support if no ins_plf/stg_plf property defined
+	# OPTION 4: "assume" support if no ins_plf/stg_plf property defined
 	! (grep -q "^[[:space:]]*${check_for}_plf[^#]*=[^#]*"								\
 		"${def_base}" "${def_base}-${2}" "${def_base}-${2}-${3}" "${def_base}-${2}-${3}-${4}" 2>/dev/null)	\
 	&& echo "DEBUG: '${check_for}_plf' NOT defined, zbox 'assume' platform supported"				\
 	&& return 0
 
-	# OPTION 4: cnf property defined, check it
+	# OPTION 5: cnf property defined, check it
 
 	# (version 1) formal way to use cnf property, but too slow
 	#if [ "${check_for}" = "ins" ] ; then
