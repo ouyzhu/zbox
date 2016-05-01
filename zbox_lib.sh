@@ -125,6 +125,9 @@ function func_download_wget() {
 }
 
 function func_uncompress() {
+	# TODO 1: use same name (without ext) as dir
+	# TODO 2: gz file might be replaced and NOT in the target dir
+
 	local usage="Usage: $FUNCNAME <source> [target_dir]"
 	local desc="Desc: uncompress file, based on filename extension, <target_dir> will be the top level dir for uncompressed content" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"

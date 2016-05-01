@@ -153,9 +153,11 @@ func_zbox_lst() {
 
 		local file=""
 		pushd "${tname}" > /dev/null
-		for file in *ins-* ; do 
+		for file in ins-* ${ZBOX_PLF}_ins-* ; do	# only check necessary files, e.g. ins file is unecessary to check anytime, linux_ins-xxx is unecessary to check on osx
 
-			# NOTE: func_zbox_ (especially func_zbox_gen ...) functions cost lots of time
+			# TODO: func_zbox_ (especially func_zbox_gen ...) functions cost lots of time
+
+			[ "${file}" == "ins-*" ] && echo "DEBUG: skip 'ins' file, which not need to analyse" && continue	# happens when only cnf/xxx/ins file
 
 			# extract info: tver/tadd
 			local tveradd=${file#*ins-}
@@ -163,6 +165,7 @@ func_zbox_lst() {
 			local tadd=$(echo ${tveradd} | sed -e "s/[^-]*//;s/^-//")	# ${tveradd#${tver}-} NOT work, gets tver if there is no tadd
 
 			# check if plf supported
+			echo "DEBUG: start to analyse file: ${file}"
 			func_zbox_ins_is_plf_support "${tname}" "${tver}" "${tadd}" || continue
 
 			# insert head block for better reading
@@ -246,10 +249,7 @@ func_zbox_is_plf_support() {
 	&& echo "DEBUG: stg conf INEXIST, platform NOT supported"	\
 	&& return 1
 
-	# BUG: "ins  linux_ins-7.1a  osx_ins-7.1a-compile" cause linux also shows "truecrypt 7.1a compile", which is incorrect
-
-	# IMPORTANT: ins_plf/stg_plf property should be defined in specific tver/tadd/sname config file, NOT in overall stg/ins file (unless the tool is only for some platform, e.g. macvim)
-
+	# NOTE: ins_plf/stg_plf should be defined in specific tver/tadd/sname config file, NOT in overall stg/ins file (unless it is only for that platform, e.g. macvim)
 	# OPTION 4: "assume" support if no ins_plf/stg_plf property defined
 	! (grep -q "^[[:space:]]*${check_for}_plf[^#]*=[^#]*"								\
 		"${def_base}" "${def_base}-${2}" "${def_base}-${2}-${3}" "${def_base}-${2}-${3}-${4}" 2>/dev/null)	\
@@ -915,6 +915,8 @@ func_zbox_gen_ins_cnf_vars() {
 	local desc="Desc: 1) generate variable list for functions to source. 2) replace any zbox predefined variales. 3) all variables are prefixed with 'local'"
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 	
+	# NOTE: cnf file should NOT use BOM (":set bomb?" in vim to check), otherwise might cause: "bash: local: `xxx=yyy': not a valid identifier"
+
 	local cnfs=$(func_zbox_gen_ins_cnf_files "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
