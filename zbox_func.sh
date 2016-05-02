@@ -157,7 +157,8 @@ func_zbox_lst() {
 
 			# TODO: func_zbox_ (especially func_zbox_gen ...) functions cost lots of time
 
-			[ "${file}" == "ins-*" ] && echo "DEBUG: skip 'ins' file, which not need to analyse" && continue	# happens when only cnf/xxx/ins file
+			# when only cnf/xxx/ins file, "ins-*/${ZBOX_PLF}_ins-*" will be treated as filename by mistake
+			[ "${file}" == "ins-*" -o "${file}" == "${ZBOX_PLF}_ins-*" ] && echo "DEBUG: skip 'ins/${ZBOX_PLF}_ins' file, which not need to analyse" && continue	
 
 			# extract info: tver/tadd
 			local tveradd=${file#*ins-}
