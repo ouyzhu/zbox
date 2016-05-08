@@ -2,4 +2,4 @@ ins_steps            = "src ucd dep make"
 ins_make_steps       = "configure make install"
 ins_make_install_cmd = altinstall
 
-use_env              = 'PYTHONHOME=ZBOX_INS_FULLPATH PYTHON_HOME=ZBOX_INS_FULLPATH PYTHON=${PYTHON_HOME}/bin/python PATH=${PYTHON_HOME}/bin:${PATH} LD_LIBRARY_PATH=${PYTHON_HOME}/lib:${LD_LIBRARY_PATH}'
+use_env              = 'PYTHONHOME=ZBOX_INS_FULLPATH PYTHONPATH=ZBOX_INS_FULLPATH/lib PYTHON_HOME=ZBOX_INS_FULLPATH PYTHON=${PYTHON_HOME}/bin/python PATH=${PYTHON_HOME}/bin:${PATH} LD_LIBRARY_PATH=${PYTHON_HOME}/lib:${LD_LIBRARY_PATH}'

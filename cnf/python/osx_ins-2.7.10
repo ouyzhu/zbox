@@ -1,0 +1,8 @@
+# Make gets following info on Yosemite, but seems OK, python works
+#	Python build finished, but the necessary bits to build these modules were not found:
+#	bsddb185           dl                 gdbm
+#	imageop            linuxaudiodev      ossaudiodev
+#	readline           spwd               sunaudiodev
+#
+# Problem: missing readline is inconvinent, since can NOT use arrow key in interactive mode
+# Solution: (not verified) '' might work

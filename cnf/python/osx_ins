@@ -1,1 +1,2 @@
-ins_dep_port_install = "openssl"
+# xz to avoid "fatal error: 'lzma.h' file not found"
+ins_dep_port_install = "openssl xz"
