@@ -1,0 +1,2 @@
+ins_steps           = "src ucd move"
+use_env             = 'CHROMEDRIVER_HOME=ZBOX_INS_FULLPATH PATH=${CHROMEDRIVER_HOME}/:${PATH}'

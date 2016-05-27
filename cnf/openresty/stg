@@ -1,0 +1,12 @@
+# seems will gen other dirs when first run
+stg_dirs = "bin logs conf data"
+
+stg_pre_script = "cp -R ZBOX_CNF/openresty/nginx.conf.sample ZBOX_STG_FULLPATH/conf/nginx.conf;cp -R ZBOX_INS_FULLPATH/nginx/html ZBOX_STG_FULLPATH/"
+stg_post_script = ""
+
+stg_cmds = "start stop reload status"
+stg_cmd_start  = "ZBOX_INS_FULLPATH/nginx/sbin/nginx -p ZBOX_STG_FULLPATH -c conf/nginx.conf"
+stg_cmd_reload = "ZBOX_INS_FULLPATH/nginx/sbin/nginx -p ZBOX_STG_FULLPATH -c conf/nginx.conf -s reload"
+stg_cmd_stop   = "ZBOX_INS_FULLPATH/nginx/sbin/nginx -p ZBOX_STG_FULLPATH -c conf/nginx.conf -s stop"
+#stg_cmd_stop  = "[ -e ZBOX_STG_FULLPATH/logs/nginx.pid ] && kill \$(cat ZBOX_STG_FULLPATH/logs/nginx.pid)"
+stg_cmd_status = "[ -e ZBOX_STG_FULLPATH/logs/nginx.pid ] && echo 'Running.' && ps -ef | grep \$(cat ZBOX_STG_FULLPATH/logs/nginx.pid) | grep -v grep || echo 'Not running.'"

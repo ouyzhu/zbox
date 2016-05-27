@@ -4,12 +4,13 @@
 .dl_me.txt
 .grep_me.txt
 
-# ignore either consolidate dir, or link
-src
-src/
-ins
-ins/
-stg
-stg/
-tmp
-tmp/
+# ignore either consolidate dir, or link. 
+# NOTE, the starting '/' is important, otherwise ins file in cnf will be ignored!
+/src
+/src/
+/ins
+/ins/
+/stg
+/stg/
+/tmp
+/tmp/
