@@ -1,0 +1,2 @@
+ins_make_configure_opts	= "--prefix=ZBOX_INS_FULLPATH"
+ins_dep_port_install	= "pcre openssl"
