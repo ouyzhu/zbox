@@ -1,2 +1,3 @@
+﻿ins_steps               = "dep"
 ﻿ins_dep_port_install	= "unison"
 

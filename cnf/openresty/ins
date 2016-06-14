@@ -1,3 +1,7 @@
 ins_steps		= "src ucd dep make"
 ins_make_steps		= "configure make install"
 ins_verify		= "ZBOX_INS_FULLPATH/bin/resty -V 2>&1 | grep '^nginx version.*openresty' &> /dev/null"
+
+# Most module enabled by default. Some are not: standard Lua 5.1 interpreter, DrizzleNginxModule, PostgresNginxModule, and IconvNginxModule 
+# For those, need to specify --with-lua51, --with-http_drizzle_module, --with-http_postgres_module, and --with-http_iconv_module options
+ins_make_configure_opts	= "--prefix=ZBOX_INS_FULLPATH"

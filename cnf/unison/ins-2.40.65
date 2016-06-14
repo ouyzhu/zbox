@@ -1,0 +1,7 @@
+ins_src_addr		= http://www.seas.upenn.edu/~bcpierce/unison//download/releases/unison-2.40.65/unison-2.40.65.tar.gz
+
+# MNT 1: use opam to install ocaml: sudo apt-get install opam && opam init 
+# MNT 2: need use 2 pre_script, since the result of `opam config env` is multiple line
+ins_pre_script          = "command -v opam && opam switch 4.02.1 && eval `opam config env` "
+ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.02.1 "
+

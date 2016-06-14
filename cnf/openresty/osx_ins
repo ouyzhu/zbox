@@ -1,2 +1,2 @@
-ins_make_configure_opts	= "--prefix=ZBOX_INS_FULLPATH"
+# for more modules, see nginx and openresty guide
 ins_dep_port_install	= "pcre openssl"

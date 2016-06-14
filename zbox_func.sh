@@ -410,6 +410,10 @@ func_zbox_uig() {
 	done
 } 
 
+func_zbox_use_silent() {
+	func_zbox_use "$@" &> /dev/null
+}
+
 func_zbox_use() {
 	local desc="Desc: use the tool, usually source the env variables"
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"

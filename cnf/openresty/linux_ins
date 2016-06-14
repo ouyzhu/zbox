@@ -1,4 +1,3 @@
 ﻿# for more modules, see nginx and openresty guide
-ins_make_configure_opts	= "--prefix=ZBOX_INS_FULLPATH"
-ins_dep_apt_install	= "build-essential libpcre3 libpcre3-dev zlib1g zlib1g-dev libssl-dev"
+ins_dep_apt_install	= "build-essential libreadline-dev libncurses5-dev libpcre3-dev libssl-dev zlib1g-dev perl"
 
