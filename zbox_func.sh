@@ -334,6 +334,8 @@ func_zbox_ins() {
 	local desc="Desc: install tool"
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
+	[ ! -d "${ZBOX_CNF}/$1" ] && func_cry "ERROR: tool $1 NOT exist" && return
+
 	echo "INFO: (ins) start installation for $@"
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
@@ -960,4 +962,15 @@ func_zbox_run_script() {
 	# NOTE, do NOT use pipe here, which makes the func_die fail (since pipe creates sub-shell). But how to put a copy in log?
 	func_check_exit_code "${script_name} execution success" "${script_desc:-${script_name} execution failed}" 2>&1 
 	\cd - >> ${ZBOX_LOG} 2>&1
+}
+
+func_zbox_choose() {
+	local usage="Usage: $FUNCNAME <script_name> <option0> <version1> <option1> ..."
+	local desc="Desc: choose value for coresponding version, e.g. when ZBOX_VER >= version1, use option1 instead of option0" 
+
+	func_param_check_die 3 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
+
+	# TODO: old version might NOT support -V
+	# sort -V
+	# sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n 
 }

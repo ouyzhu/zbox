@@ -125,8 +125,7 @@ function func_download_wget() {
 }
 
 function func_uncompress() {
-	# TODO 1: use same name (without ext) as dir
-	# TODO 2: gz file might be replaced and NOT in the target dir
+	# TODO 1: gz file might be replaced and NOT in the target dir
 
 	local usage="Usage: $FUNCNAME <source> [target_dir]"
 	local desc="Desc: uncompress file, based on filename extension, <target_dir> will be the top level dir for uncompressed content" 
@@ -135,7 +134,9 @@ function func_uncompress() {
 
 	# use readlink to avoid relative path
 	local source_file="$(readlink -f "${1}")"
-	[ -n "${2}" ] && target_dir="$(readlink -f "${2}")" || target_dir="${source_file}_EXTRACT"
+	local target_dir="${source_file%.*}"
+	[ -n "${2}" ] && target_dir="$(readlink -f "${2}")"
+	[ -d "${target_dir}" ] && func_cry "ERROR: ${target_dir} already exist, give up!"
 
 	echo "INFO: uncompress file, from: ${source_file} to: ${target_dir}"
 	func_mkdir_cd "${target_dir}"

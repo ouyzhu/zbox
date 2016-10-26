@@ -1,0 +1,2 @@
+ins_steps           = "src ucd move"
+ins_plf             = 'osx,linux'

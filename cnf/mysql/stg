@@ -10,6 +10,10 @@ stg_pre_translate  = 'ZBOX_STG_FULLPATH/conf/my.cnf ZBOX_STG_FULLPATH/bin/script
 stg_post_script = "bash ZBOX_STG_FULLPATH/bin/script.initdb; mv ZBOX_INS_FULLPATH/my.cnf ZBOX_STG_FULLPATH/conf/my.cnf.genBy.script.initdb;"
 
 
+test1 = aaa
+test2 = bbb
+test = $(func_zbox_choose ZBOX_STG_VER test1 5.6.22 test2)
+# TODO: unify ZBOX_VER and ZBOX_STG_VER?
 
 # Deprecated - Works in 5.6.12 (before add stg_pre_translate step)
 #stg_post_script = "ZBOX_INS_FULLPATH/scripts/mysql_install_db --basedir=ZBOX_INS_FULLPATH --datadir=ZBOX_STG_FULLPATH/data --user=`whoami` --lc-messages-dir=ZBOX_INS_FULLPATH/share/ --lc-messages=en_US --explicit_defaults_for_timestamp=TRUE; mv ZBOX_INS_FULLPATH/my.cnf ZBOX_STG_FULLPATH/conf/"

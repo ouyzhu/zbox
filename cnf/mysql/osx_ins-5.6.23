@@ -1,3 +1,1 @@
-ins_steps           = "src ucd move"
 ins_src_addr        = http://dev.mysql.com/get/Downloads/MySQL-5.6/mysql-5.6.23-osx10.9-x86_64.tar.gz
-use_env             = 'MYSQL_HOME=ZBOX_INS_FULLPATH PATH=${MYSQL_HOME}/bin:${PATH}'
