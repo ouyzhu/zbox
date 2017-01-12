@@ -1,10 +1,7 @@
 # try on osx(yosemite), not test on linux
 
 ins_src_addr            = http://www.python.org/ftp/python/3.4.3/Python-3.4.3.tar.xz
-
 ins_verify              = "ZBOX_INS_FULLPATH/bin/python3.4 --version 2>&1 | grep '^Python 3.4' &> /dev/null"
-
 ins_post_script         = "cd ZBOX_INS_FULLPATH/bin && ln -s python3.4 python"
-
                         # --enable-shared is needed when compile wsgi which used by dijango, --enable-unicode=ucs4 seem need by django/sqllite, why?
 ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH --enable-shared --with-ssl --enable-unicode=ucs4"

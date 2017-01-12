@@ -1,0 +1,9 @@
+ins_steps		= "src ucd dep make move"
+ins_make_steps		= "configure make"
+
+# need --exec-prefix, otherwise gets "dyld: Library not loaded: ... libntfs-3g.87.dylib"
+ins_make_configure_opts	= "--exec-prefix=ZBOX_INS_FULLPATH/libntfs-3g"
+ins_make_post_script	= "cd ZBOX_UCD_FULLPATH/libntfs-3g; ln -s .libs lib"
+
+ins_verify		= "ZBOX_INS_FULLPATH/src/ntfs-3g --version 2>&1 | grep '^ntfs-3g.*FUSE' &> /dev/null"
+use_env			= 'NTFS_3G_HOME=ZBOX_INS_FULLPATH PATH=${NTFS_3G_HOME}/src:${PATH} '

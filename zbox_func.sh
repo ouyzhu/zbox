@@ -427,7 +427,8 @@ func_zbox_use() {
 	#echo "INFO: using ${env_fullpath}"
 	#[ ! -e "${env_fullpath}" ] && echo "WARN: ${env_fullpath} not exist, seems no env need to source" && return 0
 
-	eval "export ZBOX_USING_${1}='$*'"
+	# "-" no allowed in env var name
+	eval "export ZBOX_USING_${1//-/_}='$*'"
 	[ -e "${env_fullpath}" ] && source "${env_fullpath}" || echo "ERROR: failed to source ${env_fullpath}, pls check!"
 }
 
@@ -627,10 +628,11 @@ func_zbox_ins_make() {
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
 	func_validate_path_inexist "${ins_fullpath}"
+	echo "INFO: ---------- [ -z ${make_steps} ]" 
 	[ -z "${make_steps}" ] && func_die "ERROR: (ins) 'ins_make_steps' not defined, can not make"
 
 	# execute pre script
-	func_zbox_run_script "ins_make_pre_script" "${ZBOX_TMP}" "${ins_make_pre_script}"
+	func_zbox_run_script "ins_make_pre_script" "${ucd_fullpath}" "${ins_make_pre_script}"
 
 	# Make
 	local clean_cmd=${ins_make_clean_cmd:-clean} 
@@ -661,7 +663,7 @@ func_zbox_ins_make() {
 	done
 
 	# execute pre script
-	func_zbox_run_script "ins_make_post_script" "${ZBOX_TMP}" "${ins_make_post_script}"
+	func_zbox_run_script "ins_make_post_script" "${ucd_fullpath}" "${ins_make_post_script}"
 
 	\cd - >> ${ZBOX_LOG} 2>&1
 }
