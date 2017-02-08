@@ -1,14 +1,19 @@
-#!/bin/bash
+
 
 # source ${HOME}/.myenv/myenv_lib.sh || eval "$(wget -q -O - "https://raw.github.com/stico/myenv/master/.myenv/myenv_lib.sh")" || exit 1
 
-function func_date() { date "+%Y-%m-%d";			}
-function func_time() { date "+%H-%M-%S";			}
-function func_dati() { date "+%Y-%m-%d_%H-%M-%S";		}
-function func_nanosec()  { date +%s%N;				}
-function func_millisec() { echo $(($(date +%s%N)/1000000));	}
+func_date() { date "+%Y-%m-%d";			}
+func_time() { date "+%H-%M-%S";			}
+func_dati() { date "+%Y-%m-%d_%H-%M-%S";		}
+func_nanosec()  { date +%s%N;				}
+func_millisec() { echo $(($(date +%s%N)/1000000));	}
 
-function func_die() {
+# TODO: create func_complain: auto use func_die for non-interactive mode, use func_cry for interactive mode
+#       command 1: echo $- | grep -q "i" && echo interactive || echo non-interactive
+#       command 2: [ -z "$PS1" ] && echo interactive || echo non-interactive
+#       explain: bash manual: PS1 is set and $- includes i if bash is interactive, allowing a shell script or a startup file to test this state.
+
+func_die() {
 	local usage="Usage: $FUNCNAME <error_info>" 
 	local desc="Desc: echo error info to stderr and exit" 
 	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
@@ -17,7 +22,7 @@ function func_die() {
 	exit 1
 }
 
-function func_cry() {
+func_cry() {
 	local usage="Usage: $FUNCNAME <error_info>" 
 	local desc="Desc: echo error info to stderr and kill current job (exit the function stack without exiting shell)" 
 	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
@@ -26,12 +31,12 @@ function func_cry() {
 	kill -INT $$
 }
 
-function func_check_exit_code() {
+func_check_exit_code() {
 	# NOTE: should NOT do anything before check, since need check exit status of last command
 	[ "$?" = "0" ]  && echo  "INFO: ${1}" || func_die "ERROR: ${2:-${1}}"
 }
 
-function func_param_check_die {
+func_param_check_die() {
 	local usage="Usage: $FUNCNAME <count> <error_msg> <string> ..."
 	local desc="Desc: (YOU SCRIPT HAS BUG) string counts should 'greater than' or 'equal to' expected count, otherwise print the <error_msg> and exit. Good for parameter amount check." 
 	[ $# -lt 2 ] && func_die "${desc} \n ${usage} \n"	# use -lt, so the exit status will not changed in legal condition
@@ -42,7 +47,7 @@ function func_param_check_die {
 	[ $# -lt ${count} ] && func_die "${error_msg}"
 }
 
-function func_param_check {
+func_param_check() {
 	local usage="Usage: $FUNCNAME <count> <error_msg> <string> ..."
 	local desc="Desc: (YOU SCRIPT HAS BUG) string counts should 'greater than' or 'equal to' expected count, otherwise print the <error_msg> and exit. Good for parameter amount check." 
 	[ $# -lt 2 ] && func_die "${desc} \n ${usage} \n"	# use -lt, so the exit status will not changed in legal condition
@@ -53,7 +58,7 @@ function func_param_check {
 	[ $# -lt ${count} ] && func_cry "${error_msg}"
 }
 
-function func_cd() {
+func_cd() {
 	local usage="Usage: $FUNCNAME <path>" 
 	local desc="Desc: (fail fast) change dir, exit whole process if fail"
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
@@ -61,7 +66,7 @@ function func_cd() {
 	[ -n "${1}" ] && \cd "${1}" || func_die "ERROR: failed to change dir: cd ${1}"
 }
 
-function func_mkdir() {
+func_mkdir() {
 	local usage="Usage: $FUNCNAME <path> ..." 
 	local desc="Desc: (fail fast) create dirs if NOT exist, exit whole process if fail"
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
@@ -72,7 +77,7 @@ function func_mkdir() {
 	done
 }
 
-function func_mkdir_cd { 
+func_mkdir_cd() { 
 	local usage="Usage: $FUNCNAME <path> ..." 
 	local desc="Desc: (fail fast) create dir and cd into it. Create dirs if NOT exist, exit if fail, which is different with /bin/mkdir" 
 	func_param_check 1 "Usage: $FUNCNAME <path>" "$@"
@@ -84,7 +89,7 @@ function func_mkdir_cd {
 	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
 }
 
-function func_download() {
+func_download() {
 	local usage="Usage: $FUNCNAME <url> <target>"
 	local desc="Desc: download from url to local target" 
 	func_param_check 2 "${desc} \n ${usage} \n" "$@"
@@ -99,7 +104,7 @@ function func_download() {
 	esac
 }
 
-function func_download_wget() {
+func_download_wget() {
 	local usage="Usage: $FUNCNAME <url> <target_dir>"
 	local desc="Desc: download using wget" 
 	func_param_check 2 "${desc} \n ${usage} \n" "$@"
@@ -124,7 +129,7 @@ function func_download_wget() {
 	\cd - &> /dev/null
 }
 
-function func_uncompress() {
+func_uncompress() {
 	# TODO 1: gz file might be replaced and NOT in the target dir
 
 	local usage="Usage: $FUNCNAME <source> [target_dir]"
@@ -170,7 +175,7 @@ function func_uncompress() {
 	\cd - &> /dev/null
 }
 
-function func_bak_file() {
+func_bak_file() {
 	local usage="Usage: $FUNCNAME <file> ..."
 	local desc="Desc: backup file, with suffixed date" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
@@ -184,7 +189,7 @@ function func_bak_file() {
 	done
 }
 
-function func_vcs_update() {
+func_vcs_update() {
 	local usage="Usage: $FUNCNAME <src_type> <src_addr> <target_dir>"
 	local desc="Desc: init or update vcs like hg/git/svn"
 	func_param_check 3 "${desc} \n ${usage} \n" "$@"
@@ -212,7 +217,7 @@ function func_vcs_update() {
 	fi
 }
 
-function func_validate_path_exist() {
+func_validate_path_exist() {
 	local usage="Usage: $FUNCNAME <path> ..."
 	local desc="Desc: the path must be exist, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
@@ -222,7 +227,7 @@ function func_validate_path_exist() {
 	done
 }
 
-function func_validate_path_inexist() {
+func_validate_path_inexist() {
 	local usage="Usage: $FUNCNAME <path> ..."
 	local desc="Desc: the path must be NOT exist, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
@@ -232,7 +237,7 @@ function func_validate_path_inexist() {
 	done
 }
 
-function func_validate_cmd_exist() {
+func_validate_cmd_exist() {
 	local usage="Usage: $FUNCNAME <cmd> ..."
 	local desc="Desc: the cmd must be exist, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
@@ -240,7 +245,7 @@ function func_validate_cmd_exist() {
 	( ! command -v "${1}" &> /dev/null) && echo "ERROR: cmd (${1}) NOT exist!" && exit 1
 }
 
-function func_validate_dir_not_empty() {
+func_validate_dir_not_empty() {
 	local usage="Usage: $FUNCNAME <dir> ..."
 	local desc="Desc: the directory must exist and NOT empty, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
@@ -251,7 +256,7 @@ function func_validate_dir_not_empty() {
 	done
 }
 
-function func_validate_dir_empty() {
+func_validate_dir_empty() {
 	local usage="Usage: $FUNCNAME <dir> ..."
 	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
@@ -261,3 +266,27 @@ function func_validate_dir_empty() {
 		[ "$(ls -A "${p}" 2> /dev/null)" ] && echo "ERROR: ${p} not empty!" && exit 1
 	done
 }
+
+################################################################################
+# Data Type: number
+################################################################################
+
+func_num_to_human() {
+	local usage="Usage: $FUNCNAME <number>"
+	local desc="Desc: convert to number to human readable form, like: 4096 to 4K" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+	
+	local fraction=''
+	local unit_index=0
+	local number=${1:-0}
+	local UNIT=("" K M G T E P Y Z)
+	#local UNIT=({"",K,M,G,T,E,P,Y,Z}) # also works
+
+	while ((number > 1024)); do
+		fraction="$(printf ".%02d" $((number % 1024 * 100 / 1024)))"
+		number=$((number / 1024))
+		let unit_index++
+	done
+	echo "${number}${fraction}${UNIT[$unit_index]}"
+}
+

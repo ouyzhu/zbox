@@ -1,0 +1,3 @@
+ins_steps	= "src ucd move"
+ins_verify	= "ZBOX_INS_FULLPATH/mkvalidator --version | grep 'mkvalidator' &> /dev/null"
+use_env		= 'MKVALIDATOR_HOME=ZBOX_INS_FULLPATH PATH=${MKVALIDATOR_HOME}/:${PATH}'

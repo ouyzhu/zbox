@@ -1,0 +1,7 @@
+ins_steps	= "src ucd move"
+ins_verify	= "ZBOX_INS_FULLPATH/release/gcc_linux_x64/mkvalidator --version | grep 'usage: mkvalidator' &> /dev/null"
+use_env		= 'MKVALIDATOR_HOME=ZBOX_INS_FULLPATH PATH=${MKVALIDATOR_HOME}/release/gcc_linux_x64/:${PATH}'
+ins_plf		= 'linux'
+
+# NOT regular make process, use script to "fake" 
+ins_post	= "cd ZBOX_INS_FULLPATH ; gcc corec/tools/coremake/coremake.c ; ./a.out gcc_linux_x64 ; cd mkvalidator ; make"

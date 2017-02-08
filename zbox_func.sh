@@ -319,12 +319,12 @@ func_zbox_pur() {
 	echo "INFO: purge tool (uninstall and delete downloaded source) for $@"
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local src_plfpath=$(func_zbox_gen_src_plfpath "$@")
-	local src_plfpath_to=$(readlink -f ${src_plfpath})
+	local src_plfpath_real=$(readlink -f ${src_plfpath})
 	local src_realpath=$(func_zbox_gen_src_realpath "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
 	local f=""
-	for f in "${src_plfpath}" "${src_plfpath_to}" "${src_realpath}" "${ins_fullpath}" "${ins_fullpath}_env" ; do
+	for f in "${src_plfpath}" "${src_plfpath_real}" "${src_realpath}" "${ins_fullpath}" "${ins_fullpath}_env" ; do
 		echo "INFO: deleting file: ${f}"
 		rm "${f}"
 	done
@@ -361,6 +361,7 @@ func_zbox_ins() {
 			*)		func_die "ERROR: (ins) can not handle installation process step:'${step}', exit!"	;;
 		esac
 	done
+
 	# gen env, this step not need to define
 	[ -n "${use_env}" -o ${#use_env_alias_array[@]} -ne 0 ] && func_zbox_use_gen_env "$@"
 
@@ -679,12 +680,12 @@ func_zbox_use_gen_env() {
 	local env_fullpath="$(func_zbox_gen_env_fullpath "$@")"
 	rm -f "${env_fullpath}"
 
-	# TODO: update use_env to use_env_arary, so could stop using "|||ZBOX_SPACE|||"
+	# TODO: update use_env to use_env_arary, so could stop using "|||ZBOX_SPACE|||, which used to support env value have space"
 	if [ -n "${use_env}" ] ; then
 		echo "INFO: (ins) gen env with 'use_env', target: ${env_fullpath}"
 		for var in ${use_env} ; do
 			[ -e "${var}" ] && echo "source ${var}" >> "${env_fullpath}" && continue	# use "source" if it is a file
-			echo "export ${var//|||ZBOX_SPACE|||/ }" >> "${env_fullpath}"			# use "export" otherwise. Any better way to handle the "space"?
+			echo "export ${var//|||ZBOX_SPACE|||/ }" >> "${env_fullpath}"			# use "export" otherwise. Any better way to handle the "space" of |||ZBOX_SPACE|||?
 		done
 	fi
 
@@ -693,6 +694,11 @@ func_zbox_use_gen_env() {
 		for alias_name in "${!use_env_alias_array[@]}" ; do
 			echo "alias ${alias_name}='${use_env_alias_array[$alias_name]}'" >> "${env_fullpath}"
 		done
+	fi
+
+	# simply append the "use_cmd"
+	if [ -n "${use_cmd}" ] ; then
+		echo "${use_cmd}" >> "${env_fullpath}"
 	fi
 }
 
@@ -715,25 +721,27 @@ func_zbox_ins_copyucd() {
 }
 
 func_zbox_ins_copy() {
-	local desc="Desc: install by copy, this means only need to copy the source package to 'ins' dir"
+	local desc="Desc: install by copy, this means only need to copy the source package to 'ins' dir, usually for those git/svn/hg repo"
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local src_plfpath=$(func_zbox_gen_src_plfpath "$@")
-	local src_plfpath_to=$(readlink -f ${src_plfpath})
+	local src_plfpath_real=$(readlink -f ${src_plfpath})
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 
-	echo "INFO: (ins) copy source, from: ${src_plfpath_to} to: ${ins_fullpath}"
+	echo "INFO: (ins) copy source, from: ${src_plfpath_real} to: ${ins_fullpath}"
 	func_validate_path_inexist "${ins_fullpath}"
-	func_validate_path_exist "${src_plfpath_to}"
+	func_validate_path_exist "${src_plfpath_real}"
 	func_mkdir "${ins_fullpath}" 
 	
-	if [ "$(basename "${src_plfpath_to}")" == "$(basename "${ins_fullpath}")" ] ; then
+	if [ "$(basename "${src_plfpath_real}")" == "$(basename "${ins_fullpath}")" ] ; then
 		# copy content to avoid duplated same dir name in path
-		cp -R "${src_plfpath_to}"/* "${ins_fullpath}"
-		cp -R "${src_plfpath_to}"/.* "${ins_fullpath}"
+		\cp -R "${src_plfpath_real}"/* "${ins_fullpath}"
+
+		# NOT copy .* by default, reason: 1) usually unecessary. 2) seem will copy ../* (why?)
+		#\cp -R "${src_plfpath_real}"/.* "${ins_fullpath}"
 	else
-		cp -R "${src_plfpath_to}" "${ins_fullpath}"
+		cp -R "${src_plfpath_real}" "${ins_fullpath}"
 	fi
 }
 

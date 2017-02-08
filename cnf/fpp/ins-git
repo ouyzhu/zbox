@@ -1,1 +1,1 @@
-use_env      = 'FPP_HOME=ZBOX_INS_FULLPATH PATH=${FPP_HOME}:${PATH} '
+ins_src_addr = https://github.com/facebook/PathPicker.git
