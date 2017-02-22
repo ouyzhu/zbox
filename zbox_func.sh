@@ -27,8 +27,6 @@ ZBOX_STG="${ZBOX_STG:-"${ZBOX}/stg"}"
 ZBOX_TMP="${ZBOX_TMP:-"${ZBOX}/tmp"}"
 ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
 
-# TODO: check bash version (need > v4?)
-
 # Check Platform. 
 if [ "$(uname)" == "Darwin" ]; then
 	ZBOX_PLF="${ZBOX_PLF_OSX}"
@@ -39,9 +37,18 @@ else
 	exit 1
 fi
 
+# Check Bash Feature
+if (unset a; declare -A a; eval "a['n']='nnn'"; eval '[ -n "${a['n']}" ]') > /dev/null 2>&1 ; then
+	BASH_ASSOCIATIVE_ARRAY=true
+else
+	BASH_ASSOCIATIVE_ARRAY=false
+fi
+
 # tname alias, for better listing
-declare -A tname_alias
-tname_alias["java"]="jdk"
+if [ "${BASH_ASSOCIATIVE_ARRAY}" = "true" ] ; then
+	declare -A tname_alias
+	tname_alias["java"]="jdk"
+fi
 
 # Source Library
 source ${ZBOX}/zbox_lib.sh || eval "$(wget -q -O - "https://raw.github.com/ouyzhu/zbox/master/zbox_lib.sh")" || exit 1
@@ -139,8 +146,10 @@ func_zbox_lst() {
 	local output_line_count=0
 
 	# use alias if defined
-	[ -n "${target_tname}" ] && local target_tname_alias="${tname_alias[${target_tname}]}"
-	[ -n "${target_tname_alias}" ] && target_tname="${target_tname_alias}"
+	if [ "${BASH_ASSOCIATIVE_ARRAY}" = "true" ] ; then
+		[ -n "${target_tname}" ] && local target_tname_alias="${tname_alias[${target_tname}]}"
+		[ -n "${target_tname_alias}" ] && target_tname="${target_tname_alias}"
+	fi
 
 	pushd "${ZBOX_CNF}" > /dev/null
 	func_zbox_lst_print_head
@@ -205,7 +214,9 @@ func_zbox_lst() {
 	popd > /dev/null
 	func_zbox_lst_print_tail
 
-	#[ -n "${target_tname_alias}" ] && local addition_echo_info="($* is aliased to ${target_tname})"	# cause 1st column too long
+	#if [ "${BASH_ASSOCIATIVE_ARRAY}" = "true" ] ; then
+	#	[ -n "${target_tname_alias}" ] && local addition_echo_info="($* is aliased to ${target_tname})"	# cause 1st column too long
+	#fi
 	echo "${output_line_count} tool lines."
 }
 
