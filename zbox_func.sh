@@ -336,9 +336,9 @@ func_zbox_ins() {
 
 	[ ! -d "${ZBOX_CNF}/$1" ] && func_cry "ERROR: tool $1 NOT exist" && return
 
-	echo "INFO: (ins) start installation for $@"
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
+	echo "INFO: (ins) start installation for $@, ins_steps: ${ins_steps}"
 
 	# pre check and init
 	func_zbox_ins_is_plf_support "$@" || func_die "ERROR: ins $@ NOT supported in current platform" 
@@ -349,6 +349,7 @@ func_zbox_ins() {
 
 	local step
 	for step in ${ins_steps} ; do
+		echo "INFO: (ins) start installation step: ${step}"
 		case "${step}" in 
 			src)		func_zbox_ins_src "$@"		;;
 			ucd)		func_zbox_ins_ucd "$@"		;;
@@ -582,6 +583,7 @@ func_zbox_ins_dep() {
 	func_param_check_die 2 "${desc}\n${ZBOX_FUNC_INS_USAGE} \n" "$@"
 
 	eval $(func_zbox_gen_ins_cnf_vars "$@")
+	echo "INFO: (ins) start to install dependencies, ZBOX_PLF is '${ZBOX_PLF}'"
 
 	# dep of linux platform
 	if [ -z "${ZBOX_PLF}" = "${ZBOX_PLF_LINUX}" ] ; then
