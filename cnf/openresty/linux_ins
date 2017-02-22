@@ -1,3 +1,3 @@
-﻿# for more modules, see nginx and openresty guide
-ins_dep_apt_install	= "build-essential libreadline-dev libncurses5-dev libpcre3-dev libssl-dev make perl zlib1g zlib1g-dev"
+# for more modules, see nginx and openresty guide
+ins_dep_apt_install	= "build-essential libreadline-dev libncurses5-dev libpcre3-dev libssl-dev make perl libpcre3 libpcre3-dev zlib1g zlib1g-dev"
 

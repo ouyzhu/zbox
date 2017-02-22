@@ -586,7 +586,7 @@ func_zbox_ins_dep() {
 	echo "INFO: (ins) start to install dependencies, ZBOX_PLF is '${ZBOX_PLF}'"
 
 	# dep of linux platform
-	if [ -z "${ZBOX_PLF}" = "${ZBOX_PLF_LINUX}" ] ; then
+	if [ "${ZBOX_PLF}" = "${ZBOX_PLF_LINUX}" ] ; then
 		if [ -n "${ins_dep_apt_install}" ] ; then
 			echo "INFO: (ins) dependencies: sudo apt-get install -y ${ins_dep_apt_install}"
 			sudo apt-get install -y ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
@@ -631,7 +631,6 @@ func_zbox_ins_make() {
 	local ins_fullpath="$(func_zbox_gen_ins_fullpath "$@")"
 	local ucd_fullpath="$(func_zbox_gen_ucd_fullpath "$@")"
 	func_validate_path_inexist "${ins_fullpath}"
-	echo "INFO: ---------- [ -z ${make_steps} ]" 
 	[ -z "${make_steps}" ] && func_die "ERROR: (ins) 'ins_make_steps' not defined, can not make"
 
 	# execute pre script
