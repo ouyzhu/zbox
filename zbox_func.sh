@@ -38,7 +38,7 @@ else
 fi
 
 # Check Bash Feature
-if (unset a; declare -A a; eval "a['n']='nnn'"; eval '[ -n "${a['n']}" ]') > /dev/null 2>&1 ; then
+if (unset a && declare -A a && eval "a['n']='nnn'" && eval '[ -n "${a['n']}" ]') > /dev/null 2>&1 ; then
 	BASH_ASSOCIATIVE_ARRAY=true
 else
 	BASH_ASSOCIATIVE_ARRAY=false
