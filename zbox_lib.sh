@@ -8,29 +8,6 @@ func_dati() { date "+%Y-%m-%d_%H-%M-%S";		}
 func_nanosec()  { date +%s%N;				}
 func_millisec() { echo $(($(date +%s%N)/1000000));	}
 
-# TODO: create func_complain: auto use func_die for non-interactive mode, use func_cry for interactive mode
-#       command 1: echo $- | grep -q "i" && echo interactive || echo non-interactive
-#       command 2: [ -z "$PS1" ] && echo interactive || echo non-interactive
-#       explain: bash manual: PS1 is set and $- includes i if bash is interactive, allowing a shell script or a startup file to test this state.
-
-func_die() {
-	local usage="Usage: $FUNCNAME <error_info>" 
-	local desc="Desc: echo error info to stderr and exit" 
-	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
-	
-	echo -e "$@" 1>&2
-	exit 1
-}
-
-func_cry() {
-	local usage="Usage: $FUNCNAME <error_info>" 
-	local desc="Desc: echo error info to stderr and kill current job (exit the function stack without exiting shell)" 
-	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
-	
-	echo -e "$@" 1>&2
-	kill -INT $$
-}
-
 func_check_exit_code() {
 	# NOTE: should NOT do anything before check, since need check exit status of last command
 	[ "$?" = "0" ]  && echo  "INFO: ${1}" || func_die "ERROR: ${2:-${1}}"
@@ -78,7 +55,7 @@ func_mkdir() {
 }
 
 func_mkdir_cd() { 
-	local usage="Usage: $FUNCNAME <path> ..." 
+	local usage="Usage: $FUNCNAME <path>" 
 	local desc="Desc: (fail fast) create dir and cd into it. Create dirs if NOT exist, exit if fail, which is different with /bin/mkdir" 
 	func_param_check 1 "Usage: $FUNCNAME <path>" "$@"
 
@@ -97,6 +74,7 @@ func_download() {
 	[ -z "${1}" ] && func_die "ERROR: url is null or empty, download failed"
 	[ -f "${2}" ] && echo "INFO: file (${2}) already exist, skip download" && return 0
 
+	# TODO: curl has a feature --metalink <addr> (if target site support), which could make use of mirrors (e.g. for failover)
 	case "${1}" in
 		*)		func_download_wget "$@"	;;
 		#http://*)	func_download_wget "$@" ;;
@@ -151,15 +129,18 @@ func_uncompress() {
 		*.tar.bz2)	tar -jxvf "$source_file" &> /dev/null	;;	# NOTE, should before "*.bz2)"
 		*.bz2)		bunzip2 "$source_file" &> /dev/null	;;
 		*.gz)		gunzip "$source_file" &> /dev/null	;;
-		
 		*.7z)		7z e "$source_file" &> /dev/null	;;	# use "-e" will fail, "e" is extract, "x" is extract with full path
-		*.zip)		unzip "$source_file" &> /dev/null	;;
+		*.zip)		func_complain_cmd_not_exist unzip \
+				&& sudo apt-get install unzip ;			# try intall
+				unzip "$source_file" &> /dev/null	;;
 		*.tar)		tar -xvf "$source_file" &> /dev/null	;;
 		*.xz)		tar -Jxvf "$source_file" &> /dev/null	;;
 		*.tgz)		tar -zxvf "$source_file" &> /dev/null	;;
 		*.tbz2)		tar -jxvf "$source_file" &> /dev/null	;;
 		*.Z)		uncompress "$source_file"		;;
-		*.rar)		unrar e "$source_file" &> /dev/null	;;	# candidate 1
+		*.rar)		func_complain_cmd_not_exist unrar \
+				&& sudo apt-get install unrar ;			# try intall
+				unrar e "$source_file" &> /dev/null	;;	# candidate 1
 		#*.rar)		7z e "$source_file" &> /dev/null	;;	# candidate 2
 		*)		echo "ERROR: unknow format of file: ${source_file}"	;;
 	esac
@@ -173,20 +154,6 @@ func_uncompress() {
 	fi
 
 	\cd - &> /dev/null
-}
-
-func_bak_file() {
-	local usage="Usage: $FUNCNAME <file> ..."
-	local desc="Desc: backup file, with suffixed date" 
-	func_param_check 1 "${desc} \n ${usage} \n" "$@"
-	
-	for p in "$@" ; do
-		func_validate_path_exist "${p}"
-		[ -d "${p}" ] && func_die "WARN: skipping backup directory ${p}" 
-
-		[ -w "${p}" ] && cp "${p}"{,.bak.$(func_dati)} || sudo cp "${p}"{,.bak.$(func_dati)}
-		[ "$?" != "0" ] && func_die "ERROR: backup file ${p} failed!"
-	done
 }
 
 func_vcs_update() {
@@ -217,24 +184,84 @@ func_vcs_update() {
 	fi
 }
 
+################################################################################
+# Utility: validation and check
+# TODO: rename: validate to assert
+################################################################################
+func_complain_privilege_not_sudoer() { 
+	local usage="Usage: $FUNCNAME <msg>"
+	local desc="Desc: complains if current user not have sudo privilege, return 0 if not have, otherwise 1" 
+	
+	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege!}" && result=0
+	return 1
+}
+
+func_complain_path_not_exist() {
+	local usage="Usage: $FUNCNAME <path> <msg>"
+	local desc="Desc: complains if path not exist, return 0 if not exist, otherwise 1" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+	
+	[ ! -e "${1}" ] && echo "${2:-WARN: path ${1} NOT exist!}" && return 0
+	return 1
+}
+
 func_validate_path_exist() {
 	local usage="Usage: $FUNCNAME <path> ..."
 	local desc="Desc: the path must be exist, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 	
 	for p in "$@" ; do
-		[ ! -e "${p}" ] && echo "ERROR: ${p} NOT exist!" && exit 1
+		[ ! -e "${p}" ] && func_stop "ERROR: ${p} NOT exist!"
 	done
 }
 
+func_validate_path_not_exist() { func_validate_path_inexist "$@" ;}
 func_validate_path_inexist() {
 	local usage="Usage: $FUNCNAME <path> ..."
 	local desc="Desc: the path must be NOT exist, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 	
 	for p in "$@" ; do
-		[ -e "${p}" ] && echo "ERROR: ${p} already exist!" && exit 1
+		[ -e "${p}" ] && func_stop "ERROR: ${p} already exist!"
 	done
+}
+
+func_validate_path_owner() {
+	local usage="Usage: $FUNCNAME <path> <owner>"
+	local desc="Desc: the path must be owned by owner(xxx:xxx format), otherwise will exit" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+
+	local expect="${2}"
+	local real=$(ls -ld "${1}" | awk '{print $3":"$4}')
+	[ "${real}" != "${expect}" ] && func_stop "ERROR: owner NOT match, expect: ${expect}, real: ${real}"
+}
+
+func_is_positive_int() {
+	local usage="Usage: $FUNCNAME <param>"
+	local desc="Desc: return 0 if the param is positive integer, otherwise will 1" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+	
+	# NOTE: no quote on the pattern part!
+	local num="${1}"
+	[[ "${num}" =~ ^[\-]*[0-9]+$ ]] && (( num > 0 )) && return 0 || return 1
+}
+
+func_is_cmd_exist() {
+	local usage="Usage: $FUNCNAME <cmd>"
+	local desc="Desc: check if cmd exist, return 0 if exist, otherwise 1" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+
+	command -v "${1}" &> /dev/null && return 0 || return 1
+}
+
+func_complain_cmd_not_exist() {
+	local usage="Usage: $FUNCNAME <cmd> <msg>"
+	local desc="Desc: complains if command not exist, return 0 if not exist, otherwise 1" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+
+	func_is_cmd_exist "${1}" && return 1
+	echo "${2:-WARN: cmd ${1} NOT exist!}" 
+	return 0
 }
 
 func_validate_cmd_exist() {
@@ -242,7 +269,9 @@ func_validate_cmd_exist() {
 	local desc="Desc: the cmd must be exist, otherwise will exit" 
 	func_param_check 1 "${desc} \n ${usage} \n" "$@"
 
-	( ! command -v "${1}" &> /dev/null) && echo "ERROR: cmd (${1}) NOT exist!" && exit 1
+	for p in "$@" ; do
+		func_is_cmd_exist "${p}" || func_stop "ERROR: cmd (${p}) NOT exist!"
+	done
 }
 
 func_validate_dir_not_empty() {
@@ -252,7 +281,7 @@ func_validate_dir_not_empty() {
 	
 	for p in "$@" ; do
 		# only redirect stderr, otherwise the test will always false
-		[ ! "$(ls -A "${p}" 2> /dev/null)" ] && echo "ERROR: ${p} is empty!" && exit 1
+		[ ! "$(ls -A "${p}" 2> /dev/null)" ] && func_stop "ERROR: ${p} is empty!"
 	done
 }
 
@@ -263,8 +292,136 @@ func_validate_dir_empty() {
 	
 	for p in "$@" ; do
 		# only redirect stderr, otherwise the test will always false
-		[ "$(ls -A "${p}" 2> /dev/null)" ] && echo "ERROR: ${p} not empty!" && exit 1
+		[ "$(ls -A "${p}" 2> /dev/null)" ] && func_stop "ERROR: ${p} not empty!"
 	done
+}
+
+################################################################################
+# Utility: FileSystem
+################################################################################
+
+func_link_init() {
+	local usage="Usage: ${FUNCNAME} <target> <source>"
+	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
+	func_param_check 2 "${desc} \n ${usage} \n" "$@"
+
+	local target="$1"
+	local source="$2"
+	echo "INFO: creating link ${target} --> ${source}"
+
+	# check, skip if target already link, remove if target empty 
+	func_complain_path_not_exist ${source} && return 0
+	[ -h "${target}" ] && echo "INFO: ${target} already a link (--> $(readlink -f ${target}) ), skip" && return 0
+	[ -d "${target}" ] && [ ! "$(ls -A ${target})" ] && rmdir "${target}"
+
+	\ln -s "${source}" "${target}"
+}
+
+func_duplicate_dated() {
+	local usage="Usage: $FUNCNAME <file> ..."
+	local desc="Desc: backup file, with suffixed date" 
+	func_param_check 1 "${desc} \n ${usage} \n" "$@"
+	
+	local dati="$(func_dati)"
+	for p in "$@" ; do
+		func_complain_path_not_exist "${p}" && continue
+
+		# if target is dir, check size first (>100M will warn and skip)
+		if [ -d "${p}" ] ; then
+			p_size=$(stat -c%s "${p}")
+			p_size_h=$(func_num_to_human zip_size)
+			(( p_size > 104857600 )) && echo "WARN: ${p} size (${p_size_h}) too big (>100M), skip" && continue 
+		fi
+
+		target="${p}.bak.${dati}"
+		echo "INFO: backup file, ${p} --> ${target}"
+		[ -w "${p}" ] && cp -r "${p}" "${target}" || sudo cp -r "${p}" "${target}"
+		[ "$?" != "0" ] && echo "WARN: backup ${p} failed, pls check!"
+	done
+}
+
+################################################################################
+# Utility: shell
+################################################################################
+
+func_is_non_interactive() {
+	# command 1: echo $- | grep -q "i" && echo interactive || echo non-interactive
+	# command 2: [ -z "$PS1" ] && echo interactive || echo non-interactive
+	# explain: bash manual: PS1 is set and $- includes i if bash is interactive, allowing a shell script or a startup file to test this state.
+	[ -z "$PS1" ] && return 0 || return 1
+}
+
+func_pipe_filter() {
+	if [ -z "${1}" ] ; then
+		sed -n -e "/^\(Desc\|INFO\|WARN\|ERROR\):/p"
+	else
+		tee -a "${1}" | sed -n -e "/^\(Desc\|INFO\|WARN\|ERROR\):/p"
+	fi
+}
+
+func_gen_local_vars() {
+	local usage="Usage: $FUNCNAME <file1> <file2> ..." 
+	local desc="Desc: gen local var definition based on file sequence" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+
+	# check file existence
+	local exist_files=()
+	local inexist_files=()
+	for f in "$@" ; do
+		if ! [ -r "${f}" ] ; then
+			inexist_files+=("${f}")
+			continue
+		fi
+		exist_files+=("${f}")
+	done
+
+	# report to stderr
+	(( ${#inexist_files[*]} > 0 )) && echo "DEBUG: skip those inexist files: ${inexist_files[*]}" 1>&2
+	(( ${#exist_files[*]} == 0 )) && echo "WARN: NO files really readable to gen local var: $@" 1>&2 && return 1
+
+	# TODO: embrace value with " or ', since bash eval get error if value have special chars like &/, etc. path field almost always have such chars.
+	# works but not efficient: s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
+	cat "${exist_files[@]}"			\
+	| sed -e "/^[[:blank:]]*\($\|#\)/d;
+		s/[[:blank:]]*=[[:blank:]]*/=/;
+		s/^/local /"
+}
+
+################################################################################
+# Utility: process
+################################################################################
+
+func_stop() {
+	local usage="Usage: $FUNCNAME <error_info>" 
+	local desc="Desc: echo error info to stderr and exit" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+	
+	echo -e "$@" 1>&2
+	func_is_non_interactive && exit 1 || kill -INT $$
+}
+
+func_die() {
+	# old, use func_stop() instead
+	# TODO: redirect to func_stop after verified
+
+	local usage="Usage: $FUNCNAME <error_info>" 
+	local desc="Desc: echo error info to stderr and exit" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+	
+	echo -e "$@" 1>&2
+	exit 1
+}
+
+func_cry() {
+	# old, use func_stop() instead
+	# TODO: redirect to func_stop after verified
+
+	local usage="Usage: $FUNCNAME <error_info>" 
+	local desc="Desc: echo error info to stderr and kill current job (exit the function stack without exiting shell)" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+	
+	echo -e "$@" 1>&2
+	kill -INT $$
 }
 
 ################################################################################
@@ -289,4 +446,3 @@ func_num_to_human() {
 	done
 	echo "${number}${fraction}${UNIT[$unit_index]}"
 }
-

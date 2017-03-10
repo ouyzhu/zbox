@@ -4,4 +4,5 @@ ins_verify		= "ZBOX_INS_FULLPATH/bin/resty -V 2>&1 | grep '^nginx version.*openr
 
 # Most module enabled by default. Some are not: standard Lua 5.1 interpreter, DrizzleNginxModule, PostgresNginxModule, and IconvNginxModule 
 # For those, need to specify --with-lua51, --with-http_drizzle_module, --with-http_postgres_module, and --with-http_iconv_module options
+# For old os, might need --with-luajit-xcflags='-std=gnu99', e.g. v1.11.2.2 on ubuntu9.04 need this
 ins_make_configure_opts	= "--prefix=ZBOX_INS_FULLPATH"
