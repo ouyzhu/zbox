@@ -1,0 +1,4 @@
+# 1) the gnu <mntent.h> is UNSUPPORT in osx, it is for config 'prunefs'. Comment those func in updatedb.c, and use locate without 'prunefs' on osx
+# 2) the htonll/ntohll is already defined in osx, just comment its define/impl in lib.c/lib.h
+ins_make_pre_script	= "func_duplicate_dated ZBOX_UCD_FULLPATH/src/{lib.c,lib.h,updatedb.c} ; rm ZBOX_UCD_FULLPATH/src/{lib.c,lib.h,updatedb.c} ; \cp -rf ZBOX_CNF/mlocate/overwrite-ZBOX_TVER/* ZBOX_UCD_FULLPATH/"
+

@@ -1,0 +1,2 @@
+ins_steps    = "src copy"
+use_env      = 'BATS_HOME=ZBOX_INS_FULLPATH PATH=${BATS_HOME}/bin:${PATH}'

@@ -314,10 +314,13 @@ complete -F _fzf_complete_kill -o nospace -o default -o bashdefault kill
 
 # Host completion
 complete -F _fzf_complete_ssh -o default -o bashdefault ssh
+complete -F _fzf_complete_telnet -o default -o bashdefault telnet
+
+# Update: sshx scpx ping actually NOT work, why?
+# Update by ouyzhu: more cmd for completion
 complete -F _fzf_complete_ssh -o default -o bashdefault sshx
 complete -F _fzf_complete_ssh -o default -o bashdefault scpx
 complete -F _fzf_complete_ssh -o default -o bashdefault ping
-complete -F _fzf_complete_telnet -o default -o bashdefault telnet
 
 # Environment variables / Aliases
 complete -F _fzf_complete_unset -o default -o bashdefault unset

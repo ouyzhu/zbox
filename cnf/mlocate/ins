@@ -1,0 +1,5 @@
+ins_steps		= "src ucd make"
+ins_make_steps		= "configure make install"
+ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH"
+ins_verify		= "ZBOX_INS_FULLPATH/bin/locate --version 2>&1 | grep '^mlocate ' &> /dev/null"
+use_env			= "MLOCATE_HOME=ZBOX_INS_FULLPATH PATH=${MLOCATE_HOME}/bin:${PATH}"
