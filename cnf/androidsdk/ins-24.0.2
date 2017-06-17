@@ -1,1 +1,5 @@
 ins_src_addr    = "Fake_address_since_download_need_agreement: http://dl.google.com/android/android-sdk_r24.0.2-linux.tgz"
+
+ins_post_script      = 'ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 ZBOX_INS_FULLPATH/tools/lib/libGL.so'
+ins_post_script_desc = "To advoid the error: 'Failed to load libGL.so'"
+use_env             = 'ANDROID_HOME=ZBOX_INS_FULLPATH PATH=${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:${PATH} '

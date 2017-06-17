@@ -1,0 +1,15 @@
+# NOTE: might get error when install: "cabal: The following packages are likely to be broken by the reinstalls:"
+#	seems a cabal problem: https://github.com/creswick/cabal-dev/issues/74
+#	this cmd works: cabal install --force-reinstalls
+
+ins_steps		= "src dep make"
+
+ins_make_cmd		= "cabal"
+ins_make_steps		= "install"
+
+			# time costing (even just repeat), not always necessary, but good
+#ins_make_pre_script	= "cabal update ; cabal install cabal-install"
+
+			# TODO: installed to cabal dir, how to change?
+use_env      		= 'CABAL_HOME=$HOME/.cabal/bin PATH=${CABAL_HOME}:${PATH} '
+

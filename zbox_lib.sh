@@ -9,7 +9,7 @@ func_nanosec()  { date +%s%N;				}
 func_millisec() { echo $(($(date +%s%N)/1000000));	}
 
 func_die() {
-	local usage="Usage: $FUNCNAME <error_info>" 
+	local usage="Usage: ${FUNCNAME[0]} <error_info>" 
 	local desc="Desc: echo error info to stderr and exit" 
 	[ $# -lt 1 ] && echo -e "${desc}\n${usage}\n" && exit 1
 	
@@ -21,26 +21,29 @@ func_die() {
 
 func_param_check() {
 	# NOT use desc/usage var name, so invoker could call 'func_param_check 2 "$@"' instead of 'func_param_check 2 "${desc}\n${usage}\n" "$@"'
-	local s_usage="Usage: $FUNCNAME <count> <string> ..."
+	local s_usage="Usage: ${FUNCNAME[0]} <count> <string> ..."
 	local s_desc="Desc: check if parameter number >= <count>, otherwise print error_msg and exit. If invoker defined var desc/usage, error_msg will be \${desc}\\\\n\${usage}\\\\n, ohterwise use default"
-	local s_warn="Warn: (YOU SCRIPT HAS BUG) might be: \n\t1) NOT provide <count> or any <string> \n\t2) called $FUNCNAME but actually not need to check" 
+	local s_warn="Warn: (YOU SCRIPT HAS BUG) might be: \n\t1) NOT provide <count> or any <string> \n\t2) called ${FUNCNAME[0]} but actually not need to check" 
 
-	# use -lt, so the exit status will not changed in legal condition
-	[ $# -lt 2 ] && func_die "${s_warn}\n${s_desc}\n${s_usage}\n"	
+	# self parameter check. use -lt, so the exit status will not changed in legal condition
+	[ $# -lt 1 ] && func_die "${s_warn}\n${s_desc}\n${s_usage}\n"	
 	
-	# use -lt, so the exit status will not changed in legal condition
 	local count=$1
 	shift
+
+	# shellcheck disable=2015
+	[[ "${count}" =~ ^[-]*[0-9]+$ ]] && (( count > 0 )) || func_die "ERROR: <count> of ${FUNCNAME[0]}, must be a positive number"
 
 	# do NOT call func_is_str_blank here, which cause infinite loop and "Segmentation fault: 11"
 	local error_msg="${desc}\n${usage}\n"
 	[ -z "${error_msg//[[:blank:]\\n]}" ] && error_msg="ERROR: parameter counts less than expected (expect ${count}), and desc/usage NOT defined."
 
+	# real parameter check
 	[ $# -lt "${count}" ] && func_die "${error_msg}"
 }
 
 func_download() {
-	local usage="Usage: $FUNCNAME <url> <target>"
+	local usage="Usage: ${FUNCNAME[0]} <url> <target>"
 	local desc="Desc: download from url to local target" 
 	func_param_check 2 "$@"
 	
@@ -56,7 +59,7 @@ func_download() {
 }
 
 func_download_wget() {
-	local usage="Usage: $FUNCNAME <url> <target_dir>"
+	local usage="Usage: ${FUNCNAME[0]} <url> <target_dir>"
 	local desc="Desc: download using wget" 
 	func_param_check 2 "$@"
 
@@ -77,14 +80,14 @@ func_download_wget() {
 
 	echo "" # next line should in new line
 	[ -f "${dl_fullpath}" ] || func_die "ERROR: ${dl_fullpath} not found, seems download faild!"
-	"cd" - &> /dev/null
+	"cd" - &> /dev/null || func_die "ERROR: failed to cd back to previous dir"
 }
 
 # shellcheck disable=2155,2012
 func_uncompress() {
 	# TODO 1: gz file might be replaced and NOT in the target dir
 
-	local usage="Usage: $FUNCNAME <source> <target_dir>"
+	local usage="Usage: ${FUNCNAME[0]} <source> <target_dir>"
 	local desc="Desc: uncompress file, based on filename extension, <target_dir> will be the top level dir for uncompressed content" 
 	func_param_check 1 "$@"
 	func_validate_path_exist "${1}"
@@ -98,15 +101,16 @@ func_uncompress() {
 	echo "INFO: uncompress file, from: ${source_file} to: ${target_dir}"
 	func_mkdir_cd "${target_dir}"
 	case "$source_file" in
-		# group for 
+		*.jar | *.arr | *.zip)		
+				func_complain_cmd_not_exist unzip \
+				&& sudo apt-get install unzip ;			# try intall
+				unzip "$source_file" &> /dev/null	;;
+
 		*.tar.gz)	tar -zxvf "$source_file" &> /dev/null	;;	# NOTE, should before "*.gz)"
 		*.tar.bz2)	tar -jxvf "$source_file" &> /dev/null	;;	# NOTE, should before "*.bz2)"
 		*.bz2)		bunzip2 "$source_file" &> /dev/null	;;
 		*.gz)		gunzip "$source_file" &> /dev/null	;;
 		*.7z)		7z e "$source_file" &> /dev/null	;;	# use "-e" will fail, "e" is extract, "x" is extract with full path
-		*.zip)		func_complain_cmd_not_exist unzip \
-				&& sudo apt-get install unzip ;			# try intall
-				unzip "$source_file" &> /dev/null	;;
 		*.tar)		tar -xvf "$source_file" &> /dev/null	;;
 		*.xz)		tar -Jxvf "$source_file" &> /dev/null	;;
 		*.tgz)		tar -zxvf "$source_file" &> /dev/null	;;
@@ -127,11 +131,11 @@ func_uncompress() {
 		rmdir "${target_dir}"/**/ &> /dev/null 
 	fi
 
-	"cd" - &> /dev/null
+	"cd" - &> /dev/null || func_die "ERROR: failed to cd back to previous dir"
 }
 
 func_vcs_update() {
-	local usage="Usage: $FUNCNAME <src_type> <src_addr> <target_dir>"
+	local usage="Usage: ${FUNCNAME[0]} <src_type> <src_addr> <target_dir>"
 	local desc="Desc: init or update vcs like hg/git/svn"
 	func_param_check 3 "$@"
 
@@ -162,19 +166,19 @@ func_vcs_update() {
 # Utility: FileSystem
 ################################################################################
 func_cd() {
-	local usage="Usage: $FUNCNAME <path>" 
+	local usage="Usage: ${FUNCNAME[0]} <path>" 
 	local desc="Desc: (fail fast) change dir, exit whole process if fail"
 	func_param_check 1 "$@"
 	
 	if [ -n "${1}" ] ; then
-		"cd" "${1}" 
+		"cd" "${1}" || func_die "ERROR: failed to cd back to previous dir" 
 		return
 	fi
 	func_die "ERROR: failed to change dir: cd ${1}"
 }
 
 func_mkdir() {
-	local usage="Usage: $FUNCNAME <path> ..." 
+	local usage="Usage: ${FUNCNAME[0]} <path> ..." 
 	local desc="Desc: (fail fast) create dirs if NOT exist, exit whole process if fail"
 	func_param_check 1 "$@"
 	
@@ -185,7 +189,7 @@ func_mkdir() {
 }
 
 func_mkdir_cd() { 
-	local usage="Usage: $FUNCNAME <path>" 
+	local usage="Usage: ${FUNCNAME[0]} <path>" 
 	local desc="Desc: (fail fast) create dir and cd into it. Create dirs if NOT exist, exit if fail, which is different with /bin/mkdir" 
 	func_param_check 1 "$@"
 
@@ -197,7 +201,7 @@ func_mkdir_cd() {
 }
 
 func_is_filetype_text() {
-	local usage="Usage: $FUNCNAME <path>"
+	local usage="Usage: ${FUNCNAME[0]} <path>"
 	local desc="Desc: check if filetype is text, return 0 if yes, otherwise 1" 
 	func_param_check 1 "$@"
 
@@ -205,7 +209,7 @@ func_is_filetype_text() {
 }
 
 func_is_dir_empty() {
-	local usage="Usage: $FUNCNAME <dir>"
+	local usage="Usage: ${FUNCNAME[0]} <dir>"
 	local desc="Desc: check if directory is empty or inexist, return 0 if empty, otherwise 1" 
 	func_param_check 1 "$@"
 
@@ -213,7 +217,7 @@ func_is_dir_empty() {
 }
 
 func_validate_dir_not_empty() {
-	local usage="Usage: $FUNCNAME <dir> ..."
+	local usage="Usage: ${FUNCNAME[0]} <dir> ..."
 	local desc="Desc: the directory must exist and NOT empty, otherwise will exit" 
 	func_param_check 1 "$@"
 	
@@ -224,7 +228,7 @@ func_validate_dir_not_empty() {
 }
 
 func_validate_dir_empty() {
-	local usage="Usage: $FUNCNAME <dir> ..."
+	local usage="Usage: ${FUNCNAME[0]} <dir> ..."
 	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
 	func_param_check 1 "$@"
 	
@@ -235,7 +239,7 @@ func_validate_dir_empty() {
 }
 
 func_complain_path_not_exist() {
-	local usage="Usage: $FUNCNAME <path> <msg>"
+	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
 	local desc="Desc: complains if path not exist, return 0 if not exist, otherwise 1" 
 	func_param_check 1 "$@"
 	
@@ -244,7 +248,7 @@ func_complain_path_not_exist() {
 }
 
 func_validate_path_exist() {
-	local usage="Usage: $FUNCNAME <path> ..."
+	local usage="Usage: ${FUNCNAME[0]} <path> ..."
 	local desc="Desc: the path must be exist, otherwise will exit" 
 	func_param_check 1 "$@"
 	
@@ -255,7 +259,7 @@ func_validate_path_exist() {
 
 func_validate_path_not_exist() { func_validate_path_inexist "$@" ;}
 func_validate_path_inexist() {
-	local usage="Usage: $FUNCNAME <path> ..."
+	local usage="Usage: ${FUNCNAME[0]} <path> ..."
 	local desc="Desc: the path must be NOT exist, otherwise will exit" 
 	func_param_check 1 "$@"
 	
@@ -266,7 +270,7 @@ func_validate_path_inexist() {
 
 # shellcheck disable=2155,2012
 func_validate_path_owner() {
-	local usage="Usage: $FUNCNAME <path> <owner>"
+	local usage="Usage: ${FUNCNAME[0]} <path> <owner>"
 	local desc="Desc: the path must be owned by owner(xxx:xxx format), otherwise will exit" 
 	func_param_check 1 "$@"
 
@@ -276,7 +280,7 @@ func_validate_path_owner() {
 }
 
 func_link_init() {
-	local usage="Usage: ${FUNCNAME} <target> <source>"
+	local usage="Usage: ${{FUNCNAME[0]}} <target> <source>"
 	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
 	func_param_check 2 "$@"
 
@@ -294,7 +298,7 @@ func_link_init() {
 
 # shellcheck disable=2015
 func_duplicate_dated() {
-	local usage="Usage: $FUNCNAME <file> ..."
+	local usage="Usage: ${FUNCNAME[0]} <file> ..."
 	local desc="Desc: backup file, with suffixed date" 
 	func_param_check 1 "$@"
 	
@@ -310,8 +314,11 @@ func_duplicate_dated() {
 
 		target="${p}.bak.$(func_dati)"
 		echo "INFO: backup file, ${p} --> ${target}"
-		[ -w "${p}" ] && cp -r "${p}" "${target}" || sudo cp -r "${p}" "${target}"
-		[ "$?" != "0" ] && echo "WARN: backup ${p} failed, pls check!"
+		if [ -w "${p}" ] ; then
+			cp -r "${p}" "${target}"	|| echo "WARN: backup ${p} failed, pls check!"
+		else
+			sudo cp -r "${p}" "${target}"	|| echo "WARN: backup ${p} failed (with sudo priviledge), pls check!"
+		fi
 	done
 }
 
@@ -319,7 +326,7 @@ func_duplicate_dated() {
 # Utility: shell
 ################################################################################
 func_is_cmd_exist() {
-	local usage="Usage: $FUNCNAME <cmd>"
+	local usage="Usage: ${FUNCNAME[0]} <cmd>"
 	local desc="Desc: check if cmd exist, return 0 if exist, otherwise 1" 
 	func_param_check 1 "$@"
 
@@ -338,7 +345,7 @@ func_is_non_interactive() {
 }
 
 func_complain_cmd_not_exist() {
-	local usage="Usage: $FUNCNAME <cmd> <msg>"
+	local usage="Usage: ${FUNCNAME[0]} <cmd> <msg>"
 	local desc="Desc: complains if command not exist, return 0 if not exist, otherwise 1" 
 	func_param_check 1 "$@"
 
@@ -348,7 +355,7 @@ func_complain_cmd_not_exist() {
 }
 
 func_validate_cmd_exist() {
-	local usage="Usage: $FUNCNAME <cmd> ..."
+	local usage="Usage: ${FUNCNAME[0]} <cmd> ..."
 	local desc="Desc: the cmd must be exist, otherwise will exit" 
 	func_param_check 1 "$@"
 
@@ -358,7 +365,7 @@ func_validate_cmd_exist() {
 }
 
 func_complain_privilege_not_sudoer() { 
-	local usage="Usage: $FUNCNAME <msg>"
+	local usage="Usage: ${FUNCNAME[0]} <msg>"
 	local desc="Desc: complains if current user not have sudo privilege, return 0 if not have, otherwise 1" 
 	
 	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege!}" && result=0
@@ -374,9 +381,12 @@ func_pipe_filter() {
 }
 
 func_gen_local_vars() {
-	local usage="Usage: $FUNCNAME <file1> <file2> ..." 
+	local usage="Usage: ${FUNCNAME[0]} <file1> <file2> ..." 
 	local desc="Desc: gen local var definition based on file sequence" 
 	func_param_check 1 "$@"
+
+	# TODO: if the file has BOMB, will fail. ignore the BOMB chars? 
+	#	verify: use set a bomb cnf file in zbox, and try "zbox use xxx"
 
 	# check file existence
 	local exist_files=()
@@ -517,7 +527,7 @@ func_os_info() {
 # Utility: network
 ################################################################################
 func_is_valid_ip() {
-	local usage="Usage: $FUNCNAME <address>" 
+	local usage="Usage: ${FUNCNAME[0]} <address>" 
 	local desc="Desc: check if address is valid ipv4/ipv6 address, return 0 if yes otherwise no"
 	func_param_check 1 "$@"
 	
@@ -527,7 +537,7 @@ func_is_valid_ip() {
 }
 
 func_is_valid_ipv4() {
-	local usage="Usage: $FUNCNAME <address>" 
+	local usage="Usage: ${FUNCNAME[0]} <address>" 
 	local desc="Desc: check if address is valid ipv4 address, return 0 if yes otherwise no"
 	func_param_check 1 "$@"
 	
@@ -556,7 +566,7 @@ func_is_valid_ipv4() {
 }
 
 func_is_valid_ipv6() {
-	local usage="Usage: $FUNCNAME <address>" 
+	local usage="Usage: ${FUNCNAME[0]} <address>" 
 	local desc="Desc: check if address is valid ipv6 address, return 0 if yes otherwise no"
 	func_param_check 1 "$@"
 	
@@ -589,11 +599,11 @@ func_is_valid_ipv6() {
 
 	# shellcheck disable=2086
 	# do NOT use " around ${1}, as blank will cause ^ or $ fail in grep
-	echo ${1} | egrep -q "^(${RE_IPV6})$"
+	echo ${1} | grep -E -q "^(${RE_IPV6})$"
 }
 
 func_ip_of_host() {
-	local usage="Usage: $FUNCNAME <host>" 
+	local usage="Usage: ${FUNCNAME[0]} <host>" 
 	local desc="Desc: echo one ip of the host, otherwise echo empty, return original if already an ip"
 	func_param_check 1 "$@"
 
@@ -668,7 +678,7 @@ func_ip_list() {
 # Data Type: number
 ################################################################################
 func_is_positive_int() {
-	local usage="Usage: $FUNCNAME <param>"
+	local usage="Usage: ${FUNCNAME[0]} <param>"
 	local desc="Desc: return 0 if the param is positive integer, otherwise will 1" 
 	func_param_check 1 "$@"
 	
@@ -678,7 +688,7 @@ func_is_positive_int() {
 }
 
 func_num_to_human() {
-	local usage="Usage: $FUNCNAME <number>"
+	local usage="Usage: ${FUNCNAME[0]} <number>"
 	local desc="Desc: convert to number to human readable form, like: 4096 to 4K" 
 	func_param_check 1 "$@"
 	
@@ -700,7 +710,7 @@ func_num_to_human() {
 # Data Type: string
 ################################################################################
 func_is_str_empty() {
-	local usage="Usage: $FUNCNAME <string...>"
+	local usage="Usage: ${FUNCNAME[0]} <string...>"
 	local desc="Desc: check if string is empty (or not defined), return 0 if empty, otherwise 1" 
 	func_param_check 1 "$@"
 	
@@ -708,7 +718,7 @@ func_is_str_empty() {
 }
 
 func_is_str_blank() {
-	local usage="Usage: $FUNCNAME <string...>"
+	local usage="Usage: ${FUNCNAME[0]} <string...>"
 	local desc="Desc: check if string is blank (or not defined), return 0 if empty, otherwise 1" 
 	func_param_check 1 "$@"
 	
@@ -717,7 +727,7 @@ func_is_str_blank() {
 }
 
 func_contains_blank_str() {
-	local usage="Usage: $FUNCNAME <string...>"
+	local usage="Usage: ${FUNCNAME[0]} <string...>"
 	local desc="Desc: check if parameter contains blank (or not defined) str, return 0 if yes, otherwise 1" 
 	func_param_check 1 "$@"
 	
@@ -733,7 +743,7 @@ func_str_not_contains() {
 }
 
 func_str_contains() {
-	local usage="Usage: $FUNCNAME <string> <substr>"
+	local usage="Usage: ${FUNCNAME[0]} <string> <substr>"
 	local desc="Desc: check if string contains substr, return 0 if contains, otherwise 1" 
 	func_param_check 2 "$@"
 	

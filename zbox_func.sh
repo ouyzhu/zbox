@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=2155
 
 # TODO: 
 # - support for global use
@@ -14,13 +15,13 @@ ZBOX_PLF_OSX="osx"
 ZBOX_PLF_LINUX="linux"
 ZBOX_FUNC_INS_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>]"
 ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>] <sname>"
-ZBOX_INS_PLF_DEFAULT="osx,linux"
-ZBOX_STG_PLF_DEFAULT="osx,linux"
+#ZBOX_INS_PLF_DEFAULT="osx,linux"
+#ZBOX_STG_PLF_DEFAULT="osx,linux"
 
 # Get zbox base dir
 ZBOX_FUNC_PATH="${BASH_SOURCE[0]}"
 echo "${ZBOX_FUNC_PATH}" | grep -q '.*zbox_func.sh$' || func_die "ERROR: pls put zbox_func.sh as last parameter in source list!"
-ZBOX_BASE="$(readlink -f $(dirname ${ZBOX_FUNC_PATH}))"
+ZBOX_BASE="$(readlink -f "$(dirname "${ZBOX_FUNC_PATH}")")"
 
 # Global Variables
 ZBOX="${ZBOX:="${ZBOX_BASE}"}"
@@ -32,9 +33,9 @@ ZBOX_TMP="${ZBOX_TMP:-"${ZBOX}/tmp"}"
 ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
 
 # Check Platform. 
-if [ "$(uname)" == "Darwin" ]; then
+if [ "$(uname -s)" == "Darwin" ]; then
 	ZBOX_PLF="${ZBOX_PLF_OSX}"
-elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then	# (after osx 10.6.8, "expr" is NOT installed by default)
+elif [ "$(uname -s)" == "Linux" ]; then
 	ZBOX_PLF="${ZBOX_PLF_LINUX}"
 else
 	echo "ERROR: current platform is NOT supported yet!"
@@ -42,6 +43,7 @@ else
 fi
 
 # Check Bash Feature
+# shellcheck disable=2016,2026,2034
 if (unset a && declare -A a && eval "a['n']='nnn'" && eval '[ -n "${a['n']}" ]') > /dev/null 2>&1 ; then
 	BASH_ASSOCIATIVE_ARRAY=true
 else
@@ -51,11 +53,12 @@ fi
 # tname alias, for better listing
 if [ "${BASH_ASSOCIATIVE_ARRAY}" = "true" ] ; then
 	declare -A tname_alias
+	# shellcheck disable=2154
 	tname_alias["java"]="jdk"
 fi
 
 # Source Library
-source ${ZBOX}/zbox_lib.sh || eval "$(wget -q -O - "https://raw.github.com/ouyzhu/zbox/master/zbox_lib.sh")" || exit 1
+source "${ZBOX}/zbox_lib.sh" || func_die "ERROR: failed to source library: zbox_lib.sh"
 
 # Init Check
 [ ! -e "${ZBOX_INS}" ] && mkdir "${ZBOX_INS}"
@@ -109,8 +112,8 @@ zbox_tst_ins_single() {
 	local desc="Desc: test zbox install of single tool\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 2 "$@"
 
-	zbox_ins_is_plf_support "$@" || func_die "WARN: $@ NOT support for current platform (${ZBOX_PLF})"
-	echo "INFO: test ins for: $@"
+	zbox_ins_is_plf_support "$@" || func_die "WARN: $* NOT support for current platform (${ZBOX_PLF})"
+	echo "INFO: test ins for: $*"
 
 	func_zbox ins "$@"        | sed -e 's/^/\t/'
 	zbox_ins_verify "$@" | sed -e 's/^/\t/' && echo "INFO: installation and verification success" && return 0
@@ -124,8 +127,8 @@ zbox_tst_stg_single() {
 	local desc="Desc: test zbox stage of single tool\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 2 "$@"
 
-	zbox_stg_is_plf_support "$@" || func_die "WARN: $@ NOT support for current platform (${ZBOX_PLF})"
-	echo "INFO: test stg for: $@"
+	zbox_stg_is_plf_support "$@" || func_die "WARN: $* NOT support for current platform (${ZBOX_PLF})"
+	echo "INFO: test stg for: $*"
 
 	func_zbox stg "$@"        | sed -e 's/^/\t/'
 	zbox_stg_verify "$@" | sed -e 's/^/\t/' && echo "INFO: mkstg and verification success" && return 0
@@ -172,14 +175,14 @@ zbox_lst() {
 			# extract info: tver/tadd
 			local tveradd=${file#*ins-}
 			local tver=${tveradd%-*}
-			local tadd=$(echo ${tveradd} | sed -e "s/[^-]*//;s/^-//")	# ${tveradd#${tver}-} NOT work, gets tver if there is no tadd
+			local tadd=$(echo "${tveradd}" | sed -e "s/[^-]*//;s/^-//")	# ${tveradd#${tver}-} NOT work, gets tver if there is no tadd
 
 			# check if plf supported
 			echo "DEBUG: start to analyse file: ${file}"
 			zbox_ins_is_plf_support "${tname}" "${tver}" "${tadd}" || continue
 
 			# insert head block for better reading
-			output_line_count=$((${output_line_count}+1)) && ((${output_line_count}%15==0)) && zbox_lst_print_head
+			output_line_count=$((output_line_count + 1)) && ((output_line_count % 15 == 0)) && zbox_lst_print_head
 
 			# check if source downloaded
 			local src_plfpath="$(zbox_gen_src_plfpath "${tname}" "${tver}" "${tadd}")"
@@ -192,7 +195,7 @@ zbox_lst() {
 			# check stg in cnf
 			local tmpname=""
 			local stg_in_cnf=""
-			for tmpname in $(\ls ${ZBOX_CNF}/${tname}/ 2> /dev/null | grep "stg-${tveradd}-[^-]*$") ; do
+			for tmpname in $("ls" "${ZBOX_CNF}/${tname}/" 2> /dev/null | grep "stg-${tveradd}-[^-]*$") ; do
 				local sname="${tmpname##*-}"
 				local stg_in_cnf="${sname},${stg_in_cnf}"
 				zbox_stg_is_plf_support "${tname}" "${tver}" "${tadd}" "${sname}" || continue
@@ -202,7 +205,7 @@ zbox_lst() {
 			# check stg in stg
 			local tmpname=""
 			local stg_in_stg=""
-			for tmpname in $(\ls ${ZBOX_STG}/${tname}/ 2> /dev/null | grep "${tname}-${tveradd}-[^-]*$") ; do
+			for tmpname in $("ls" "${ZBOX_STG}/${tname}/" 2> /dev/null | grep "${tname}-${tveradd}-[^-]*$") ; do
 				local stg_in_stg="${tmpname##*-},${stg_in_stg}"
 			done
 
@@ -242,7 +245,7 @@ zbox_is_plf_support() {
 	shift
 	local def_base="${ZBOX_CNF}/${1}/${check_for}"
 	local plf_base="${ZBOX_CNF}/${1}/${ZBOX_PLF}_${check_for}"
-	echo "DEBUG: check platform for ${check_for} config, current: ${ZBOX_PLF}, check for: $@"
+	echo "DEBUG: check platform for ${check_for} config, current: ${ZBOX_PLF}, check for: $*"
 
 	# OPTION 1: support if have ins-.../stg-... file with plf prefix
 	[ -f "${plf_base}-${2}" ] || [ -f "${plf_base}-${2}-${3}" ] || [ -f "${plf_base}-${2}-${3}-${4}" ]	\
@@ -250,13 +253,13 @@ zbox_is_plf_support() {
 	&& return 0
 
 	# OPTION 2: for install, if <plf>_ins inexist && ins-... inexist, NOT support
-	[ "${chec_for}" = "ins" ]											\
+	[ "${check_for}" = "ins" ]											\
 	&& ! ( [ -f "${def_base}-${2}" ] || [ -f "${def_base}-${2}-${3}" ] || [ -f "${def_base}-${2}-${3}-${4}" ] )	\
 	&& echo "DEBUG: ins-... with platorm prefix config INEXIST, and ins-... config INEXIST, platform NOT supported"	\
 	&& return 1
 
 	# OPTION 3: for stage, if stg inexist, NOT support
-	[ "${chec_for}" = "stg" ]					\
+	[ "${check_for}" = "stg" ]					\
 	&& ! [ -f "${def_base}-${2}" ]					\
 	&& echo "DEBUG: stg conf INEXIST, platform NOT supported"	\
 	&& return 1
@@ -315,7 +318,7 @@ zbox_rem() {
 	local desc="Desc: remove tool (uninstall but keep downloaded source)\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 2 "$@"
 
-	echo "INFO: remove $@ (uninstall but keep downloaded source)"
+	echo "INFO: remove $* (uninstall but keep downloaded source)"
 	eval $(zbox_gen_ins_cnf_vars "$@")
 	local ins_fullpath="$(zbox_gen_ins_fullpath "$@")"
 
@@ -392,7 +395,7 @@ zbox_stg_verify() {
 	local desc="Desc: verify stg\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 3 "$@"
 
-	echo "INFO: (stg) start stage verification for: $@"
+	echo "INFO: (stg) start stage verification for: $*"
 
 	# TODO: 
 }
@@ -401,10 +404,10 @@ zbox_ins_verify() {
 	local desc="Desc: verify installed tool\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 2 "$@"
 
-	echo "INFO: (ins) start installation verification for: $@"
+	echo "INFO: (ins) start installation verification for: $*"
 	eval $(zbox_gen_ins_cnf_vars "$@")
 
-	[ -z "${ins_verify}" ] || func_die "WARN: NO ins_verify script found, skip verification"
+	[ -z "${ins_verify}" ] && func_die "WARN: NO ins_verify script found, skip verification"
 
 	echo "INFO: (ins) verify installation with script ins_verify='${ins_verify}'"
 	local ins_fullpath="$(zbox_gen_ins_fullpath "$@")"
@@ -543,7 +546,7 @@ zbox_stg_init_dir() {
 	for p in ${stg_dirs:-bin conf logs data} ; do
 		mkdir -p "${p}"
 	done
-	\cd - >> ${ZBOX_LOG} 2>&1
+	"cd" - >> "${ZBOX_LOG}" 2>&1
 }
 
 zbox_ins_src() {
@@ -648,23 +651,24 @@ zbox_ins_make() {
 	zbox_run_script "ins_make_pre_script" "${ucd_fullpath}" "${ins_make_pre_script}"
 
 	# Make
+	local make_cmd=${ins_make_cmd:-make} 
 	local clean_cmd=${ins_make_clean_cmd:-clean} 
 	local install_cmd=${ins_make_install_cmd:-install} 
 	func_cd "${ucd_fullpath}"
 	echo "INFO: (ins) start make, make_steps='${make_steps}', make_opts='${make_opts}', install_opts='${install_opts}', install_cmd='${install_cmd}', configure_opts='${configure_opts}', clean_cmd='${clean_cmd}'"
 	for step in ${make_steps} ; do
 		case "${step}" in 
-			make)		make ${make_opts} >> ${ZBOX_LOG} 2>&1
-					zbox_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 
+			make)		"${make_cmd}" ${make_opts} >> "${ZBOX_LOG}" 2>&1
+					zbox_check_exit_code "${step} success" "${step} failed" >> "${ZBOX_LOG}" 2>&1 
 					;;
-			test)		make test >> ${ZBOX_LOG} 2>&1
-					zbox_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 
+			test)		"${make_cmd}" test >> "${ZBOX_LOG}" 2>&1
+					zbox_check_exit_code "${step} success" "${step} failed" >> "${ZBOX_LOG}" 2>&1 
 					;;
-			clean)		make ${clean_cmd} >> ${ZBOX_LOG} 2>&1
-					zbox_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 
+			clean)		"${make_cmd}" ${clean_cmd} >> ${ZBOX_LOG} 2>&1
+					zbox_check_exit_code "${step} success" "${step} failed" >> "${ZBOX_LOG}" 2>&1 
 					;;
-			install)	make ${install_opts} ${install_cmd} >> ${ZBOX_LOG} 2>&1
-					zbox_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1 
+			install)	"${make_cmd}" ${install_opts} ${install_cmd} >> ${ZBOX_LOG} 2>&1
+					zbox_check_exit_code "${step} success" "${step} failed" >> "${ZBOX_LOG}" 2>&1 
 					;;
 			configure)	./configure ${configure_opts} >> ${ZBOX_LOG} 2>&1
 					zbox_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1
@@ -678,7 +682,7 @@ zbox_ins_make() {
 	# execute pre script
 	zbox_run_script "ins_make_post_script" "${ucd_fullpath}" "${ins_make_post_script}"
 
-	\cd - >> ${ZBOX_LOG} 2>&1
+	"cd" - >> "${ZBOX_LOG}" 2>&1
 }
 
 zbox_use_gen_env() {
@@ -748,7 +752,7 @@ zbox_ins_copy() {
 	
 	if [ "$(basename "${src_plfpath_real}")" == "$(basename "${ins_fullpath}")" ] ; then
 		# copy content to avoid duplated same dir name in path
-		\cp -R "${src_plfpath_real}"/* "${ins_fullpath}"
+		"cp" -R "${src_plfpath_real}"/* "${ins_fullpath}"
 
 		# NOT copy .* by default, reason: 1) usually unecessary. 2) seem will copy ../* (why?)
 		#\cp -R "${src_plfpath_real}"/.* "${ins_fullpath}"
@@ -990,10 +994,11 @@ zbox_run_script() {
 	eval "${script}" 
 	# NOTE, do NOT use pipe here, which makes the func_die fail (since pipe creates sub-shell). But how to put a copy in log?
 	zbox_check_exit_code "${script_name} execution success" "${script_desc:-${script_name} execution failed}" 2>&1 
-	\cd - >> ${ZBOX_LOG} 2>&1
+	"cd" - >> "${ZBOX_LOG}" 2>&1
 }
 
 zbox_check_exit_code() {
+	# shellcheck disable=2015
 	# NOTE: should NOT do anything before check, since need check exit status of last command
 	[ "$?" = "0" ]  && echo  "INFO: ${1}" || func_die "ERROR: ${2:-${1}}"
 }
