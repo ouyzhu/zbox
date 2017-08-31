@@ -1,2 +1,7 @@
-﻿#ins_dep_apt_install	= "libcurl4-gnutls-dev libexpat1-dev gettext libz-dev libssl-dev"
+# NOTE: libcurl4-gnutls-dev and libcurl4-openssl-dev is mutually exclusive !!!
+# 	seems gnutls package working weird behind a proxy.
+# 	but seems if gnutls installed, need mutliple steps to change: https://askubuntu.com/questions/186847/error-gnutls-handshake-failed-when-connecting-to-https-servers/187199#187199
+#ins_dep_apt_install	= "libcurl4-gnutls-dev libexpat1-dev gettext libz-dev libssl-dev"
+#ins_dep_apt_install	= "libcurl4-openssl-dev libexpat1-dev gettext libz-dev libssl-dev"
+ins_dep_apt_install	= "libexpat1-dev gettext libz-dev libssl-dev"
 

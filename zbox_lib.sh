@@ -397,6 +397,9 @@ func_gen_local_vars() {
 			continue
 		fi
 		exist_files+=("${f}")
+		if file "${f}" | grep -q "with BOM"; then
+			echo "WARN: ${f} has BOM info at beginning, might cause 1st comment line can NOT be filtered when gen local var" 1>&2
+		fi
 	done
 
 	# report to stderr
@@ -405,10 +408,12 @@ func_gen_local_vars() {
 
 	# TODO: embrace value with " or ', since bash eval get error if value have special chars like &/, etc. path field almost always have such chars.
 	# works but not efficient: s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
+	#| sed -e "/^[[:blank:]]*\($\|#\)/d;
 	cat "${exist_files[@]}"			\
-	| sed -e "/^[[:blank:]]*\($\|#\)/d;
+	| sed -e '/^[[:blank:]]*$/d;
+		/^[[:blank:]]*#/d;
 		s/[[:blank:]]*=[[:blank:]]*/=/;
-		s/^/local /"
+		s/^/local /'
 }
 
 ################################################################################

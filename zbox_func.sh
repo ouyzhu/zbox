@@ -1,7 +1,9 @@
 #!/bin/bash
 # shellcheck disable=2155
 
-# TODO: 
+################################################################################
+# TODO
+################################################################################
 # - support for global use
 #	status: dirty tried on 188: 1) chown every thing to root:root. 2) chmod every thing to 777 (some dir like tmp, data, need this even use "sudo start.sh"). 3) chmod 744 for mysql in stg ./conf/my.cnf (since 777 will be ignored). 4) use "sudo bash start.sh". 5) "sudo bash status.sh" need wait 20 seconds after start, otherwise might fail to detect mysql process
 #	chanllege : 1) can not su as root, just use sudo. 2) can not create user.
@@ -10,7 +12,16 @@
 #	default --prefix for ins_make_configure_opts
 #	default use_env
 
+################################################################################
+# Install zbox
+################################################################################
+# git way (NOT verified yet!): t="$(mktemp -d)" ; cd "${t}" ; git clone https://github.com/ouyzhu/zbox ; mv zbox ~/.zbox ; source "${HOME}/.zbox/zbox_func.sh"
+# zip way: without git: t="$(mktemp -d)" ; cd "${t}" ; wget https://codeload.github.com/ouyzhu/zbox/zip/master ; unzip master ; mv zbox-master/ "${HOME}/.zbox" ; source "${HOME}/.zbox/zbox_func.sh"
+# zip way: make it support git: t="$(mktemp -d)" ; cd "${t}" ; git clone --bare http://github.com/ouyzhu/zbox ; mv zbox.git ${HOME}/.zbox/.git ; cd ${HOME}/.zbox ; git init ; git pull ; git reset HEAD
+
+################################################################################
 # Constants
+################################################################################
 ZBOX_PLF_OSX="osx"
 ZBOX_PLF_LINUX="linux"
 ZBOX_FUNC_INS_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>]"
@@ -32,6 +43,9 @@ ZBOX_STG="${ZBOX_STG:-"${ZBOX}/stg"}"
 ZBOX_TMP="${ZBOX_TMP:-"${ZBOX}/tmp"}"
 ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
 
+################################################################################
+# Prepare: Check, source, init
+################################################################################
 # Check Platform. 
 if [ "$(uname -s)" == "Darwin" ]; then
 	ZBOX_PLF="${ZBOX_PLF_OSX}"
@@ -65,7 +79,9 @@ source "${ZBOX}/zbox_lib.sh" || func_die "ERROR: failed to source library: zbox_
 [ ! -e "${ZBOX_STG}" ] && mkdir "${ZBOX_STG}"
 [ ! -e "${ZBOX_TMP}" ] && mkdir "${ZBOX_TMP}"
 
+################################################################################
 # Functions
+################################################################################
 zbox() {
 	local desc="Desc: zbox functions"
 	local usage="Usage: zbox <list(lst) | install(ins) | use | using(uig) | test(tst) | mkstg(stg) | remove(rem) | purge(pur)> <tname> <tver> <tadd> <sname>"
