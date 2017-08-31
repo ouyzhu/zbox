@@ -1,0 +1,3 @@
+# oracle need accept the license on the web page, which fails the wget, NEED download and create std link manually
+ins_src_addr = https://fake_address_since_need_agreement/jdk-8u131-linux-x64.tar.gz
+ins_plf      = "linux"
