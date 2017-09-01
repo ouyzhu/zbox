@@ -1,4 +1,4 @@
-﻿ins_dep_apt_install      = "build-essential openssl libcurl4-openssl-dev libreadline-dev libicu-dev libxslt1.1 libxslt1-dev libfreetype6 libfreetype6-dev libmcrypt4 libmcrypt-dev libmhash-dev libpcre3-dev libjpeg-dev libpng12-dev libbz2-1.0 libbz2-dev libxpm-dev autoconf libtool libxml2 libxml2-dev libmysqlclient-dev libzip-dev libxt-dev libldap-2.4-2 libldap2-dev"
+ins_dep_apt_install      = "build-essential openssl libcurl4-openssl-dev libreadline-dev libicu-dev libxslt1.1 libxslt1-dev libfreetype6 libfreetype6-dev libmcrypt4 libmcrypt-dev libmhash-dev libpcre3-dev libjpeg-dev libpng12-dev libbz2-1.0 libbz2-dev libxpm-dev autoconf libtool libxml2 libxml2-dev libmysqlclient-dev libzip-dev libxt-dev libldap-2.4-2 libldap2-dev"
 
 # currently not using: --with-apxs2 which specifies that we want to install PHP as Apache 2 shared module
 # currently not using: --with-pcre-regex which using external pcre instead of the build-in pcre

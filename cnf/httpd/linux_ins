@@ -1,2 +1,2 @@
-﻿ins_dep_apt_install     = "libpcre3-dev"
+ins_dep_apt_install     = "libpcre3-dev"
 

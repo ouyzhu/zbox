@@ -1,2 +1,2 @@
-﻿ins_dep_apt_install  = "build-essential libgdbm-dev libreadline-dev libsqlite3-dev libbz2-dev bzip2 libzip2 libssl-dev libncursesw5-dev libncurses5-dev libncursesw5-dev zlib1g-dev"
+ins_dep_apt_install  = "build-essential libgdbm-dev libreadline-dev libsqlite3-dev libbz2-dev bzip2 libzip2 libssl-dev libncursesw5-dev libncurses5-dev libncursesw5-dev zlib1g-dev"
 
