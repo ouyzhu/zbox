@@ -686,7 +686,11 @@ zbox_ins_make() {
 			install)	"${make_cmd}" ${install_opts} ${install_cmd} >> ${ZBOX_LOG} 2>&1
 					zbox_check_exit_code "${step} success" "${step} failed" >> "${ZBOX_LOG}" 2>&1 
 					;;
-			configure)	./configure ${configure_opts} >> ${ZBOX_LOG} 2>&1
+			autoconf)	autoconf ${autoconf_opts} >> ${ZBOX_LOG} 2>&1
+					zbox_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1
+					;;
+			configure)	zbox_run_script "ins_configure_pre_script" "${ucd_fullpath}" "${ins_configure_pre_script}"
+					./configure ${configure_opts} >> ${ZBOX_LOG} 2>&1
 					zbox_check_exit_code "${step} success" "${step} failed" >> ${ZBOX_LOG} 2>&1
 					zbox_run_script "ins_configure_post_script" "${ucd_fullpath}" "${ins_configure_post_script}"
 					;;

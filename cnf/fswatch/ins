@@ -1,0 +1,5 @@
+ins_steps               = "src make"
+ins_make_steps          = "configure make install"
+ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH"
+ins_configure_pre_script= "./autogen.sh"
+ins_verify              = "ZBOX_INS_FULLPATH/bin/fswatch --version | grep '^fswatch' &> /dev/null"
