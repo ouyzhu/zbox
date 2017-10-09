@@ -1,1 +1,8 @@
+# 2017-08: failed on ubuntu 10.04: gettext version too low (need 0.19.4+), upgrade gettext also failed since more dependency unsatisfied (e.g. libc6)
+
 ins_src_addr = https://github.com/emcrisostomo/fswatch
+
+# git version need tools to make
+ins_steps               = "src dep make"
+ins_dep_apt_install     = "autoconf automake libtool texinfo"
+
