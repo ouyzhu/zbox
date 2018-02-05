@@ -15,17 +15,21 @@
 ################################################################################
 # Install zbox
 ################################################################################
-# git way (NOT verified yet!): t="$(mktemp -d)" ; cd "${t}" ; git clone https://github.com/ouyzhu/zbox ; mv zbox ~/.zbox ; source "${HOME}/.zbox/zbox_func.sh"
-# zip way: without git: t="$(mktemp -d)" ; cd "${t}" ; wget https://codeload.github.com/ouyzhu/zbox/zip/master ; unzip master ; mv zbox-master/ "${HOME}/.zbox" ; source "${HOME}/.zbox/zbox_func.sh"
-# zip way: make it support git: t="$(mktemp -d)" ; cd "${t}" ; git clone --bare http://github.com/ouyzhu/zbox ; mv zbox.git ${HOME}/.zbox/.git ; cd ${HOME}/.zbox ; git init ; git pull ; git reset HEAD
+# git way
+#	t="$(mktemp -d)" ; cd "${t}" ; git clone https://github.com/ouyzhu/zbox ; mv zbox ~/.zbox ; source "${HOME}/.zbox/zbox_func.sh"
+# zip way
+#	without git	t="$(mktemp -d)" ; cd "${t}" ; wget https://codeload.github.com/ouyzhu/zbox/zip/master ; unzip master ; mv zbox-master/ "${HOME}/.zbox" ; source "${HOME}/.zbox/zbox_func.sh"
+#	install git	zbox install git 2.1.0	# NOTE, if no libcurl4-openssl-dev or libcurl4-gnutls-dev installed, need manually install one (prefer libcurl4-openssl-dev?)
+#	use zbox git	zbox use git 2.1.0
+#	trans to git	t="$(mktemp -d)" ; cd "${t}" ; git clone --bare http://github.com/ouyzhu/zbox ; mv zbox.git ${HOME}/.zbox/.git ; cd ${HOME}/.zbox ; git init ; git pull ; git reset HEAD
 
 ################################################################################
 # Constants
 ################################################################################
 ZBOX_PLF_OSX="osx"
 ZBOX_PLF_LINUX="linux"
-ZBOX_FUNC_INS_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>]"
-ZBOX_FUNC_STG_USAGE="Usage: $FUNCNAME <tname> <tver> [<tadd>] <sname>"
+ZBOX_FUNC_INS_USAGE="Usage: ${FUNCNAME[0]} <tname> <tver> [<tadd>]"
+ZBOX_FUNC_STG_USAGE="Usage: ${FUNCNAME[0]} <tname> <tver> [<tadd>] <sname>"
 #ZBOX_INS_PLF_DEFAULT="osx,linux"
 #ZBOX_STG_PLF_DEFAULT="osx,linux"
 
@@ -323,7 +327,7 @@ zbox_lst_print_tail() {
 }
 
 zbox_lst_print_item() {
-	local desc="Desc: format the output of list\n${FUNCNAME} <name> <version> <addtion> <ins> <stg_in_cnf> <stg_in_stg>"
+	local desc="Desc: format the output of list\n${FUNCNAME[0]} <name> <version> <addtion> <ins> <stg_in_cnf> <stg_in_stg>"
 	func_param_check 4 "$@"
 
 	#printf "| %-16s | %-13s | %-9s | %-3s | %-3s | %-12s | %-12s |\n" "$@"
@@ -346,10 +350,10 @@ zbox_pur() {
 	local desc="Desc: purge tool (uninstall and delete downloaded source)\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 2 "$@"
 
-	echo "INFO: purge tool (uninstall and delete downloaded source) for $@"
+	echo "INFO: purge tool (uninstall and delete downloaded source) for $*"
 	eval $(zbox_gen_ins_cnf_vars "$@")
 	local src_plfpath=$(zbox_gen_src_plfpath "$@")
-	local src_plfpath_real=$(readlink -f ${src_plfpath})
+	local src_plfpath_real=$(readlink -f "${src_plfpath}")
 	local src_realpath=$(zbox_gen_src_realpath "$@")
 	local ins_fullpath="$(zbox_gen_ins_fullpath "$@")"
 
@@ -371,7 +375,7 @@ zbox_ins() {
 	echo "INFO: (ins) start installation for $@, ins_steps: ${ins_steps}"
 
 	# pre check and init
-	zbox_ins_is_plf_support "$@" || func_die "ERROR: ins $@ NOT supported in current platform" 
+	zbox_ins_is_plf_support "$@" || func_die "ERROR: ins $* NOT supported in current platform" 
 	zbox_ins_init_dir "$1"
 
 	# execute pre script
@@ -999,7 +1003,7 @@ zbox_gen_ins_cnf_vars() {
 }
 
 zbox_run_script() {
-	local usage="Usage: $FUNCNAME <script_name> <run_path> <script> <script_desc>"
+	local usage="Usage: ${FUNCNAME[0]} <script_name> <run_path> <script> <script_desc>"
 	local desc="Desc: run user defined scripts" 
 
 	[ $# -lt 3 -o -z "${3}" ] && echo "INFO: user defined script (${1}) not set, skip" && return 0

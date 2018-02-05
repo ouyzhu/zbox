@@ -1,4 +1,4 @@
 ins_steps           = "src ucd move"
-ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/btrace --version | grep '^Btrace' &> /dev/null"
+ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/btrace --version 2>&1 | grep '^Btrace' &> /dev/null"
 use_env             = 'BTRACE_HOME=ZBOX_INS_FULLPATH PATH=${BTRACE_HOME}/bin:${PATH}'
 ins_plf             = 'osx,linux'
