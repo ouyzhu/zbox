@@ -264,6 +264,9 @@ zbox_is_plf_support() {
 	local check_for="${1}"
 	shift
 	local def_base="${ZBOX_CNF}/${1}/${check_for}"
+	local def_base_tver="${def_base}-${2}"
+	local def_base_tver_tadd="${def_base}-${2}-${3}"
+	local def_base_tver_tadd_stg="${def_base}-${2}-${3}-${4}"
 	local plf_base="${ZBOX_CNF}/${1}/${ZBOX_PLF}_${check_for}"
 	echo "DEBUG: check platform for ${check_for} config, current: ${ZBOX_PLF}, check for: $*"
 
@@ -274,20 +277,20 @@ zbox_is_plf_support() {
 
 	# OPTION 2: for install, if <plf>_ins inexist && ins-... inexist, NOT support
 	[ "${check_for}" = "ins" ]											\
-	&& ! ( [ -f "${def_base}-${2}" ] || [ -f "${def_base}-${2}-${3}" ] || [ -f "${def_base}-${2}-${3}-${4}" ] )	\
+	&& ! ( [ -f "${def_base_tver}" ] || [ -f "${def_base_tver_tadd}" ] || [ -f "${def_base_tver_tadd_stg}" ] )	\
 	&& echo "DEBUG: ins-... with platorm prefix config INEXIST, and ins-... config INEXIST, platform NOT supported"	\
 	&& return 1
 
 	# OPTION 3: for stage, if stg inexist, NOT support
-	[ "${check_for}" = "stg" ]					\
-	&& ! [ -f "${def_base}-${2}" ]					\
-	&& echo "DEBUG: stg conf INEXIST, platform NOT supported"	\
+	[ "${check_for}" = "stg" ]							\
+	&& ! [ -f "${def_base_tver}" ]							\
+	&& echo "DEBUG: stg conf (${def_base_tver}) INEXIST, platform NOT supported"	\
 	&& return 1
 
 	# NOTE: ins_plf/stg_plf should be defined in specific tver/tadd/sname config file, NOT in overall stg/ins file (unless it is only for that platform, e.g. macvim)
 	# OPTION 4: "assume" support if no ins_plf/stg_plf property defined
 	! (grep -q "^[[:space:]]*${check_for}_plf[^#]*=[^#]*"								\
-		"${def_base}" "${def_base}-${2}" "${def_base}-${2}-${3}" "${def_base}-${2}-${3}-${4}" 2>/dev/null)	\
+		"${def_base}" "${def_base_tver}" "${def_base_tver_tadd}" "${def_base_tver_tadd_stg}" 2>/dev/null)	\
 	&& echo "DEBUG: '${check_for}_plf' NOT defined, zbox 'assume' platform supported"				\
 	&& return 0
 
@@ -306,7 +309,7 @@ zbox_is_plf_support() {
 
 	# (version 2) directly grep cnf file, much faster. Note: 1) "tail -1" makes property override still works! 2) "regex" makes commented lines or inline comment still not effect
 	grep -o "^[[:space:]]*${check_for}_plf[^#]*=[^#]*"								\
-		"${def_base}" "${def_base}-${2}" "${def_base}-${2}-${3}" "${def_base}-${2}-${3}-${4}" 2>/dev/null	\
+		"${def_base}" "${def_base_tver}" "${def_base_tver_tadd}" "${def_base_tver_tadd_stg}" 2>/dev/null	\
 	| tail -1													\
 	| grep -q "${ZBOX_PLF}"												\
 	&& echo "DEBUG: '${check_for}_plf' shows platform supported" 							\
