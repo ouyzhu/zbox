@@ -1,0 +1,6 @@
+ins_steps           = "src ucd move"
+use_env             = 'HCAT_HOME=ZBOX_INS_FULLPATH PATH=${HCAT_HOME}/bin:${PATH}'
+ins_plf             = 'osx,linux'
+ins_pre_script      = '[ -n "${JAVA_HOME}" ] && command -v java'
+ins_pre_script_desc = "env variable JAVA_HOME must be set, and java must exist in PATH"
+ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/hive --help | grep '^\(usage: hive\|failed to init run conf\)' &> /dev/null"
