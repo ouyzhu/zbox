@@ -4,6 +4,7 @@
 ################################################################################
 # TODO
 ################################################################################
+# - list python, output duplicated on lapmac2
 # - support for global use
 #	status: dirty tried on 188: 1) chown every thing to root:root. 2) chmod every thing to 777 (some dir like tmp, data, need this even use "sudo start.sh"). 3) chmod 744 for mysql in stg ./conf/my.cnf (since 777 will be ignored). 4) use "sudo bash start.sh". 5) "sudo bash status.sh" need wait 20 seconds after start, otherwise might fail to detect mysql process
 #	chanllege : 1) can not su as root, just use sudo. 2) can not create user.
@@ -639,7 +640,7 @@ zbox_ins_dep() {
 	# dep of osx platform
 	if [ -n "${ins_dep_port_install}" ] && [ "${ZBOX_PLF}" = "${ZBOX_PLF_OSX}" ] ; then
 		echo "INFO: (ins) dependencies: sudo port install ${ins_dep_port_install}"
-		sudo port install ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
+		sudo port install ${ins_dep_port_install} >> ${ZBOX_LOG} 2>&1
 	fi
 
 	# dep of zbox self
