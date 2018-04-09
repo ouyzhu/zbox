@@ -2,7 +2,7 @@ ins_steps    = "src copy"
 
 # will download the binary and gen ~/.fzf.bash and ~/.fzf.zsh (if have zsh), 
 # --no-update-rc will not update ~/.bashrc (source the ~/.fzf.bash), zbox do this via "use_cmd"
-ins_post_script     = "cd ZBOX_INS_FULLPATH ; bash install --key-bindings --completion --no-update-rc"
+ins_post_script     = "cd ZBOX_INS_FULLPATH ; bash install --key-bindings --completion --no-update-rc --no-zsh"
 
 ins_verify   = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/fzf --help 2>&1 | grep '^usage: fzf' &> /dev/null"
 

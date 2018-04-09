@@ -1,1 +1,2 @@
-ins_post_script="mv ZBOX_INS_FULLPATH/shell/key-bindings.bash{,.bak} && cp ZBOX_CNF/fzf/update_bak/key-bindings.bash.updated_for_osx ZBOX_INS_FULLPATH/shell/key-bindings.bash"
+# Update (2018-04): use the orginal script seems work now, so comment is out
+#ins_post_script="mv ZBOX_INS_FULLPATH/shell/key-bindings.bash{,.bak} && cp ZBOX_CNF/fzf/update_bak/key-bindings.bash.updated_for_osx ZBOX_INS_FULLPATH/shell/key-bindings.bash"
