@@ -4,6 +4,12 @@
 ################################################################################
 # TODO
 ################################################################################
+# - stg cmds support files in tpl_stg
+#	-- (DONE) tpl for mysql
+#	-- think: more general way to have zbox level template?	
+#	-- entrance to support both type: 1) in tpl_stg. 2) as var in stg file
+#	-- translate place holders, use zbox_stg_pre_translate?
+#	-- verify
 # - list python, output duplicated on lapmac2
 #	cause: analysis ins-xxx, output 1 line, analysis osx_ins-xxx, output another line
 # - support for global use

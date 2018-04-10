@@ -7,7 +7,7 @@ stg_cmd_start  = "ZBOX_INS_FULLPATH/bin/mysqld --defaults-file=ZBOX_STG_FULLPATH
 #stg_cmd_start  = "bash ZBOX_STG_FULLPATH/bin/status_silent.sh && echo "INFO: process already running" && exit 0 ; ZBOX_INS_FULLPATH/bin/mysqld --defaults-file=ZBOX_STG_FULLPATH/conf/my.cnf >> ZBOX_STG_FULLPATH/logs/default.log 2>&1 &"
 
 # TODO: use "mysqld --initialize" in script.initdb for v5.7
-stg_pre_script  = 'cp ZBOX_CNF/mysql/dependencies/cnf.basic ZBOX_STG_FULLPATH/conf/my.cnf;cp ZBOX_CNF/mysql/dependencies/script.initdb ZBOX_STG_FULLPATH/bin/;'
+stg_pre_script  = 'cp ZBOX_CNF/mysql/tpl_ins/cnf.basic ZBOX_STG_FULLPATH/conf/my.cnf;cp ZBOX_CNF/mysql/tpl_ins/script.initdb ZBOX_STG_FULLPATH/bin/;'
 stg_pre_translate  = 'ZBOX_STG_FULLPATH/conf/my.cnf ZBOX_STG_FULLPATH/bin/script.initdb'
 stg_post_script = "bash ZBOX_STG_FULLPATH/bin/script.initdb; mv ZBOX_INS_FULLPATH/my.cnf ZBOX_STG_FULLPATH/conf/my.cnf.genBy.script.initdb;"
 
@@ -23,5 +23,5 @@ test = $(func_zbox_choose ZBOX_STG_VER test1 5.6.22 test2)
 
 # Deprecated - works for version older than 5.6, which have a my.cnf in ZBOX_INS_FULLPATH after extract
 # NOTE 2: (strange but yes), --defaults-file must as first option!
-#stg_pre_script  = "cp ZBOX_INS_FULLPATH/dependencies/my.cnf ZBOX_STG_FULLPATH/conf"
+#stg_pre_script  = "cp ZBOX_INS_FULLPATH/tpl_ins/my.cnf ZBOX_STG_FULLPATH/conf"
 #stg_post_script = "ZBOX_INS_FULLPATH/scripts/mysql_install_db --defaults-file=ZBOX_INS_FULLPATH/my.cnf --basedir=ZBOX_INS_FULLPATH --datadir=ZBOX_STG_FULLPATH/data --user=`whoami` --lc-messages-dir=ZBOX_INS_FULLPATH/share/ --lc-messages=en_US --explicit_defaults_for_timestamp=TRUE"
