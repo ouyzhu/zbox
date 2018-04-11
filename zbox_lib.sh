@@ -2,6 +2,9 @@
 
 # source ${HOME}/.myenv/myenv_lib.sh || eval "$(wget -q -O - "https://raw.github.com/stico/myenv/master/.myenv/myenv_lib.sh")" || exit 1
 
+################################################################################
+# Misc: functions
+################################################################################
 func_date() { date "+%Y-%m-%d";				}
 func_time() { date "+%H-%M-%S";				}
 func_dati() { date "+%Y-%m-%d_%H-%M-%S";		}
@@ -101,26 +104,26 @@ func_uncompress() {
 	echo "INFO: uncompress file, from: ${source_file} to: ${target_dir}"
 	func_mkdir_cd "${target_dir}"
 	case "$source_file" in
-		*.jar | *.arr | *.zip)		
+		*.jar | *.arr | *.zip)
 				func_complain_cmd_not_exist unzip \
-				&& sudo apt-get install unzip ;			# try intall
-				unzip "$source_file" &> /dev/null	;;
+				&& sudo apt-get install unzip ;                 	# try intall
+				unzip "$source_file" &> /dev/null       	;;
 
-		*.tar.gz)	tar -zxvf "$source_file" &> /dev/null	;;	# NOTE, should before "*.gz)"
-		*.tar.bz2)	tar -jxvf "$source_file" &> /dev/null	;;	# NOTE, should before "*.bz2)"
-		*.bz2)		bunzip2 "$source_file" &> /dev/null	;;
-		*.gz)		gunzip "$source_file" &> /dev/null	;;
-		*.7z)		7z e "$source_file" &> /dev/null	;;	# use "-e" will fail, "e" is extract, "x" is extract with full path
-		*.tar)		tar -xvf "$source_file" &> /dev/null	;;
-		*.xz)		tar -Jxvf "$source_file" &> /dev/null	;;
-		*.tgz)		tar -zxvf "$source_file" &> /dev/null	;;
-		*.tbz2)		tar -jxvf "$source_file" &> /dev/null	;;
-		*.Z)		uncompress "$source_file"		;;
+		*.tar.xz)	tar -Jxvf "$source_file" &> /dev/null		;;
+		*.tar.gz)	tar -zxvf "$source_file" &> /dev/null		;;	# NOTE, should before "*.gz)"
+		*.tar.bz2)	tar -jxvf "$source_file" &> /dev/null		;;	# NOTE, should before "*.bz2)"
+		*.bz2)		bunzip2 "$source_file" &> /dev/null		;;
+		*.gz)		gunzip "$source_file" &> /dev/null		;;
+		*.7z)		7z e "$source_file" &> /dev/null		;;	# use "-e" will fail, "e" is extract, "x" is extract with full path
+		*.tar)		tar -xvf "$source_file" &> /dev/null		;;
+		*.xz)		tar -Jxvf "$source_file" &> /dev/null		;;
+		*.tgz)		tar -zxvf "$source_file" &> /dev/null		;;
+		*.tbz2)		tar -jxvf "$source_file" &> /dev/null		;;
+		*.Z)		uncompress "$source_file"			;;
 		*.rar)		func_complain_cmd_not_exist unrar \
-				&& sudo apt-get install unrar ;			# try intall
-				unrar e "$source_file" &> /dev/null	;;	# candidate 1
-		#*.rar)		7z e "$source_file" &> /dev/null	;;	# candidate 2
-		*)		echo "ERROR: unknow format of file: ${source_file}"	;;
+				&& sudo apt-get install unrar ;				# try intall
+				unrar e "$source_file" &> /dev/null		;;	# another candidate is: 7z e "$source_file"
+		*)		echo "ERROR: unknow format: ${source_file}"	;;
 	esac
 
 	func_validate_dir_not_empty "${target_dir}"
@@ -160,6 +163,172 @@ func_vcs_update() {
 		mkdir -p "$(dirname "${target_dir}")"
 		${cmd_init} "${src_addr}" "${target_dir}" || func_die "ERROR: ${cmd_init} failed"
 	fi
+}
+
+################################################################################
+# Utility: output
+################################################################################
+# TODO: good reference: https://github.com/Offirmo/offirmo-shell-lib/blob/master/bin/osl_lib_output.sh
+
+################################################################################
+# Utility: process
+################################################################################
+
+func_pids_of_descendants() {
+	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
+	local desc="Desc: return pid list of all descendants (including self), or empty if none" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+
+	func_validate_cmd_exist pstree
+
+	local pid_num="${1}"
+	if pstree --version 2>&1 | grep -q "thp.uni-due.de" ; then
+		pstree -w "${pid_num}" | grep -o '\-+= \([0-9]\+\)' | grep -o '[0-9]\+' | tr '\n' ' '
+	elif pstree --version 2>&1 | grep -q "PSmisc" ; then
+		pstree -p "${pid_num}" | grep -o '([0-9]\+)' | grep -o '[0-9]\+' | tr '\n' ' '
+	fi
+}
+
+# shellcheck disable=2009
+func_pids_of_direct_child() {
+	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
+	local desc="Desc: return pid list of direct childs (including self), or empty if none" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+
+	local pid_num="${1}"
+	if ! func_is_pid_running "${pid_num}" ; then
+		return 0
+	fi
+
+	local pid_tmp
+	local pid_list=""
+	local regex="[ ]*([0-9]+)[ ]+${pid_num}" 
+	for pid_tmp in $(ps ax -o "pid= ppid=" | grep -E "${regex}" | sed -E "s/${regex}/\1/g"); do
+		pid_list="${pid_list} ${pid_tmp}"
+	done
+	echo "${pid_list} ${pid_num}"
+}
+
+# shellcheck disable=2009,2155,2086
+func_kill_self_and_descendants() {
+	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
+	local desc="Desc: kill <pid> and all its child process, return 0 if killed or not need to kill, return 1 failed to kill" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+
+	local need_sudo="${1}"
+	local sudo_cmd=""
+	if [ "${need_sudo}" = 'true' ] ; then
+		sudo_cmd="sudo"
+	fi
+
+	local pid_num="${2}"
+	if ! func_is_pid_running "${pid_num}" ; then
+		echo "INFO: process ${pid_num} NOT running, just return"
+		return 0
+	fi
+
+	local pid_list="$(func_pids_of_descendants "${pid_num}")"
+	echo "INFO: kill pid_list: ${sudo_cmd} kill -9 ${pid_list}"
+
+	# no quote on ${sudo_cmd}, otherwise gets "cmd not found" error when empty
+	${sudo_cmd} kill -9 ${pid_list}
+
+	sleep 0.5
+	local pid_tmp
+	local pid_fail=''
+	for pid_tmp in ${pid_list} ; do
+		if func_is_pid_running "${pid_tmp}" ; then
+			pid_fail="${pid_fail} ${pid_tmp}"
+		fi
+	done
+	if [ -n "${pid_fail}" ] ; then
+		echo "ERROR: failed to kill, pid_fail: ${pid_fail}"
+	fi
+}
+
+func_kill_self_and_direct_child() {
+
+	# TODO: copied from stackoverflow, but NOT verified yet
+	echo "ERROR: this function is NOT ready yet!" 1>&2
+	return 1
+
+	# candidate 1: some times failed to kill, and makes child's parent pid becomes 1, because pkill NOT stable?
+	# NOTE 1: pkill only sends signal to child process, grandchild WILL NOT receive the signal
+	# NOTE 2: if need support multiple pid, use -P <pid1> -P <pid2> ...
+	# NOTE 3: parent process might already finished, so no error output for 'kill' cmd
+	# NOTE 4: why sleep 1? seems some times kill works before pkill, which cause pkill can NOT find child (since parent killed and child's parent becomes pid 1)
+	#if [ "${need_sudo}" = 'true' ] ; then
+	#	echo "INFO: kill cmd: sudo pkill -TERM -P ${pid_num} && sleep 1 && sudo kill -TERM ${pid_num} >/dev/null 2>&1"
+	#	sudo pkill -TERM -P "${pid_num}" && sleep 1 && sudo kill -TERM "${pid_num}" >/dev/null 2>&1
+	#else
+	#	echo "INFO: kill cmd: pkill -TERM -P ${pid_num} && sleep 1 && kill -TERM ${pid_num} >/dev/null 2>&1"
+	#	pkill -TERM -P "${pid_num}" && sleep 1 && kill -TERM "${pid_num}" >/dev/null 2>&1
+	#fi
+
+	# candidate 2: kill on group, not the "-" prefix: https://stackoverflow.com/questions/392022/best-way-to-kill-all-child-processes/6481337
+	#kill -- -$PGID     Use default signal (TERM = 15)			# use process group id
+	#kill -9 -$PGID     Use the signal KILL (9)				# use process group id
+	#kill -- -$(ps -o pgid= $PID | grep -o '[0-9]*')   (signal TERM)	# use process id
+	#kill -9 -$(ps -o pgid= $PID | grep -o '[0-9]*')   (signal KILL)	# use process id
+
+	# candidate 3: rkill command from pslist package sends given signal (or SIGTERM by default) to specified process and all its descendants:
+	#rkill [-SIG] pid/name...
+}
+
+# shellcheck disable=2155
+func_is_running() {
+	local usage="Usage: ${FUNCNAME[0]} <pid_file>" 
+	local desc="Desc: check is pid in <pid_file> is running" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+	
+	local pid_num="$(cat "${1}" 2>/dev/null)"
+	func_is_positive_int "${pid_num}" || func_die "ERROR: pid_file (${1}) NOT exist or no valid pid inside!"
+
+	func_is_pid_running "${pid_num}"
+}
+
+func_is_pid_or_its_child_running() {
+	local usage="Usage: ${FUNCNAME[0]} <pid>" 
+	local desc="Desc: check is <pid> running, or any of its child running" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+
+	ps -ef | grep -v grep | grep -q "[[:space:]]${1}[[:space:]]"
+}
+
+func_is_pid_running() {
+	local usage="Usage: ${FUNCNAME[0]} <pid>" 
+	local desc="Desc: check is <pid> running" 
+	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+	
+	func_is_str_blank "${1}" && return 1
+
+	# NOTE: if the process is in sudo mode, 'kill -0' check will failed, at least some plf will complain permission
+	# 0 is an inexist signal, but helps check if process exist
+	#kill -0 "${1}" 2>/dev/null 
+
+	# POSIX way, better compatible on diff os
+	# shellcheck disable=2009
+	ps -o pid= -p "${1}" | grep -q "${1}"
+}
+
+################################################################################
+# Utility: logging
+################################################################################
+func_techo() {
+	local usage="Usage: ${FUNCNAME[0]} <level> <msg>" 
+	local desc="Desc: echo msg format: <level-in-uppercase>: <TIME>: <msg>"
+	func_param_check 2 "$@"
+	
+	echo -e "$(date "+%Y-%m-%d %H:%M:%S"): ${1^^}: ${2}"
+}
+
+func_decho() {
+	local usage="Usage: ${FUNCNAME[0]} <msg>" 
+	local desc="Desc: echo msg as DEBUG level, based on env var ME_DEBUG=true to really show"
+	func_param_check 1 "$@"
+	
+	[ "${ME_DEBUG}" = 'true' ] || return 0
+	echo -e "DEBUG: ${1}"
 }
 
 ################################################################################
@@ -216,6 +385,14 @@ func_is_dir_empty() {
 	[ "$(ls -A "${1}" 2> /dev/null)" ] && return 1 || return 0
 }
 
+func_is_dir_not_empty() {
+	local usage="Usage: ${FUNCNAME[0]} <dir>"
+	local desc="Desc: check if directory is not empty, return 0 if not empty, otherwise 1" 
+	func_param_check 1 "$@"
+
+	[ "$(ls -A "${1}" 2> /dev/null)" ] && return 0 || return 1
+}
+
 func_validate_dir_not_empty() {
 	local usage="Usage: ${FUNCNAME[0]} <dir> ..."
 	local desc="Desc: the directory must exist and NOT empty, otherwise will exit" 
@@ -236,6 +413,15 @@ func_validate_dir_empty() {
 		# only redirect stderr, otherwise the test will always false
 		func_is_dir_empty "${p}" || func_die "ERROR: ${p} not empty!"
 	done
+}
+
+func_complain_path_exist() {
+	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
+	local desc="Desc: complains if path already exist, return 0 if exist, otherwise 1" 
+	func_param_check 1 "$@"
+	
+	[ -e "${1}" ] && echo "${2:-WARN: path ${1} alread exist!}" && return 0
+	return 1
 }
 
 func_complain_path_not_exist() {
@@ -325,23 +511,26 @@ func_duplicate_dated() {
 ################################################################################
 # Utility: shell
 ################################################################################
-func_is_cmd_exist() {
-	local usage="Usage: ${FUNCNAME[0]} <cmd>"
-	local desc="Desc: check if cmd exist, return 0 if exist, otherwise 1" 
-	func_param_check 1 "$@"
-
-	command -v "${1}" &> /dev/null && return 0 || return 1
-}
-
 func_is_non_interactive() {
 	# command 1: echo $- | grep -q "i" && echo interactive || echo non-interactive
 	# command 2: [ -z "$PS1" ] && echo interactive || echo non-interactive
+
+	# NOTE: when use "bash xxx.sh", it is non-interactive
+
 	# explain: bash manual: PS1 is set and $- includes i if bash is interactive, allowing a shell script or a startup file to test this state.
 	if [ -z "$PS1" ] ; then
 		return 0 
 	else
 		return 1
 	fi
+}
+
+func_is_cmd_exist() {
+	local usage="Usage: ${FUNCNAME[0]} <cmd>"
+	local desc="Desc: check if cmd exist, return 0 if exist, otherwise 1" 
+	func_param_check 1 "$@"
+
+	command -v "${1}" &> /dev/null && return 0 || return 1
 }
 
 func_complain_cmd_not_exist() {
@@ -364,11 +553,38 @@ func_validate_cmd_exist() {
 	done
 }
 
+func_is_function_exist() {
+	local usage="USAGE: ${FUNCNAME[0]} <function-name>" 
+	local desc="Desc: check if <function-name> exist as a function, return 0 if exist and a function, otherwise 1" 
+	func_param_check 1 "$@"
+	
+	[ -n "$(type -t "${1}")" ] && [ "$(type -t "${1}")" = function ] && return 0 
+	return 1
+}
+
+func_complain_function_not_exist() {
+	local usage="USAGE: ${FUNCNAME[0]} <function-name>" 
+	local desc="Desc: complain if <function-name> NOT exist as a function, return 1 if not exist or not a function, otherwise 1" 
+	func_param_check 1 "$@"
+
+	func_is_function_exist "${1}" && return 1
+	echo "WARN: ${1} NOT exist or NOT a function!"
+}
+
+func_validate_function_exist() {
+	local usage="USAGE: ${FUNCNAME[0]} <function-name>" 
+	local desc="Desc: check if <function-name> exist as a function" 
+	func_param_check 1 "$@"
+	
+	func_is_function_exist "${1}" && return 0
+	func_die "ERROR: ${1} NOT exist or NOT a function!"
+}
+
 func_complain_privilege_not_sudoer() { 
 	local usage="Usage: ${FUNCNAME[0]} <msg>"
 	local desc="Desc: complains if current user not have sudo privilege, return 0 if not have, otherwise 1" 
 	
-	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege!}" && result=0
+	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege!}" && return 0
 	return 1
 }
 
@@ -397,9 +613,6 @@ func_gen_local_vars() {
 			continue
 		fi
 		exist_files+=("${f}")
-		if file "${f}" | grep -q "with BOM"; then
-			echo "WARN: ${f} has BOM info at beginning, might cause 1st comment line can NOT be filtered when gen local var" 1>&2
-		fi
 	done
 
 	# report to stderr
@@ -408,12 +621,10 @@ func_gen_local_vars() {
 
 	# TODO: embrace value with " or ', since bash eval get error if value have special chars like &/, etc. path field almost always have such chars.
 	# works but not efficient: s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
-	#| sed -e "/^[[:blank:]]*\($\|#\)/d;
 	cat "${exist_files[@]}"			\
-	| sed -e '/^[[:blank:]]*$/d;
-		/^[[:blank:]]*#/d;
+	| sed -e "/^[[:blank:]]*\($\|#\)/d;
 		s/[[:blank:]]*=[[:blank:]]*/=/;
-		s/^/local /'
+		s/^/local /"
 }
 
 ################################################################################
@@ -426,6 +637,7 @@ OS_BSD="bsd"
 OS_SUSE="suse"
 OS_LINUX="linux"
 OS_MINGW="mingw"
+OS_DEBIAN="debian"
 OS_REDHAT="redhat"
 OS_CYGWIN="cygwin"
 OS_SOLARIS="solaris"
@@ -446,6 +658,9 @@ func_os_name() {
 		return
 	elif [ -f /etc/mandrake-release ] ; then
 		echo ${OS_MANDRAKE}
+		return
+	elif [ -f /etc/debian_version ] ; then
+		echo ${OS_DEBIAN}
 		return
 	fi
 
@@ -494,6 +709,9 @@ func_os_ver() {
 	elif [ -f /etc/mandrake-release ] ; then
 		sed s/.*\(// | sed s/\)// /etc/mandrake-release
 		#sed s/.*release\ // /etc/mandrake-release | sed s/\ .*//
+		return
+	elif [ -f /etc/debian_version ] ; then
+		cat /etc/debian_version		# TODO: just cat ?
 		return
 	fi
 
@@ -639,6 +857,18 @@ func_ip_of_host() {
 	#ping -c 1 "${1%:*}" | head -1 | sed -e "s/[^(]*(//;s/).*//"	# note when host inexist
 }
 
+# shellcheck disable=2155
+func_is_local_addr() {
+	local usage="Usage: ${FUNCNAME[0]} <host>" 
+	local desc="Desc: check if param is address of local machine, return 0 if yes, otherwise no"
+	func_param_check 1 "$@"
+
+	local addr="$(func_ip_of_host "${1}")"
+	[ "${addr}" = "127.0.0.1" ] && return 0
+	func_is_valid_ip "${addr}" || return 1
+	func_ip_list | grep -q "${1}"
+}
+
 func_ip_single() {
 	# some old version of 'sort' NOT support -V, which is better than plain 'sort'
 	func_ip_list | sed -e 's/^\S*\s*//;/^\s*$/d' | sort | tail -1
@@ -679,9 +909,73 @@ func_ip_list() {
 	fi
 }
 
+func_find_idle_port() {
+	local usage="USAGE: ${FUNCNAME[0]} <port_start> <port_end>" 
+	local desc="Desc: find available/idle port between range <port_start>-<port_end>, if <port_end> missed, will be <port_start>+20. Return 0 and echo 1st idle port, otherwise return 1" 
+	func_param_check 1 "$@"
+	
+	local tmp_port port_end
+	local port_start="${1}"
+	[ -n "${2}" ] && port_end="${2}" || port_end="$((${port_start}+20))"
+
+	func_is_int_in_range "${port_end}" 1025 65535 || func_die "ERROR: port_end (${port_end}) not in range 1025~65535!)"
+	func_is_int_in_range "${port_start}" 1025 65535 || func_die "ERROR: port_start (${port_start}) not in range 1025~65535!)"
+
+	for tmp_port in $(seq ${port_start} ${port_end}) ; do
+		# support linux & osx: netstat on linux/osx use ":/." for port separator
+		netstat -an | head | awk '{print gensub(/.*[\.:]/, "", "g", $4)}' | grep -q "${tmp_port}" && continue
+		echo ${tmp_port} && return 0
+	done
+	return 1
+}
+
+################################################################################
+# Data Type: array
+################################################################################
+func_is_array_not_empty() {
+	local usage="USAGE: ${FUNCNAME[0]} <array-elements>" 
+	local desc="Desc: check if <array-elements> is NOT empty, return 0 if true, otherwise 1" 
+	
+	[[ "$#" -gt 0 ]] && return 0 || return 1
+}
+
+func_array_contans() {
+	local usage="USAGE: ${FUNCNAME[0]} <element> <array>" 
+	local desc="Desc: check if <array> contains <element>, return 0 if contains, otherwise 1" 
+	func_param_check 2 "$@"
+
+	local e
+	for e in "${@:2}"; do 
+		[[ "$e" == "$1" ]] && return 0
+	done
+	return 1
+}
+
 ################################################################################
 # Data Type: number
 ################################################################################
+func_is_int_in_range() {
+	local usage="Usage: ${FUNCNAME[0]} <num> <start> <end>"
+	local desc="Desc: return 0 if <num> is number and in range <start> ~ <end>, otherwise return 1" 
+	func_param_check 3 "$@"
+
+	local num="${1}"
+	local start="${2}"
+	local end="${3}"
+
+	func_is_int "${num}" && (( num >= start )) && (( num <= end )) && return 0 || return 1
+}
+
+func_is_int() {
+	local usage="Usage: ${FUNCNAME[0]} <param>"
+	local desc="Desc: return 0 if the param is integer, otherwise will 1" 
+	func_param_check 1 "$@"
+	
+	# NOTE: no quote on the pattern part!
+	local num="${1}"
+	[[ "${num}" =~ ^[-]?[0-9]+$ ]] && return 0 || return 1
+}
+
 func_is_positive_int() {
 	local usage="Usage: ${FUNCNAME[0]} <param>"
 	local desc="Desc: return 0 if the param is positive integer, otherwise will 1" 
@@ -689,7 +983,7 @@ func_is_positive_int() {
 	
 	# NOTE: no quote on the pattern part!
 	local num="${1}"
-	[[ "${num}" =~ ^[-]*[0-9]+$ ]] && (( num > 0 )) && return 0 || return 1
+	func_is_int "${num}" && (( num > 0 )) && return 0 || return 1
 }
 
 func_num_to_human() {
