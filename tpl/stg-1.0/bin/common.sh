@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # VARIABLES - defaults, might overwirte by definition in env.sh
-CONF_START_WAIT=1
+CONF_STOP_WAIT_MAX=18
+CONF_START_WAIT_MAX=8
 CONF_START_RECORD_PID=true
 FILE_PID="ZBOX_STG_FULLPATH/pidfile" 
-SCRIPT_STATUS_SLIENT="ZBOX_STG_FULLPATH/bin/status_silent.sh"
+FILE_LOG="ZBOX_STG_FULLPATH/logs/default.log"
 
 # FUNCTIONS
 func_param_check() {
@@ -51,11 +52,33 @@ func_techo() {
 
 func_is_str_blank() {
 	local usage="Usage: ${FUNCNAME[0]} <string...>"
-	local desc="Desc: check if string is blank (or not defined), return 0 if empty, otherwise 1" 
+	local desc="Desc: check if string is blank (or not defined), return 0 if blank, otherwise 1" 
 	func_param_check 1 "$@"
 	
 	# remove all space and use -z to check
 	[ -z "${1//[[:blank:]]}" ] && return 0 || return 1
+}
+
+func_is_int() {
+	local usage="Usage: ${FUNCNAME[0]} <param>"
+	local desc="Desc: return 0 if the param is integer, otherwise will 1" 
+	func_param_check 1 "$@"
+	
+	# NOTE: no quote on the pattern part!
+	local num="${1}"
+	[[ "${num}" =~ ^[-]?[0-9]+$ ]] && return 0 || return 1
+}
+
+func_is_int_in_range() {
+	local usage="Usage: ${FUNCNAME[0]} <num> <start> <end>"
+	local desc="Desc: return 0 if <num> is number and in range <start> ~ <end>, otherwise return 1" 
+	func_param_check 3 "$@"
+
+	local num="${1}"
+	local start="${2}"
+	local end="${3}"
+
+	func_is_int "${num}" && (( num >= start )) && (( num <= end )) && return 0 || return 1
 }
 
 func_remove_pid() {
@@ -71,20 +94,32 @@ func_record_pid() {
 }
 
 func_proc_info() {
-	local pid="$(cat "${FILE_PID}")"
-	ps -ef | grep "${pid}" | grep -v grep
+	# Check via pidfile
+	if [ -f "${FILE_PID}" ] ; then
+		local pid="$(cat "${FILE_PID}")"
+		ps -ef | grep "${pid}" | grep -v grep
+		return 0
+	fi
+
+	if [ ! -z "${PROC_NAME}" ] ; then
+		echo "NOTE: no pidfile found, try grep proc name: ${PROC_NAME}"
+		ps -ef | grep "${PROC_NAME}" | grep -v grep
+		return 0
+	fi
+
+	return 1
 }
 
 func_is_running() {
 	# Check file existence
 	if [ ! -f "${FILE_PID}" ] ; then
-		return 0
+		return 1
 	fi
 
 	# Check pid not empty
 	local pid="$(cat "${FILE_PID}")"
 	if func_is_str_blank "${pid}" ; then
-		return 0
+		return 1
 	fi
 
 	# POSIX way, better compatible on diff os
@@ -101,3 +136,7 @@ source ZBOX_STG_FULLPATH/bin/env.sh
 for v in CMD_START FILE_LOG ; do
 	func_is_str_blank ${!v} && func_die "ERROR: manditary var (name: ${v}) NOT defined, pls check"
 done
+
+# Check vars types
+func_is_int_in_range "${CONF_STOP_WAIT_MAX}" 0 100 || CONF_STOP_WAIT_MAX=10
+func_is_int_in_range "${CONF_START_WAIT_MAX}" 0 100 || CONF_START_WAIT_MAX=1

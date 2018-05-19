@@ -4,12 +4,6 @@
 ################################################################################
 # TODO
 ################################################################################
-# - stg cmds support files in tpl_stg
-#	-- (DONE) tpl for mysql
-#	-- think: more general way to have zbox level template?	
-#	-- entrance to support both type: 1) in tpl_stg. 2) as var in stg file
-#	-- translate place holders, use zbox_stg_pre_translate?
-#	-- verify
 # - list python, output duplicated on lapmac2
 #	cause: analysis ins-xxx, output 1 line, analysis osx_ins-xxx, output another line
 # - support for global use
@@ -52,6 +46,7 @@ ZBOX_CNF="${ZBOX_CNF:-"${ZBOX}/cnf"}"
 ZBOX_INS="${ZBOX_INS:-"${ZBOX}/ins"}"
 ZBOX_SRC="${ZBOX_SRC:-"${ZBOX}/src"}"
 ZBOX_STG="${ZBOX_STG:-"${ZBOX}/stg"}"
+ZBOX_TPL="${ZBOX_TPL:-"${ZBOX}/tpl"}"
 ZBOX_TMP="${ZBOX_TMP:-"${ZBOX}/tmp"}"
 ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
 
@@ -493,23 +488,26 @@ zbox_stg() {
 		local ins_fullpath="$(zbox_gen_ins_fullpath "${1}" "${2}")"
 	fi
 
+	# validate and init
 	func_validate_path_exist "${ins_fullpath}"
-
 	zbox_stg_init_dir "$@"
 
-	# execute pre script and pre translate
+	# create stg
 	zbox_run_script "stg_pre_script" "${stg_fullpath}" "${stg_pre_script}"
-	zbox_stg_pre_translate "$@"
-
 	zbox_stg_gen_ctrl_scripts "$@"
-
-	# execute post script
+	func_is_str_blank "${stg_translate}" || zbox_stg_translate "${stg_translate}" "$@"
 	zbox_run_script "stg_post_script" "${stg_fullpath}" "${stg_post_script}"
 }
 
-zbox_stg_pre_translate() {
-	local desc="Desc: generate control scripts for stage\n${ZBOX_FUNC_STG_USAGE}"
-	func_param_check 3 "$@"
+zbox_stg_translate() {
+	# NOTE: this function need more/extra parameters than ZBOX_FUNC_STG_USAGE
+	local desc="Desc: translate ZBOX_xxx vars in files"
+	local usage="Usage: ${FUNCNAME[0]} <files-list-in-single-var> <tname> <tver> [<tadd>] <sname>"
+	func_param_check 4 "$@"
+
+	local files="${1}"
+	shift
+	func_is_str_blank "${files}" && echo "INFO: stg_translate var empty, skip" && return
 
 	eval $(zbox_gen_stg_cnf_vars "$@")
 	local zbox_username="$(whoami)"
@@ -522,12 +520,11 @@ zbox_stg_pre_translate() {
 		local ins_fullpath="$(zbox_gen_ins_fullpath "${1}" "${2}")"
 	fi
 
-	[ -z "${stg_pre_translate}" ] && echo "INFO: stg_pre_translate var empty, skip" && return 0
-
-	local f=""
-	for f in ${stg_pre_translate} ; do
+	local f
+	echo "INFO: translate ZBOX_XXX vars for files: ${files//$'\n'/ /}"
+	for f in ${files} ; do
 		[ ! -f "${f}" ] && func_die "ERROR: pre translate failed, can NOT find file: ${f}"
-		echo "INFO: translate files defined in var stg_pre_translate: ${f}"
+		echo "DEBUG: translate file: ${f}"
 		sed -i -e "s+ZBOX_TMP+${ZBOX_TMP}+g;
 			   s+ZBOX_CNF+${ZBOX_CNF}+g;
 			   s+ZBOX_USERNAME+${zbox_username}+g;
@@ -541,17 +538,37 @@ zbox_stg_gen_ctrl_scripts() {
 	local desc="Desc: generate control scripts for stage\n${ZBOX_FUNC_STG_USAGE}"
 	func_param_check 3 "$@"
 
+	echo "INFO: gen control scripts for: $@"
 	eval $(zbox_gen_stg_cnf_vars "$@")
 	local stg_fullpath="$(zbox_gen_stg_fullpath "$@")"
 
-	for cmd in ${stg_cmds:-start stop status} ; do
-		local cmd_path="${stg_fullpath}/bin/${cmd}.sh"
-		local cmd_var_name="stg_cmd_${cmd}"
+	if func_is_str_blank "${stg_tpl_base}" ; then
+		echo "INFO: use old way (stg_cmd_xxx) to gen script"
+		for cmd in ${stg_cmds:-start stop status} ; do
+			local cmd_path="${stg_fullpath}/bin/${cmd}.sh"
+			local cmd_var_name="stg_cmd_${cmd}"
 
-		rm "${cmd_path}" &> /dev/null
-		echo "INFO: (stage) Generating control scripts: ${cmd_path}"
-		echo "${!cmd_var_name}" >> "${cmd_path}"
-	done
+			rm "${cmd_path}" &> /dev/null
+			echo "INFO: (stage) Generating control scripts: ${cmd_path}"
+			echo "${!cmd_var_name}" >> "${cmd_path}"
+		done
+	else
+		echo "INFO: use new way (template) to gen script"
+
+		local p1="${ZBOX_TPL}/${stg_tpl_base}"
+		local p2="${ZBOX_CNF}/${1}/tpl_stg"
+		local p3="${ZBOX_CNF}/${1}/tpl_stg-${2}"
+		local p4="${ZBOX_CNF}/${1}/tpl_stg-${2}-${3}"
+		func_validate_path_exist "${p1}" "${p2}"
+
+		local p
+		local tmpdir="$(mktemp -d)"
+		for p in p1 p2 p3 p4 ; do
+			cp -r "${!p}"/* "${tmpdir}" >> ${ZBOX_LOG} 2>&1										
+		done
+		zbox_stg_translate "$(find "${tmpdir}"/ -type f)" "$@"
+		cp -r "${tmpdir}"/* "${stg_fullpath}"
+	fi
 }
 
 zbox_ins_init_dir() {
@@ -1026,9 +1043,13 @@ zbox_run_script() {
 
 	echo "INFO: executing ${script_name}, run in path: ${run_path}, script: ${script}"
 	func_cd "${run_path}" 
-	eval "${script}" 
+
+	# seems need redirect output for 'eval', otherwise will not into log file
+	eval "${script}" >> "${ZBOX_LOG}" 2>&1
+
 	# NOTE, do NOT use pipe here, which makes the func_die fail (since pipe creates sub-shell). But how to put a copy in log?
 	zbox_check_exit_code "${script_name} execution success" "${script_desc:-${script_name} execution failed}" 2>&1 
+
 	"cd" - >> "${ZBOX_LOG}" 2>&1
 }
 
