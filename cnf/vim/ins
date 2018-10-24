@@ -1,2 +1,25 @@
 ins_verify              = "ZBOX_INS_FULLPATH/bin/gvim --version | grep '^VIM - Vi IMproved' &> /dev/null"
 use_env                 = 'VIM_HOME=ZBOX_INS_FULLPATH VIM_CONF=${HOME}/.vim PATH=${VIM_HOME}/bin:${PATH}'
+ins_steps               = "src dep make"
+
+ins_make_steps          = "clean configure make install"
+ins_make_clean_cmd      = "clean distclean"
+
+			# (2015-05-08) need python 2.x, since YouCompleteMe@vim NOT compitable with python 3.x
+#ins_pre_script          = 'command -v ruby && command -v python && python --version 2>&1 | grep "Python 2"'
+
+			# (2018-10-16) remove python 2.x check, since not need YouCompleteMe@vim yet. TODO: check if YouCompleteMe@vim support python3 now
+ins_pre_script          = 'command -v ruby && command -v python'
+
+ins_gen_src_fullpath    = "only_tname_tver"
+ins_make_pre_script     = 'make_conf=ZBOX_SRC_PLFPATH/src/Make_mvc.mak; ruby_ver=$(ruby -v | cut -c6-8); cp ${make_conf}{,.bak.$(date "+%Y-%m-%d_%H-%M-%S")} && sed -i "s/^RUBY_VER = .*/RUBY_VER = ${ruby_ver/./}/;s/^RUBY_VER_LONG = .*/RUBY_VER_LONG = ${ruby_ver}/" ${make_conf}'
+
+ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH --with-features=huge --enable-pythoninterp --enable-rubyinterp --enable-multibyte --enable-gui=gtk2 --enable-fontset --enable-xim"
+                        # CFLAGS="-O2" LDFLAGS="-static" ./configure \			# CFLAGS to avoid the -g flag. Failed: cause "no terminal library found", install libncurses5-dev/libncursesw5-dev not works since already installed
+                        # env CFLAGS="-O2" LDFLAGS="-static" ./configure \		# CFLAGS to avoid the -g flag. Failed: cause "no terminal library found", install libncurses5-dev/libncursesw5-dev not works since already installed
+                        # more: --enable-luainterp --enable-perlinterp --enable-python3interp --enable-tclinterp
+			# more: --enable-cscope --with-python-config-dir=/usr/lib/python2.7/config or --with-python-config-dir=/usr/lib/python2.7/config-x86_64-linux-gnu/ 
+			# other option: --enable-gui=gnome2
+
+# More
+# make VIMRUNTIMEDIR=/usr/share/vim/vim74
