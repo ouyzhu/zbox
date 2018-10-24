@@ -1,5 +1,7 @@
 # try on osx(yosemite), not test on linux
 
+# NOTE: get "Can't connect to HTTPS URL because the SSL module is not available" error when use "pip3.6 search xxx", no this error in 3.7.0
+
 ins_src_addr            = http://www.python.org/ftp/python/3.6.1/Python-3.6.1.tar.xz
 ins_verify              = "ZBOX_INS_FULLPATH/bin/python3.6 --version 2>&1 | grep '^Python 3.6' &> /dev/null"
 ins_post_script         = "cd ZBOX_INS_FULLPATH/bin && ln -s python3.6 python"

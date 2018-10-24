@@ -1,7 +1,7 @@
 stg_dirs       = "bin conf logs data tmp"
 stg_tpl_base   = "stg-1.0"
 
-# TODO: use "mysqld --initialize" in script.initdb for v5.7
+# TODO: use "mysqld --initialize" in script.initdb for v5.7, note the update should be in file script.initdb
 # NOTE: file "my.cnf" gen by script.initdb is under ZBOX_INS_FULLPATH/my.cnf, NOT in ZBOX_INS_FULLPATH/conf 
 stg_post_script = "bash ZBOX_STG_FULLPATH/bin/script.initdb; mv ZBOX_INS_FULLPATH/my.cnf ZBOX_STG_FULLPATH/conf/my.cnf.genBy.script.initdb;"
 

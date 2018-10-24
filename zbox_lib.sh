@@ -964,6 +964,9 @@ func_is_int_in_range() {
 	local end="${3}"
 
 	func_is_int "${num}" && (( num >= start )) && (( num <= end )) && return 0 || return 1
+
+	# backup way: check $num is a num in 1~$maxNum (verified in cygwin bash, but (( )) always have problem)
+	#[[ -z "$num" || ! "$num" =~ ^[0-9]+$ || "$num" -gt "$maxNum" || "$num" -lt "1" ]]	
 }
 
 func_is_int() {
@@ -1051,4 +1054,12 @@ func_str_contains() {
 	# use != for not contains
 	# use =~ for regex match: [[ $string =~ .*My.* ]], note if regex contains space, need escape with "\"
 	[[ "${1}" == *"${2}"* ]] && return 0 || return 1
+}
+
+func_str_starts_with() {
+	local usage="Usage: ${FUNCNAME[0]} <string> <starts_with>"
+	local desc="Desc: check if string starts with specifed str, return 0 if yes, otherwise 1" 
+	func_param_check 2 "$@"
+	
+	# TODO
 }
