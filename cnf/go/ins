@@ -1,0 +1,5 @@
+ins_steps           = "src ucd move"
+ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/go version | grep '^go version' &> /dev/null"
+use_env             = 'GO_HOME=ZBOX_INS_FULLPATH PATH=${GO_HOME}/bin:${PATH}'
+
+#ins_plf             = 'osx,linux'

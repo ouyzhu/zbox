@@ -1,0 +1,11 @@
+# works on osx high sierra, but stopped at v7.4
+# seems new version is maitained by macvim-dev, see ins-git
+ins_src_addr            = https://github.com/b4winckler/macvim
+
+# NOTE: those options are actually used, backup in case "ins" changed later
+# ins_steps               = "src make"
+# ins_make_steps          = "clean configure make"
+# ins_make_clean_cmd      = "clean distclean"
+# ins_make_post_script	= "mkdir ZBOX_INS_FULLPATH; mv ZBOX_SRC_PLFPATH/src/MacVim/build/Release/MacVim.app ZBOX_INS_FULLPATH; cp ZBOX_SRC_PLFPATH/src/MacVim/mvim ZBOX_INS_FULLPATH/MacVim.app/Contents/MacOS/"
+# ins_make_configure_opts = "--with-features=huge --enable-pythoninterp --enable-rubyinterp"
+# use_env			= 'VIM_APP_DIR=ZBOX_INS_FULLPATH MACVIM_HOME=ZBOX_INS_FULLPATH PATH=${MACVIM_HOME}/MacVim.app/Contents/MacOS/:${PATH}'

@@ -1,3 +1,14 @@
-#ins_verify              = "ZBOX_INS_FULLPATH/bin/gvim --version | grep '^VIM - Vi IMproved' &> /dev/null"
-#use_env                 = 'VIM_HOME=ZBOX_INS_FULLPATH VIM_CONF=${HOME}/.vim PATH=${VIM_HOME}/bin:${PATH}'
-ins_plf                  = 'osx'
+ins_plf                 = 'osx'
+ins_steps               = "src make"
+ins_make_steps          = "clean configure make"
+ins_make_clean_cmd      = "clean distclean"
+ins_make_post_script	= "mkdir ZBOX_INS_FULLPATH; mv ZBOX_SRC_PLFPATH/src/MacVim/build/Release/MacVim.app ZBOX_INS_FULLPATH; cp ZBOX_SRC_PLFPATH/src/MacVim/mvim ZBOX_INS_FULLPATH/MacVim.app/Contents/MacOS/"
+use_env			= 'VIM_APP_DIR=ZBOX_INS_FULLPATH MACVIM_HOME=ZBOX_INS_FULLPATH PATH=${MACVIM_HOME}/MacVim.app/Contents/MacOS/:${PATH}'
+
+# TODO 1: seems python NOT really enabled
+# NOTE 1: need copy binary to target, so NOT need "--prefix=ZBOX_INS_FULLPATH "
+ins_make_configure_opts = "--with-features=huge --enable-pythoninterp --enable-rubyinterp"
+
+
+#ins_pre_script          = "command -v ruby && command -v python"
+
