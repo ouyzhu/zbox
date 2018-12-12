@@ -1,2 +1,6 @@
 ins_dep_apt_install  = "build-essential libgdbm-dev libreadline-dev libsqlite3-dev libbz2-dev bzip2 libzip2 libssl-dev libncursesw5-dev libncurses5-dev libncursesw5-dev zlib1g-dev"
 
+# sqlite3: default in standard lib, so we should install it by default
+# libffi-dev: for python3, otherwise gets error: "No module named '_ctypes'"
+ins_dep_apt_install   = "libffi-dev libsqlite3-dev"
+
