@@ -98,15 +98,18 @@ func_uncompress() {
 	# use readlink to avoid relative path
 	local source_file="$(readlink -f "${1}")"
 	local target_dir="${source_file%.*}"
+
 	[ -n "${2}" ] && target_dir="$(readlink -f "${2}")"
-	[ -d "${target_dir}" ] && func_die "ERROR: ${target_dir} already exist, give up!"
+	[ -z "${target_dir}" ] && target_dir="${2}"		# NOTE: readlink -f on mac seems gets empty str, if more than last 2 level path inexist, so need "backup" here
+	func_complain_path_exist "${target_dir}" && return	# seem NOT need exit, just complain is enough?
 
 	echo "INFO: uncompress file, from: ${source_file} to: ${target_dir}"
-	func_mkdir_cd "${target_dir}"
+	func_mkdir_cd "${2}"
 	case "$source_file" in
 		*.jar | *.arr | *.zip)
 				func_complain_cmd_not_exist unzip \
-				&& sudo apt-get install unzip ;                 	# try intall
+				&& (sudo apt-get install unzip \
+				    || sudo port install unzip) ;			# try intall
 				unzip "$source_file" &> /dev/null       	;;
 
 		*.tar.xz)	tar -Jxvf "$source_file" &> /dev/null		;;
@@ -114,15 +117,22 @@ func_uncompress() {
 		*.tar.bz2)	tar -jxvf "$source_file" &> /dev/null		;;	# NOTE, should before "*.bz2)"
 		*.bz2)		bunzip2 "$source_file" &> /dev/null		;;
 		*.gz)		gunzip "$source_file" &> /dev/null		;;
-		*.7z)		7z e "$source_file" &> /dev/null		;;	# use "-e" will fail, "e" is extract, "x" is extract with full path
 		*.tar)		tar -xvf "$source_file" &> /dev/null		;;
 		*.xz)		tar -Jxvf "$source_file" &> /dev/null		;;
 		*.tgz)		tar -zxvf "$source_file" &> /dev/null		;;
 		*.tbz2)		tar -jxvf "$source_file" &> /dev/null		;;
 		*.Z)		uncompress "$source_file"			;;
+
+		*.7z)		func_complain_cmd_not_exist 7z \
+				&& (sudo apt-get install p7zip \
+				    || sudo port install p7zip) ;			# try intall
+				7z e "$source_file" &> /dev/null		;;	# use "-e" will fail, "e" is extract, "x" is extract with full path
+
 		*.rar)		func_complain_cmd_not_exist unrar \
-				&& sudo apt-get install unrar ;				# try intall
+				&& (sudo apt-get install unrar \
+				    || sudo port install unrar);			# try intall
 				unrar e "$source_file" &> /dev/null		;;	# another candidate is: 7z e "$source_file"
+
 		*)		echo "ERROR: unknow format: ${source_file}"	;;
 	esac
 
@@ -420,7 +430,7 @@ func_complain_path_exist() {
 	local desc="Desc: complains if path already exist, return 0 if exist, otherwise 1" 
 	func_param_check 1 "$@"
 	
-	[ -e "${1}" ] && echo "${2:-WARN: path ${1} alread exist!}" && return 0
+	[ -e "${1}" ] && echo "${2:-WARN: path ${1} already exist!}" && return 0
 	return 1
 }
 
