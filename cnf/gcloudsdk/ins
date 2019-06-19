@@ -1,0 +1,4 @@
+ins_steps           = "src ucd move"
+ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/gcloud --version | grep '^Google Cloud SDK' &> /dev/null"
+use_env             = 'GCLOUDSDK_HOME=ZBOX_INS_FULLPATH PATH=${GCLOUDSDK_HOME}/bin:${PATH}'
+ins_plf             = 'osx,linux'
