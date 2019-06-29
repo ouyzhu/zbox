@@ -663,8 +663,8 @@ zbox_ins_dep() {
 
 	# dep of osx platform
 	if [ -n "${ins_dep_port_install}" ] && [ "${ZBOX_PLF}" = "${ZBOX_PLF_OSX}" ] ; then
-		echo "INFO: (ins) dependencies: sudo port install ${ins_dep_port_install}"
-		sudo port install ${ins_dep_port_install} >> ${ZBOX_LOG} 2>&1
+		echo "INFO: (ins) dependencies: sudo port -N install ${ins_dep_port_install}"
+		sudo port -N install ${ins_dep_port_install} >> ${ZBOX_LOG} 2>&1
 	fi
 
 	# dep of zbox self
