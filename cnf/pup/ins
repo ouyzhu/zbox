@@ -1,4 +1,4 @@
 ins_steps           = "src ucd move"
-ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/pup --version | grep 'ZBOX_TVER' &> /dev/null"
-use_env             = 'PUP_HOME=ZBOX_INS_FULLPATH PATH=${PUP_HOME}/bin:${PATH}'
+ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/pup --version | grep 'ZBOX_TVER' &> /dev/null"
+use_env             = 'PUP_HOME=ZBOX_INS_FULLPATH PATH=${PUP_HOME}/:${PATH}'
 ins_plf             = 'osx,linux'
