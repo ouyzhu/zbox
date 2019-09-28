@@ -637,6 +637,42 @@ func_gen_local_vars() {
 		s/^/local /"
 }
 
+
+# TODO: code is mostly dup with func_gen_local_vars(), only last sed part diff
+# NOTE: this is for those value might have special chars, and value NOT quoted (used in fcw script)
+func_gen_local_vars_secure() {
+	local usage="Usage: ${FUNCNAME[0]} <file1> <file2> ..."
+	local desc="Desc: gen local var definition based on file sequence, embrace each value with quote"
+	func_param_check 1 "$@"
+
+	# TODO: if the file has BOMB, will fail. ignore the BOMB chars?
+	#	verify: use set a bomb cnf file in zbox, and try "zbox use xxx"
+
+	# check file existence
+	local exist_files=()
+	local inexist_files=()
+	for f in "$@" ; do
+		if ! [ -r "${f}" ] ; then
+			inexist_files+=("${f}")
+			continue
+		fi
+		exist_files+=("${f}")
+	done
+
+	# report to stderr
+	(( ${#inexist_files[*]} > 0 )) && echo "DEBUG: skip those inexist files: ${inexist_files[*]}" 1>&2
+	(( ${#exist_files[*]} == 0 )) && echo "WARN: NO files really readable to gen local var: $*" 1>&2 && return 1
+
+	# TODO: embrace value with " or ', since bash eval get error if value have special chars like &/, etc. path field almost always have such chars.
+	# works but not efficient: s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
+	cat "${exist_files[@]}"			\
+	| sed -e '/^[[:blank:]]*\($\|#\)/d;
+		s/[[:blank:]]*=[[:blank:]]*/=/;
+		s/=/="/;
+		s/$/"/;
+		s/^/local /'
+}
+
 ################################################################################
 # Utility: platform/os
 ################################################################################
