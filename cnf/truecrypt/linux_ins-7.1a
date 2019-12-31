@@ -1,7 +1,9 @@
 ins_steps    = "src ucd move"
 
-# Ubuntu 16.04 need this
-ins_dep_apt_install = "dmsetup"
-
 # Offical download is NOT available any more
 ins_src_addr = http://not_exist_url.fake_url.com.cxx/truecrypt-7.1a.zip
+
+# Ubuntu 16.04 need this
+#ins_dep_apt_install = "dmsetup"
+# Ubuntu 18.04 need this, verified works on 18.04
+ins_dep_apt_install = "bzr libncurses5-dev gcc debhelper devscripts dpatch"
