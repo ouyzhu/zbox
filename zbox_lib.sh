@@ -342,6 +342,27 @@ func_decho() {
 }
 
 ################################################################################
+# Utility: For_Script
+################################################################################
+func_script_base_of_parent() { 
+	local usage="Usage: ${FUNCNAME[0]} (MUST invoke in script !!!)" 
+	local desc="Desc: get parent dir of current script" 
+
+	func_script_base "/../"
+}
+
+func_script_base() { 
+	local usage="Usage: ${FUNCNAME[0]} <suffix> (MUST invoke in script !!!)" 
+	local desc="Desc: get dir of current script, suffix will be directly added to the base dir" 
+
+	script_dir="$(dirname ${0})"
+	func_is_str_empty "${script_dir}" && func_die "ERROR: script dir MUST NOT empty, pls check"
+
+	readlink -f "${script_dir}/${*}"
+	#base="$(readlink -f $(dirname ${0}))"
+}
+
+################################################################################
 # Utility: FileSystem
 ################################################################################
 func_cd() {
@@ -871,6 +892,18 @@ func_is_valid_ipv6() {
 	echo ${1} | grep -E -q "^(${RE_IPV6})$"
 }
 
+# shellcheck disable=2155
+func_is_local_addr() {
+	local usage="Usage: ${FUNCNAME[0]} <host>" 
+	local desc="Desc: check if param is address of local machine, return 0 if yes, otherwise no"
+	func_param_check 1 "$@"
+
+	local addr="$(func_ip_of_host "${1}")"
+	[ "${addr}" = "127.0.0.1" ] && return 0
+	func_is_valid_ip "${addr}" || return 1
+	func_ip_list | grep -q "${1}"
+}
+
 func_ip_of_host() {
 	local usage="Usage: ${FUNCNAME[0]} <host>" 
 	local desc="Desc: echo one ip of the host, otherwise echo empty, return original if already an ip"
@@ -901,18 +934,6 @@ func_ip_of_host() {
 
 	# more ways to get ip: ping, ns-lookup, etc
 	#ping -c 1 "${1%:*}" | head -1 | sed -e "s/[^(]*(//;s/).*//"	# note when host inexist
-}
-
-# shellcheck disable=2155
-func_is_local_addr() {
-	local usage="Usage: ${FUNCNAME[0]} <host>" 
-	local desc="Desc: check if param is address of local machine, return 0 if yes, otherwise no"
-	func_param_check 1 "$@"
-
-	local addr="$(func_ip_of_host "${1}")"
-	[ "${addr}" = "127.0.0.1" ] && return 0
-	func_is_valid_ip "${addr}" || return 1
-	func_ip_list | grep -q "${1}"
 }
 
 func_ip_single() {
@@ -1074,18 +1095,6 @@ func_is_str_blank() {
 	[ -z "${1//[[:blank:]]}" ] && return 0 || return 1
 }
 
-func_contains_blank_str() {
-	local usage="Usage: ${FUNCNAME[0]} <string...>"
-	local desc="Desc: check if parameter contains blank (or not defined) str, return 0 if yes, otherwise 1" 
-	func_param_check 1 "$@"
-	
-	local str
-	for str in "$@" ; do
-		func_is_str_blank "${str}" && return 0
-	done
-	return 1
-}
-
 func_str_not_contains() {
 	! func_str_contains "$@"
 }
@@ -1109,3 +1118,16 @@ func_str_starts_with() {
 	
 	# TODO
 }
+
+func_str_contains_blank() {
+	local usage="Usage: ${FUNCNAME[0]} <string...>"
+	local desc="Desc: check if parameter contains blank (or not defined) str, return 0 if yes, otherwise 1" 
+	func_param_check 1 "$@"
+	
+	local str
+	for str in "$@" ; do
+		func_is_str_blank "${str}" && return 0
+	done
+	return 1
+}
+

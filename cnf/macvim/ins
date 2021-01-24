@@ -5,9 +5,10 @@ ins_make_clean_cmd      = "clean distclean"
 ins_make_post_script	= "mkdir ZBOX_INS_FULLPATH; mv ZBOX_SRC_PLFPATH/src/MacVim/build/Release/MacVim.app ZBOX_INS_FULLPATH; cp ZBOX_SRC_PLFPATH/src/MacVim/mvim ZBOX_INS_FULLPATH/MacVim.app/Contents/MacOS/"
 use_env			= 'VIM_APP_DIR=ZBOX_INS_FULLPATH MACVIM_HOME=ZBOX_INS_FULLPATH PATH=${MACVIM_HOME}/MacVim.app/Contents/MacOS/:${PATH}'
 
-# TODO 1: seems python NOT really enabled
 # NOTE 1: need copy binary to target, so NOT need "--prefix=ZBOX_INS_FULLPATH "
-ins_make_configure_opts = "--with-features=huge --enable-pythoninterp --enable-rubyinterp"
+# NOTE 2
+#ins_make_configure_opts = "--with-features=huge --enable-pythoninterp --enable-python3interp --enable-rubyinterp"
+ins_make_configure_opts = "--with-features=huge --enable-pythoninterp --enable-python3interp"
 
 
 #ins_pre_script          = "command -v ruby && command -v python"
