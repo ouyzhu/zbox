@@ -1,0 +1,11 @@
+# NOT work, need before ins_make_pre_script
+#ins_configure_pre_script="cd ZBOX_INS_FULLPATH; ln -s vim-git linux_vim-git-cli"
+
+ins_dep_apt_build_dep   = "vim"
+			# other options: "vim-gnome"
+
+ins_dep_apt_install     = "python3-dev libncurses5-dev libtinfo-dev"
+                        # "libgtk2.0-dev libx11-dev xorg-dev" is for GUI version
+			# more to intall "ruby-dev libgnome2-dev libgnomeui-dev libatk1.0-dev libbonoboui2-dev libcairo2-dev libx11-dev libxpm-dev libxt-dev mercurial"
+			#
+ins_verify              = "ZBOX_INS_FULLPATH/bin/vim --version | grep '^VIM - Vi IMproved' &> /dev/null"

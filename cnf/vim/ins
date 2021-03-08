@@ -1,6 +1,5 @@
 ins_plf			= "linux"
 
-ins_verify              = "ZBOX_INS_FULLPATH/bin/gvim --version | grep '^VIM - Vi IMproved' &> /dev/null"
 use_env                 = 'VIM_HOME=ZBOX_INS_FULLPATH VIM_CONF=${HOME}/.vim PATH=${VIM_HOME}/bin:${PATH}'
 ins_steps               = "src dep make"
 
@@ -8,18 +7,10 @@ ins_make_steps          = "clean configure make install"
 ins_make_clean_cmd      = "clean distclean"
 
 			# ins_pre_script NOT work, since before the "dep" step, which stops the installation of dependencies
-ins_make_pre_script     = 'command -v python && python --version 2>&1 | grep "Python 3"'
+ins_make_pre_script     = 'command -v python3'
 #ins_make_pre_script    = 'command -v ruby && command -v python && python --version 2>&1 | grep "Python 3"'
 
 ins_gen_src_fullpath    = "only_tname_tver"
-
-ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH --with-features=huge --enable-python3interp --enable-multibyte --enable-gui=gtk2 --enable-fontset --enable-xim"
-                        # CFLAGS="-O2" LDFLAGS="-static" ./configure \		# CFLAGS to avoid the -g flag. Failed: cause "no terminal library found", install libncurses5-dev/libncursesw5-dev not works since already installed
-                        # env CFLAGS="-O2" LDFLAGS="-static" ./configure \	# CFLAGS to avoid the -g flag. Failed: cause "no terminal library found", install libncurses5-dev/libncursesw5-dev not works since already installed
-                        # more: --enable-rubyinterp --enable-luainterp --enable-perlinterp --enable-pythoninterp --enable-tclinterp 
-			# more: --enable-cscope
-			# more (python): --enable-pythoninterp  --with-python-config-dir=/usr/lib/python2.7/config or --with-python3-config-dir=/usr/lib/python2.7/config-x86_64-linux-gnu/ 
-			# other option: --enable-gui=gnome2
 
 # More
 # make VIMRUNTIMEDIR=/usr/share/vim/vim74

@@ -1,0 +1,10 @@
+ins_src_addr            = "https://github.com/vim/vim"
+
+ins_make_configure_opts = "--prefix=ZBOX_INS_FULLPATH --with-features=huge --enable-python3interp --enable-multibyte --enable-gui=gtk2 --enable-fontset --enable-xim"
+                        # CFLAGS="-O2" LDFLAGS="-static" ./configure \		# CFLAGS to avoid the -g flag. Failed: cause "no terminal library found", install libncurses5-dev/libncursesw5-dev not works since already installed
+                        # env CFLAGS="-O2" LDFLAGS="-static" ./configure \	# CFLAGS to avoid the -g flag. Failed: cause "no terminal library found", install libncurses5-dev/libncursesw5-dev not works since already installed
+                        # more: --enable-rubyinterp --enable-luainterp --enable-perlinterp --enable-pythoninterp --enable-tclinterp 
+			# more: --enable-cscope
+			# more (python): --enable-pythoninterp  --with-python-config-dir=/usr/lib/python2.7/config or --with-python3-config-dir=/usr/lib/python2.7/config-x86_64-linux-gnu/ 
+			# other option: --enable-gui=gnome2
+
