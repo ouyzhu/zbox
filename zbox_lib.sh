@@ -400,6 +400,31 @@ func_mkdir_cd() {
 	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
 }
 
+func_file_size() {
+	local usage="Usage: ${FUNCNAME[0]} <target>"
+	local desc="Desc: get file size, in Bytes" 
+	func_param_check 1 "$@"
+
+	stat --printf="%s" "${1}"
+}
+
+func_link_init() {
+	local usage="Usage: ${FUNCNAME[0]} <target> <source>"
+	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
+	func_param_check 2 "$@"
+
+	local target="$1"
+	local source="$2"
+	echo "INFO: creating link ${target} --> ${source}"
+
+	# check, skip if target already link, remove if target empty 
+	func_complain_path_not_exist "${source}" && return 0
+	[ -h "${target}" ] && echo "INFO: ${target} already a link (--> $(readlink -f "${target}") ), skip" && return 0
+	[ -d "${target}" ] && func_is_dir_empty "${target}" && rmdir "${target}"
+
+	"ln" -s "${source}" "${target}"
+}
+
 func_is_filetype_text() {
 	local usage="Usage: ${FUNCNAME[0]} <path>"
 	local desc="Desc: check if filetype is text, return 0 if yes, otherwise 1" 
@@ -494,23 +519,6 @@ func_validate_path_owner() {
 	local expect="${2}"
 	local real=$(ls -ld "${1}" | awk '{print $3":"$4}')
 	[ "${real}" != "${expect}" ] && func_die "ERROR: owner NOT match, expect: ${expect}, real: ${real}"
-}
-
-func_link_init() {
-	local usage="Usage: ${FUNCNAME[0]} <target> <source>"
-	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
-	func_param_check 2 "$@"
-
-	local target="$1"
-	local source="$2"
-	echo "INFO: creating link ${target} --> ${source}"
-
-	# check, skip if target already link, remove if target empty 
-	func_complain_path_not_exist "${source}" && return 0
-	[ -h "${target}" ] && echo "INFO: ${target} already a link (--> $(readlink -f "${target}") ), skip" && return 0
-	[ -d "${target}" ] && func_is_dir_empty "${target}" && rmdir "${target}"
-
-	"ln" -s "${source}" "${target}"
 }
 
 # shellcheck disable=2015
@@ -695,7 +703,7 @@ func_gen_local_vars_secure() {
 }
 
 ################################################################################
-# Utility: platform/os
+# Utility: os/platform/machine
 ################################################################################
 OS_OSX="osx"
 OS_WIN="win"
@@ -967,7 +975,7 @@ func_ip_list() {
 		/sbin/ifconfig -a | tr -s ' '		\
 		| awk '					
 			/^[a-z]/{printf $1 }		
-			/inet addr:/{printf " " $2}	
+			/inet /{printf " " $2}	
 			# Un-comment to show IPv6 addr	
 			#/inet6 addr:/{printf " " $3}	
 			/^$/{print}'			\
