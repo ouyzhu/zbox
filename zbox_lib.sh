@@ -408,14 +408,14 @@ func_file_size() {
 	stat --printf="%s" "${1}"
 }
 
-func_link_init() {
-	local usage="Usage: ${FUNCNAME[0]} <target> <source>"
+func_ln_soft() {
+	local usage="Usage: ${FUNCNAME[0]} <source> <target>"
 	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
 	func_param_check 2 "$@"
 
-	local target="$1"
-	local source="$2"
-	echo "INFO: creating link ${target} --> ${source}"
+	local source="$1"
+	local target="$2"
+	echo "INFO: create soft link ${target} --> ${source}"
 
 	# check, skip if target already link, remove if target empty 
 	func_complain_path_not_exist "${source}" && return 0
@@ -619,11 +619,11 @@ func_validate_function_exist() {
 	func_die "ERROR: ${1} NOT exist or NOT a function!"
 }
 
-func_complain_privilege_not_sudoer() { 
+func_complain_sudo_not_auto() { 
 	local usage="Usage: ${FUNCNAME[0]} <msg>"
-	local desc="Desc: complains if current user not have sudo privilege, return 0 if not have, otherwise 1" 
+	local desc="Desc: complains if current user not have sudo privilege, or need input password, return 0 if not have, otherwise 1" 
 	
-	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege!}" && return 0
+	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege, or NOT auto (need input password), pls check!}" && return 0
 	return 1
 }
 
@@ -1139,3 +1139,18 @@ func_str_contains_blank() {
 	return 1
 }
 
+func_str_urldecode() { 
+	# pure bash version, from https://stackoverflow.com/questions/6250698/how-to-decode-url-encoded-string-in-shell
+	# more readable version in comment: urldecode() { local i="${*//+/ }"; echo -e "${i//%/\\x}"; }
+
+	# : 本来是no-op操作符，但这里是为下面的 '$_' 服务的。
+	# 下面的 '$_' 意思是上一个命令的最后一个参数。
+	# 所以这里需要它作为命令，来让后面的参数变成'最后一个参数' 即 '$_'。
+	# 作者有点玩技巧了，原链接的评论里也有人给出了更易读的方案，直接用个变量承载就好了。
+
+	# ${*//+/ } will replace all + with space 
+	: "${*//+/ }";			
+
+	# ${_//%/\\x} will replace all % with \x.
+	echo -e "${_//%/\\x}"; 
+}
