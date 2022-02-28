@@ -7,4 +7,4 @@ ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.02.1 "
 
 # MNT 1: on ubuntu 20.04, get error msg: Fatal error: exception Scanf.Scan_failure("scanf: bad input at char number 4: \"looking for ':', found '$'\"")
 # MNT 2: google shows this works
-ins_ucd_post_script     = "cp ZBOX_UCD_FULLDIR/src/mkProjectInfo.ml{,.bak}; sed -e '/^let revisionString =/s/Rev/Rev: 600/' ZBOX_UCD_FULLDIR/src/mkProjectInfo.ml"
+ins_ucd_post_script     = "cp ZBOX_UCD_FULLPATH/src/mkProjectInfo.ml{,.bak}; sed -e '/^let revisionString =/s/Rev/Rev: 600/' ZBOX_UCD_FULLPATH/src/mkProjectInfo.ml"
