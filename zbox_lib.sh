@@ -175,6 +175,81 @@ func_vcs_update() {
 	fi
 }
 
+func_rsync_v1() {
+	local usage="Usage: ${FUNCNAME[0]} <src> <tgt> <add_options>" 
+	local desc="Desc: rsync between source and target" 
+	[ $# -lt 2 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+
+	local src="${1}"
+	local tgt="${2}"
+	local opts="${3}"
+	func_complain_path_not_exist "${src}" && return 1
+	func_complain_path_not_exist "${tgt}" && return 1
+
+	func_techo DEBUG "run cmd: rsync -avP ${opts} ${src} ${tgt} 2>&1"
+	rsync -avP ${opts} "${src}" "${tgt}" 2>&1
+}
+
+func_rsync_del_detect() {
+	local usage="Usage: ${FUNCNAME[0]} <src> <tgt>" 
+	local desc="Desc: detect if any file need delete" 
+	[ $# -lt 2 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+
+	#echo rsync --dry-run -rv --delete "${1}" "${2}"
+	rsync --dry-run -rv --delete "${1}" "${2}"	\
+		| grep '^deleting '			\
+		| sed -e 's+/[^/]*$+/+'			\
+		| sort -u
+}
+
+func_rsync_out_filter() {
+	# shellcheck disable=2148
+	awk '	/DEBUG: |INFO: |WARN: |ERROR: |FATAL: |TRACE: / {print $0;next;}	# reserve log lines
+
+		/^$/ {			next;}	# skip empty lines
+		/\/$/ {			next;}	# skip dir lines
+		/^sent / {		next;}	# skip rsync lines
+		/^sending / {		next;}	# skip rsync lines
+		/^total size / {	next;}	# skip rsync lines
+		/%.*\/s.*:..:/ {	next;}	# skip rsync lines (progress), sample: "171,324 100%   66.07MB/s    0:00:00 (xfr#1, ir-chk=1038/78727)"
+		/\(xfr#.*(ir|to)-chk=/ {next;}	# skip rsync lines (progress), sample: "171,324 100%   66.07MB/s    0:00:00 (xfr#1, ir-chk=1038/78727)"
+
+		# compact those too noisy output. Use last blank line to trigger the summary count
+		/^FCS\/maven\/m2_repo\/repository/ {
+			mvn_repo_updated_files++;
+			if(mvn_repo_update_flag == 0){
+				print "MAVEN REPO: START TO UPDATE.";
+				mvn_repo_update_flag = 1;
+			}
+			next;
+		} 
+		/^DCD\/mail/ {
+			dcd_mail_updated_files++;
+			if(dcd_mail_updated_flag == 0){
+				print "DCD MAIL: START TO UPDATE.";
+				dcd_mail_updated_flag = 1;
+			}
+			next;
+		} 
+		/^\s*$/ {		
+			if(mvn_repo_update_flag == 1 ) {
+				print "MAVEN REPO: UPDATED FILES: " mvn_repo_updated_files; 
+				mvn_repo_update_flag = 2;
+			}; 
+			if(dcd_mail_updated_flag == 1){
+				print "DCD MAIL: UPDATED_FILES: " dcd_mail_updated_files;
+				dcd_mail_updated_flag = 2;
+			}
+			next;
+		} 
+
+		# for other lines, just print out
+		!/\/$/ {
+			print $0;
+			next;
+		}'
+}
+
 ################################################################################
 # Utility: output
 ################################################################################
@@ -400,13 +475,146 @@ func_mkdir_cd() {
 	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
 }
 
+func_sed_gen_d_cmd() {
+	local usage="Usage: ${FUNCNAME[0]} <pattern> [pattern] ..."
+	local desc="Desc: gen d cmd for sed" 
+	func_param_check 1 "$@"
+
+	local sed_cmd p
+	for p in "$@" ; do
+		sed_cmd="${sed_cmd}/${p//\//\\/}/d;"
+	done
+	echo "${sed_cmd}"
+
+}
+
+func_pipe_remove_lines() {
+	local usage="Usage: ${FUNCNAME[0]} <pattern> [pattern] ..."
+	local desc="Desc: remove patterns in pipe, this helps when pattern are path, improve readability" 
+	func_param_check 1 "$@"
+
+	local sed_cmd="$(func_sed_gen_d_cmd "$@")"
+	echo "INFO: func_pipe_remove_lines: sed cmd: sed -e '${sed_cmd}'" >&2
+	sed -e "${sed_cmd}"
+}
+
+func_file_remove_lines() {
+
+	# USE CASE: func_file_remove_lines fhr.lst <quick_code_file.txt>
+
+	local usage="Usage: ${FUNCNAME[0]} <pattern_file> <input_file>"
+	local desc="Desc: remove patterns listed in file, useful when pattern list a very long" 
+	func_param_check 2 "$@"
+
+	# Var & Check
+	local PATTERN_SPLIT_COUNT="1000"
+	local pattern_file="${1}"
+	local input_file="${2}"
+	local target_file="${2}.removed.$(func_dati)"
+	func_complain_path_not_exist "${input_file}" && return 1
+	func_complain_path_not_exist "${pattern_file}" && return 1
+
+	# Remove
+	local result_file="$(mktemp -d)/$(basename "${input_file}").REMOVED" 
+	local pattern_count="$(func_file_line_count "${pattern_file}")"
+	if (( pattern_count <= PATTERN_SPLIT_COUNT )) ; then 
+		echo "INFO: pattern lines NOT need split ( $pattern_count <= $PATTERN_SPLIT_COUNT )"
+		func_file_remove_lines_simple "${pattern_file}" "${input_file}" > "${result_file}"
+	else
+		echo "INFO: too much pattern lines, need split ( $pattern_count > $PATTERN_SPLIT_COUNT )"
+
+		# split patterns
+		local pattern_file_md5="$(md5sum "${pattern_file}" | cut -d' ' -f1)"
+		local tmp_p_dir="/tmp/func_file_remove_lines-patterns-${PATTERN_SPLIT_COUNT}-${pattern_file_md5}"
+		if [ ! -d "${tmp_p_dir}" ] ; then
+			mkdir -p "${tmp_p_dir}" 
+			split -d -l "${PATTERN_SPLIT_COUNT}" "${pattern_file}" "${tmp_p_dir}/${pattern_file##*/}" 
+			echo "INFO: splited pattern files in: ${tmp_p_dir}/"
+		else
+			echo "INFO: reuse splited pattern files in: ${tmp_p_dir}/"
+		fi
+
+		# use splited pattern files one by one
+		local tmp_out
+		local tmp_in="${input_file}" 
+		for f in ${tmp_p_dir}/* ; do
+			tmp_out="${result_file}.${f##*/}" 
+			func_file_remove_lines_simple "${f}" "${tmp_in}" > "${tmp_out}"
+			tmp_in="${tmp_out}"
+		done
+		result_file="${tmp_out}"
+	fi
+
+	# Show result
+	local input_lines="$(func_file_line_count "${input_file}")"
+	local result_lines="$(func_file_line_count "${result_file}")"
+	echo "INFO: result/input lines: ${result_lines}/${input_lines}, result file: ${result_file}"
+
+	# Old solution: works, but bak is in same dir
+	#local sed_cmd="$(func_sed_gen_d_cmd "$@")"
+	#sed --in-place=".bak-of-sed-cmd.$(func_dati)" -e "${sed_cmd}" "${file}"
+}
+
+func_file_remove_lines_simple() {
+	local usage="Usage: ${FUNCNAME[0]} <pattern_file> <input_file>"
+	local desc="Desc: remove patterns listed in file, and output to stdout" 
+	func_param_check 2 "$@"
+
+	# remove lines with grep -v, $2 could be regex patterns
+	grep -ivf "${1}" "${2}"
+}
+
+func_file_line_count() {
+	local usage="Usage: ${FUNCNAME[0]} <file>"
+	local desc="Desc: output only lines of file" 
+	func_param_check 1 "$@"
+
+	func_complain_path_not_exist "${1}" && return 1
+	wc -l "${1}" | cut -d' ' -f1
+}
+
 func_file_size() {
 	local usage="Usage: ${FUNCNAME[0]} <target>"
 	local desc="Desc: get file size, in Bytes" 
 	func_param_check 1 "$@"
 
-	stat --printf="%s" "${1}"
+	if [ -d "${1}" ] ; then
+		# NOTE: even use --apparent-size, still found case, that output is DIFF when dir on diff FS
+		\du --apparent-size --bytes --summarize "${1}" | cut -f1
+	else
+		stat --printf="%s" "${1}"
+	fi
 }
+
+#func_dir_diff() {
+#	local usage="Usage: ${FUNCNAME[0]} <source> <target>"
+#	local desc="Desc: compare diff of dir" 
+#	func_param_check 1 "$@"
+#
+#	func_dir_diff_size "$@" "true" && return 0
+#
+#	echo "TODO: more comparison"
+#}
+#
+#func_dir_diff_size() {
+#	local usage="Usage: ${FUNCNAME[0]} <source> <target> <print=true>"
+#	local desc="Desc: compare size of dir" 
+#	func_param_check 1 "$@"
+#
+#	local src="${1}"
+#	local tgt="${2}"
+#	local prt="${3}"
+#	local src_size="$(func_file_size "${src}")"
+#	local tgt_size="$(func_file_size "${tgt}")"
+#
+#	if (( src_size == tgt_size )) ; then
+#		[ -n "${prt}" ] && echo "same size: $(func_num_to_human ${src_size})"
+#		return 0 
+#	else
+#		[ -n "${prt}" ] && echo "DIFF size: $(func_num_to_human ${src_size}) != $(func_num_to_human ${tgt_size}) (${src} V.S. ${tgt})"
+#		return 1
+#	fi
+#}
 
 func_ln_soft() {
 	local usage="Usage: ${FUNCNAME[0]} <source> <target>"
@@ -625,14 +833,6 @@ func_complain_sudo_not_auto() {
 	
 	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege, or NOT auto (need input password), pls check!}" && return 0
 	return 1
-}
-
-func_pipe_filter() {
-	if [ -z "${1}" ] ; then
-		sed -n -e "/^\(Desc\|INFO\|WARN\|ERROR\):/p"
-	else
-		tee -a "${1}" | sed -n -e "/^\(Desc\|INFO\|WARN\|ERROR\):/p"
-	fi
 }
 
 func_gen_local_vars() {
@@ -952,36 +1152,70 @@ func_ip_single() {
 func_ip_list() {
 	# NOTE: "tr -s ' '" compact space to single for better field identify
 	local os_name=${MY_OS_NAME:-$(func_os_name)}
+
 	if [ "${os_name}" = "${OS_CYGWIN}" ] ; then
-		# non-cygwin env: ifconfig
-		/sbin/ifconfig | sed -n -e '/inet addr/s/.*inet6* addr:\s*\([.:a-z0-9]*\).*/\1/p'	# IPv4
-		/sbin/ifconfig | sed -n -e '/inet6* addr/s/.*inet6* addr:\s*\([.:a-z0-9]*\).*/\1/p'	# IPv4 & IPv6
+		func_ip_list_via_ifconfig_cygwin
 	elif [ "${os_name}" = "${OS_OSX}" ] ; then
-		/sbin/ifconfig -a | tr -s ' '		\
-		| awk -F'[% ]' '			
-			/^[a-z]/{print "";printf $1}	
-			/^\s*inet /{printf " " $2}	
-			# Un-comment to show IPv6 addr	
-			# /^\s*inet6 /{printf " " $2}	
-			END{print ""}'			\
-		| sed -e "/127.0.0.1/d;/^\s*$/d;/\s/!d;"\
-		| column -t -s " "
+		func_ip_list_via_ifconfig_osx
 	elif [ "${os_name}" = "${OS_WIN}" ] ; then
-		# seem directly pipe the output of ipconfig is very slow
-		raw_data=$(ipconfig) ; echo "$raw_data" | sed -n -e "/IPv[4] Address/s/^[^:]*: //p"	# IPv4
-		raw_data=$(ipconfig) ; echo "$raw_data" | sed -n -e "/IPv[46] Address/s/^[^:]*: //p"	# IPv4 & IPv6
-		#ipconfig | sed -n -e '/inet addr/s/.*inet addr:\([.0-9]*\).*/\1/p'
+		func_ip_list_via_ipconfig_win
 	else
-		/sbin/ifconfig -a | tr -s ' '		\
-		| awk '					
-			/^[a-z]/{printf $1 }		
-			/inet /{printf " " $2}	
-			# Un-comment to show IPv6 addr	
-			#/inet6 addr:/{printf " " $3}	
-			/^$/{print}'			\
-		| sed -e "/127.0.0.1/d;s/addr://" 	\
-		| column -t -s " "
+		func_ip_list_lu
 	fi
+}
+
+func_ip_list_via_ipconfig_win() {
+	# seem directly pipe the output of ipconfig is very slow
+	raw_data=$(ipconfig) ; echo "$raw_data" | sed -n -e "/IPv[4] Address/s/^[^:]*: //p"	# IPv4
+	raw_data=$(ipconfig) ; echo "$raw_data" | sed -n -e "/IPv[46] Address/s/^[^:]*: //p"	# IPv4 & IPv6
+	#ipconfig | sed -n -e '/inet addr/s/.*inet addr:\([.0-9]*\).*/\1/p'
+}
+
+func_ip_list_via_ifconfig_cygwin() {
+	# non-cygwin env: ifconfig
+	/sbin/ifconfig | sed -n -e '/inet addr/s/.*inet6* addr:\s*\([.:a-z0-9]*\).*/\1/p'	# IPv4
+	/sbin/ifconfig | sed -n -e '/inet6* addr/s/.*inet6* addr:\s*\([.:a-z0-9]*\).*/\1/p'	# IPv4 & IPv6
+}
+
+func_ip_list_via_ifconfig_osx() {
+	# output sample: en0:  172.29.160.219
+	/sbin/ifconfig -a | tr -s ' '		\
+	| awk -F'[% ]' '			
+		/^[a-z]/{print "";printf $1}	
+		/^\s*inet /{printf " " $2}	
+		# Un-comment to show IPv6 addr	
+		# /^\s*inet6 /{printf " " $2}	
+		END{print ""}'			\
+	| sed -e "/127.0.0.1/d;/^\s*$/d;/\s/!d;"\
+	| column -t -s " "
+}
+
+func_ip_list_lu() {
+	if func_is_cmd_exist ip ; then
+		func_ip_list_via_ip_lu
+	else func_is_cmd_exist ifconfig
+		func_ip_list_via_ifconfig_lu
+	fi
+}
+
+func_ip_list_via_ifconfig_lu() {
+	/sbin/ifconfig -a | tr -s ' '		\
+	| awk '					
+		/^[a-z]/{printf $1 }		
+		/inet /{printf " " $2}	
+		# Un-comment to show IPv6 addr	
+		#/inet6 addr:/{printf " " $3}	
+		/^$/{print}'			\
+	| sed -e "/127.0.0.1/d;s/addr://" 	\
+	| column -t -s " "
+}
+
+func_ip_list_via_ip_lu() {
+	/bin/ip addr |				\
+	awk '
+		/^[0-9]/{printf $2 }; 
+		/inet /{print " " $2};'		\
+	| sed -e '/127.0.0.1/d;s/\/[0-9][0-9]$//'
 }
 
 func_find_idle_port() {
@@ -1083,6 +1317,25 @@ func_num_to_human() {
 	echo "${number}${fraction}${UNIT[$unit_index]}"
 }
 
+func_sum_1st_columm_SI() {
+	local usage="Usage: ${FUNCNAME[0]} <disk> [name]"
+	local desc="Desc: sum total size of 1st column, support optional unit suffix (SI unit, 1K=1000, KMGTPEZY)"
+
+	awk '
+	BEBIN {sum=0}
+	{
+		ex = index("KMGTPEZY", substr($1, length($1)))
+		if (ex == 0) {
+			size = $1
+		} else {
+			val = substr($1, 0, length($1) - 1)
+			size = val * 10^(ex * 3)
+		}
+		sum += size
+	}
+	END {print sum}' | numfmt --field=1 --to=si --format="%-6f"
+}
+
 ################################################################################
 # Data Type: string
 ################################################################################
@@ -1094,8 +1347,17 @@ func_is_str_empty() {
 	[ -z "${1}" ] && return 0 || return 1
 }
 
+func_is_str_digit() {
+	local usage="Usage: ${FUNCNAME[0]} <string>"
+	local desc="Desc: check if string is digit, return 0 if yes, otherwise 1" 
+	func_param_check 1 "$@"
+
+	# TODO: _-. might also in digit?
+	[[ "${1}" =~ ^[0-9]+$ ]] && return 0 || return 1
+}
+
 func_is_str_blank() {
-	local usage="Usage: ${FUNCNAME[0]} <string...>"
+	local usage="Usage: ${FUNCNAME[0]} <string>"
 	local desc="Desc: check if string is blank (or not defined), return 0 if empty, otherwise 1" 
 	func_param_check 1 "$@"
 	
