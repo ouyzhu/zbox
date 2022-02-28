@@ -4,5 +4,6 @@ ins_make_steps		= "make"
 ins_make_make_opts	= "UISTYLE=text"
 use_env      		= 'UNISON_HOME=ZBOX_INS_FULLPATH PATH=${UNISON_HOME}:${PATH} '
 
-# (2022-02) ubuntu/2.48.3 is in src/unison
-ins_copyucd_filter	= "{unison,src/unison}"
+# (2022-02) ubuntu/2.48.3 is in src/unison.
+ins_copyucd_filter	= "src/unison"
+#ins_copyucd_filter	= "unison"	# works in old days, migth
