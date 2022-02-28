@@ -6,5 +6,5 @@ ins_pre_script          = "command -v opam && opam init -n && opam switch create
 ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.02.1 "
 
 # MNT 1: on ubuntu 20.04, get error msg: Fatal error: exception Scanf.Scan_failure("scanf: bad input at char number 4: \"looking for ':', found '$'\"")
-# MNT 2: google shows this works
+# MNT 2: google shows this works, and NOTE: 536 is the exact num to get 2.48.3 (537: 2.48.4 / 540: 2.48.7 / 550: 2.48.17 / 600: 2.48.67)
 ins_ucd_post_script     = "cp ZBOX_UCD_FULLPATH/src/mkProjectInfo.ml{,.bak}; sed -i -e '/^let revisionString =/s/Rev/Rev: 536/' ZBOX_UCD_FULLPATH/src/mkProjectInfo.ml"
