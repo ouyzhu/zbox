@@ -2,8 +2,11 @@
 
 # source ${HOME}/.myenv/myenv_lib.sh || eval "$(wget -q -O - "https://raw.github.com/stico/myenv/master/.myenv/myenv_lib.sh")" || exit 1
 
+# TODO: 
+# - func_file_remove_lines: simplify?
+
 ################################################################################
-# Misc: functions
+# Time
 ################################################################################
 func_date() { date "+%Y-%m-%d";				}
 func_time() { date "+%H-%M-%S";				}
@@ -11,10 +14,31 @@ func_dati() { date "+%Y-%m-%d_%H-%M-%S";		}
 func_nanosec()  { date +%s%N;				}
 func_millisec() { echo $(($(date +%s%N)/1000000));	}
 
+################################################################################
+# Misc
+################################################################################
+func_info() { func_techo "INFO" "$@" ; }
+func_warn() { func_techo "WARN" "$@" ; }
+func_error() { func_techo "ERROR" "$@" ; }
+func_debug() { [ "${ME_DEBUG}" = 'true' ] && func_techo "DEBUG" "$@" ; }
+
+# for backward compitability
+func_decho() { func_debug "$@" ; }
+
+func_techo() {
+	local usage="Usage: ${FUNCNAME[0]} <level> <msg>" 
+	local desc="Desc: echo msg format: <level-in-uppercase>: <TIME>: <msg>"
+	func_param_check 2 "$@"
+	
+	local level="${1}"
+	shift
+	echo -e "${level^^}: $(date "+%Y-%m-%d %H:%M:%S"): $*"
+}
+
 func_die() {
 	local usage="Usage: ${FUNCNAME[0]} <error_info>" 
 	local desc="Desc: echo error info to stderr and exit" 
-	[ $# -lt 1 ] && echo -e "${desc}\n${usage}\n" && exit 1
+	[ $# -lt 1 ] && echo -e "${desc}\n${usage}\n" 1>&2 && exit 1
 	
 	echo -e "$@" 1>&2
 	exit 1 
@@ -23,13 +47,12 @@ func_die() {
 }
 
 func_param_check() {
+	# Self param check. use -lt, so the exit status will not changed in legal condition
 	# NOT use desc/usage var name, so invoker could call 'func_param_check 2 "$@"' instead of 'func_param_check 2 "${desc}\n${usage}\n" "$@"'
-	local s_usage="Usage: ${FUNCNAME[0]} <count> <string> ..."
-	local s_desc="Desc: check if parameter number >= <count>, otherwise print error_msg and exit. If invoker defined var desc/usage, error_msg will be \${desc}\\\\n\${usage}\\\\n, ohterwise use default"
-	local s_warn="Warn: (YOU SCRIPT HAS BUG) might be: \n\t1) NOT provide <count> or any <string> \n\t2) called ${FUNCNAME[0]} but actually not need to check" 
-
-	# self parameter check. use -lt, so the exit status will not changed in legal condition
-	[ $# -lt 1 ] && func_die "${s_warn}\n${s_desc}\n${s_usage}\n"	
+	local self_usage="Usage: ${FUNCNAME[0]} <count> <string> ..."
+	local self_desc="Desc: check if parameter number >= <count>, otherwise print error_msg and exit. If invoker defined var desc/usage, error_msg will be \${desc}\\\\n\${usage}\\\\n, ohterwise use default"
+	local self_warn="Warn: (YOU SCRIPT HAS BUG) might be: \n\t1) NOT provide <count> or any <string> \n\t2) called ${FUNCNAME[0]} but actually not need to check" 
+	[ $# -lt 1 ] && func_die "${self_warn}\n${self_desc}\n${self_usage}\n"	
 	
 	local count=$1
 	shift
@@ -45,6 +68,629 @@ func_param_check() {
 	[ $# -lt "${count}" ] && func_die "${error_msg}"
 }
 
+func_vcs_update() {
+	# USED_IN: $MY_DCD/vcs/code_dw_update.sh
+	local usage="Usage: ${FUNCNAME[0]} <src_type> <src_addr> <target_dir>"
+	local desc="Desc: init or update vcs like hg/git/svn"
+	func_param_check 3 "$@"
+
+	local src_type="${1}"
+	local src_addr="${2}"
+	local target_dir="${3}"
+	echo "INFO: init/update source, type: ${src_type}, addr: ${src_addr}, target: ${target_dir}"
+	case "${src_type}" in
+		hg)	local cmd="hg"  ; local cmd_init="hg clone"     ; local cmd_update="hg pull"	;;
+		git)	local cmd="git" ; local cmd_init="git clone"    ; local cmd_update="git pull"	;;
+		svn)	local cmd="svn" ; local cmd_init="svn checkout" ; local cmd_update="svn update"	;;
+		*)	func_die "ERROR: Can not handle src_type (${src_type})"	;;
+	esac
+
+	func_validate_cmd_exist ${cmd}
+	
+	if [ -e "${target_dir}" ] ; then
+		pushd "${target_dir}" &> /dev/null
+		${cmd_update} || func_die "ERROR: ${cmd_update} failed"
+		popd &> /dev/null
+	else
+		mkdir -p "$(dirname "${target_dir}")"
+		${cmd_init} "${src_addr}" "${target_dir}" || func_die "ERROR: ${cmd_init} failed"
+	fi
+}
+
+################################################################################
+# Process
+################################################################################
+func_pids_of_descendants() {
+	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
+	local desc="Desc: return pid list of all descendants (including self), or empty if none" 
+	#func_param_check 1 "$@"
+
+	func_validate_cmd_exist pstree
+
+	local pid_num="${1}"
+	if pstree --version 2>&1 | grep -q "thp.uni-due.de" ; then
+		pstree -w "${pid_num}" | grep -o '\-+= \([0-9]\+\)' | grep -o '[0-9]\+' | tr '\n' ' '
+	elif pstree --version 2>&1 | grep -q "PSmisc" ; then
+		pstree -p "${pid_num}" | grep -o '([0-9]\+)' | grep -o '[0-9]\+' | tr '\n' ' '
+	fi
+}
+
+# shellcheck disable=2009
+func_pids_of_direct_child() {
+	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
+	local desc="Desc: return pid list of direct childs (including self), or empty if none" 
+	#func_param_check 1 "$@"
+
+	local pid_num="${1}"
+	if ! func_is_pid_running "${pid_num}" ; then
+		return 0
+	fi
+
+	local pid_tmp
+	local pid_list=""
+	local regex="[ ]*([0-9]+)[ ]+${pid_num}" 
+	for pid_tmp in $(ps ax -o "pid= ppid=" | grep -E "${regex}" | sed -E "s/${regex}/\1/g"); do
+		pid_list="${pid_list} ${pid_tmp}"
+	done
+	echo "${pid_list} ${pid_num}"
+}
+
+# shellcheck disable=2009,2155,2086
+func_kill_self_and_descendants() {
+	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
+	local desc="Desc: kill <pid> and all its child process, return 0 if killed or not need to kill, return 1 failed to kill" 
+	#func_param_check 1 "$@"
+
+	local need_sudo="${1}"
+	local sudo_cmd=""
+	if [ "${need_sudo}" = 'true' ] ; then
+		sudo_cmd="sudo"
+	fi
+
+	local pid_num="${2}"
+	if ! func_is_pid_running "${pid_num}" ; then
+		echo "INFO: process ${pid_num} NOT running, just return"
+		return 0
+	fi
+
+	local pid_list="$(func_pids_of_descendants "${pid_num}")"
+	echo "INFO: kill pid_list: ${sudo_cmd} kill -9 ${pid_list}"
+
+	# no quote on ${sudo_cmd}, otherwise gets "cmd not found" error when empty
+	${sudo_cmd} kill -9 ${pid_list}
+
+	sleep 0.5
+	local pid_tmp
+	local pid_fail=''
+	for pid_tmp in ${pid_list} ; do
+		if func_is_pid_running "${pid_tmp}" ; then
+			pid_fail="${pid_fail} ${pid_tmp}"
+		fi
+	done
+	if [ -n "${pid_fail}" ] ; then
+		echo "ERROR: failed to kill, pid_fail: ${pid_fail}"
+	fi
+}
+
+func_kill_self_and_direct_child() {
+
+	# TODO: copied from stackoverflow, but NOT verified yet
+	echo "ERROR: this function is NOT ready yet" 1>&2
+	return 1
+
+	# candidate 1: some times failed to kill, and makes child's parent pid becomes 1, because pkill NOT stable?
+	# NOTE 1: pkill only sends signal to child process, grandchild WILL NOT receive the signal
+	# NOTE 2: if need support multiple pid, use -P <pid1> -P <pid2> ...
+	# NOTE 3: parent process might already finished, so no error output for 'kill' cmd
+	# NOTE 4: why sleep 1? seems some times kill works before pkill, which cause pkill can NOT find child (since parent killed and child's parent becomes pid 1)
+	#if [ "${need_sudo}" = 'true' ] ; then
+	#	echo "INFO: kill cmd: sudo pkill -TERM -P ${pid_num} && sleep 1 && sudo kill -TERM ${pid_num} >/dev/null 2>&1"
+	#	sudo pkill -TERM -P "${pid_num}" && sleep 1 && sudo kill -TERM "${pid_num}" >/dev/null 2>&1
+	#else
+	#	echo "INFO: kill cmd: pkill -TERM -P ${pid_num} && sleep 1 && kill -TERM ${pid_num} >/dev/null 2>&1"
+	#	pkill -TERM -P "${pid_num}" && sleep 1 && kill -TERM "${pid_num}" >/dev/null 2>&1
+	#fi
+
+	# candidate 2: kill on group, not the "-" prefix: https://stackoverflow.com/questions/392022/best-way-to-kill-all-child-processes/6481337
+	#kill -- -$PGID     Use default signal (TERM = 15)			# use process group id
+	#kill -9 -$PGID     Use the signal KILL (9)				# use process group id
+	#kill -- -$(ps -o pgid= $PID | grep -o '[0-9]*')   (signal TERM)	# use process id
+	#kill -9 -$(ps -o pgid= $PID | grep -o '[0-9]*')   (signal KILL)	# use process id
+
+	# candidate 3: rkill command from pslist package sends given signal (or SIGTERM by default) to specified process and all its descendants:
+	#rkill [-SIG] pid/name...
+}
+
+# shellcheck disable=2155
+func_is_running() {
+	local usage="Usage: ${FUNCNAME[0]} <pid_file>" 
+	local desc="Desc: check is pid in <pid_file> is running" 
+	#func_param_check 1 "$@"
+	
+	local pid_num="$(cat "${1}" 2>/dev/null)"
+	func_is_positive_int "${pid_num}" || func_die "ERROR: pid_file (${1}) NOT exist or no valid pid inside!"
+
+	func_is_pid_running "${pid_num}"
+}
+
+func_is_pid_or_its_child_running() {
+	local usage="Usage: ${FUNCNAME[0]} <pid>" 
+	local desc="Desc: check is <pid> running, or any of its child running" 
+	#func_param_check 1 "$@"
+
+	ps -ef | grep -v grep | grep -q "[[:space:]]${1}[[:space:]]"
+}
+
+func_is_pid_running() {
+	local usage="Usage: ${FUNCNAME[0]} <pid>" 
+	local desc="Desc: check is <pid> running" 
+	#func_param_check 1 "$@"
+	
+	func_is_str_blank "${1}" && return 1
+
+	# NOTE: if the process is in sudo mode, 'kill -0' check will failed, at least some plf will complain permission
+	# 0 is an inexist signal, but helps check if process exist
+	#kill -0 "${1}" 2>/dev/null 
+
+	# POSIX way, better compatible on diff os
+	# shellcheck disable=2009
+	ps -o pid= -p "${1}" | grep -q "${1}"
+}
+
+################################################################################
+# Pattern matching (regex / patterns)
+################################################################################
+func_grepf() {
+	local usage="Usage: ${FUNCNAME[0]} [-param1] [-param2] ... [-paramN] [--] <pattern-file> [file]"
+	local desc="Desc: grep patterns in file" 
+	func_param_check 1 "$@"
+
+	# Parse params
+	local params p
+	for p in "$@"; do 
+		[[ -z "${p}" ]] && shift && continue
+		[[ "${p}" == "--" ]] && shift && break
+
+		if [[ "${p}" == -* ]] ; then
+			params="${params} ${p}"
+			shift
+		fi
+	done
+
+	# Check pattern file
+	local pattern_file="${1}"
+	func_complain_path_not_exist "${pattern_file}" && return 1
+	shift
+
+	# NOTE: run with pipe or file, do NOT quote $params. TODO: split pattern_file if too big?
+	# shellcheck disable=2086
+	if [[ -z "${1}" ]] ; then
+		grep ${params} -f <(func_del_blank_lines "${pattern_file}")
+	else
+		grep ${params} -f <(func_del_blank_lines "${pattern_file}") "$@"
+	fi
+}
+
+func_del_pattern_lines() {
+	local usage="Usage: ${FUNCNAME[0]} <pattern1> <pattern2> ... <patternN> -- [file1] [file2] ... [fileN]"
+	local desc="Desc: delete those lines which match patterns, NOTE: if against files the '--' MUST used as separator!" 
+	func_param_check 1 "$@"
+
+	local p patterns
+	for p in "$@"; do 
+		[[ -z "${p}" ]] && shift && continue
+		[[ "${p}" == "--" ]] && shift && break
+
+		patterns="${patterns}\|${p}"
+		shift
+	done
+
+	if [[ -z "${1}" ]] ; then
+		grep -v "${patterns#\\|}"
+	else
+		grep -v "${patterns#\\|}" "$@"
+	fi
+}
+
+func_del_blank_lines() {
+	# can run with pipe or file
+	func_del_pattern_lines '^[[:space:]]*$' -- "$@"
+}
+
+func_del_blank_and_hash_lines() {
+	# can run with pipe or file
+	func_del_pattern_lines '^[[:space:]]*$' '^[[:space:]]*#' -- "$@"
+}
+
+################################################################################
+# Text Process
+################################################################################
+func_merge_lines() { func_combine_lines "$@"; }
+func_combine_lines() {
+	local usage="Usage: ${FUNCNAME[0]} <n> <separator> [file]"
+	local desc="Desc: combine <n> lines into 1 line" 
+	func_param_check 2 "$@"
+
+	local count="${1}" 
+	local separator="${2}"
+	shift; shift;
+
+	#'NR%3{printf "%s,",$0;next;}{print $0}' "${input}" > "${tmp_csv_merge}"
+	awk -v count="${count}" -v separator="${separator}" \
+	'NR%count {
+		printf "%s%s", $0, separator;
+		next;
+	}
+	{
+		print $0
+	}' "$@"
+}
+
+func_shrink_blank_lines() {
+	local usage="Usage: ${FUNCNAME[0]} [file]"
+	local desc="Desc: shrink blank lines, multiple consecutive blank lines into 1" 
+
+	# NOT use func_del_blank_lines, since it delete all blank lines
+	if [[ -n "${1}" ]] ; then
+		func_complain_path_not_exist "${1}" && return 1
+		sed -r 's/^\s+$//' "${1}" | cat -s
+	else
+		sed -r 's/^\s+$//' | cat -s
+	fi
+
+}
+
+func_shrink_dup_lines() {
+	local usage="Usage: ${FUNCNAME[0]} [pattern-file]"
+	local desc="Desc: shrink duplicated lines (and merge blank lines), without sorting" 
+
+	# Candidates
+	# awk '!x[$0]++'				# remove duplicate lines without sorting. (++) is performed after (!), which is crucial
+	# awk '!x[$0]++ { print $0; fflush() }'		# helps when output a.s.a.p.
+	# awk 'length==0 || !x[$0]++'			# retain empty line
+	# awk '($0 ~ /^[[:space:]]*$/) || !x[$0]++'	# retain blank line
+
+	if [[ -n "${1}" ]] ; then
+		func_complain_path_not_exist "${1}" && return 1
+		awk '($0 ~ /^[[:space:]]*$/) || !x[$0]++' "${1}" | func_shrink_blank_lines
+	else
+		awk '($0 ~ /^[[:space:]]*$/) || !x[$0]++' | func_shrink_blank_lines
+	fi
+}
+
+func_shrink_pattern_lines() {
+	# TODO: seems this case NOT work. expect line2 removed, but NOT
+	# line1: AAA..BBB
+	# line2: AAA33BBB
+
+	# USED_IN: secu/awsvm/telegram (shrink kword.title) 
+	# NOTE: secu/personal/dup/del_list (func_dup_gather based on path, NOT pattern, can shrink with str which ending with "/", but not simply sub str)
+	#	if really want to use: 
+	#	step 1) func_shrink_pattern_lines del_list &> /dev/null ; 
+	#	step 2) ls -lhtr $TMPDIR/ ; (vi the latest file, find lines than matches 'match-line-found.*\/$', which could be deleted
+	local usage="Usage: ${FUNCNAME[0]} <pattern-file>"
+	local desc="Desc: shrink pattern lines (and merge blank lines), e.g. if lineA is sub string of lineB, lineB will be removed" 
+	local note="Note 1: NOT support pipe, seems not needed" 
+	local note="Note 2: useful for shrinking pattern file used in func_grepf()" 
+	func_param_check 1 "$@"
+	local input_file lines_to_del tmp_grep line
+
+	# Collect: lines to delete. NOTE: '-F' is necessary, otherwise gets 'grep: Invalid range end' if have such sub str: '[9-1]'
+	input_file="${1}"
+	lines_to_del="$(mktemp)"
+	while IFS= read -r line || [[ -n "${line}" ]] ; do
+		tmp_grep="$(grep -F "${line}" "${input_file}" | grep -v -x -F "${line}")"
+		func_is_str_blank "${tmp_grep}" && continue
+		echo -e "# match-line-found-with-this-line: ${line}\n${tmp_grep}" >> "${lines_to_del}"
+	done < <(func_del_blank_lines "${input_file}")
+	[[ ! -e "${lines_to_del}" ]] && echo "INFO: nothing to shrink, nothing performed" && return
+
+	# Shrink '-x' seems unnecessary here. NOTE, will also delete duplicated lines (and merge blank lines)
+	func_grepf -v -F "${lines_to_del}" "${input_file}" | func_shrink_dup_lines
+}
+
+################################################################################
+# File System
+################################################################################
+func_cd() {
+	local usage="Usage: ${FUNCNAME[0]} <path>" 
+	local desc="Desc: (fail fast) change dir, exit whole process if fail"
+	func_param_check 1 "$@"
+	
+	if [ -n "${1}" ] ; then
+		"cd" "${1}" || func_die "ERROR: failed to cd back to previous dir" 
+		return
+	fi
+	func_die "ERROR: failed to change dir: cd ${1}"
+}
+
+func_mkdir() {
+	local usage="Usage: ${FUNCNAME[0]} <path> ..." 
+	local desc="Desc: (fail fast) create dirs if NOT exist, exit whole process if fail"
+	func_param_check 1 "$@"
+	
+	for p in "$@" ; do
+		[ -e "${p}" ] && continue
+		mkdir -p "${p}" || func_die "ERROR: failed to create dir ${p}"
+	done
+}
+
+func_mkdir_cd() { 
+	local usage="Usage: ${FUNCNAME[0]} <path>" 
+	local desc="Desc: (fail fast) create dir and cd into it. Create dirs if NOT exist, exit if fail, which is different with /bin/mkdir" 
+	func_param_check 1 "$@"
+
+	func_mkdir "$1" 
+	"cd" "${1}" || func_die "ERROR: failed to mkdir or cd into it ($1)"
+
+	# to avoid the path have blank, any simpler solution?
+	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
+}
+
+func_file_remove_lines() {
+
+	# USE CASE: func_file_remove_lines fhr.lst <quick_code_file.txt>
+	# TODO: how to merge this with func_del_pattern_lines
+
+	local usage="Usage: ${FUNCNAME[0]} <pattern_file> <input_file>"
+	local desc="Desc: remove patterns listed in file, useful when pattern list a very long" 
+	func_param_check 2 "$@"
+
+	# Var & Check
+	local PATTERN_SPLIT_COUNT="1000"
+	local pattern_file="${1}"
+	local input_file="${2}"
+	#local target_file="${2}.removed.$(func_dati)"
+	func_complain_path_not_exist "${input_file}" && return 1
+	func_complain_path_not_exist "${pattern_file}" && return 1
+
+	# Remove
+	local result_file="$(mktemp -d)/$(basename "${input_file}").REMOVED" 
+	local pattern_count="$(func_file_line_count "${pattern_file}")"
+	if (( pattern_count <= PATTERN_SPLIT_COUNT )) ; then 
+		echo "INFO: pattern lines NOT need split ( $pattern_count <= $PATTERN_SPLIT_COUNT )"
+		func_file_remove_lines_simple "${pattern_file}" "${input_file}" > "${result_file}"
+	else
+		echo "INFO: too much pattern lines, need split ( $pattern_count > $PATTERN_SPLIT_COUNT )"
+
+		# split patterns
+		local pattern_file_md5="$(md5sum "${pattern_file}" | cut -d' ' -f1)"
+		local tmp_p_dir="/tmp/func_file_remove_lines-patterns-${PATTERN_SPLIT_COUNT}-${pattern_file_md5}"
+		if [ ! -d "${tmp_p_dir}" ] ; then
+			mkdir -p "${tmp_p_dir}" 
+			split -d -l "${PATTERN_SPLIT_COUNT}" "${pattern_file}" "${tmp_p_dir}/${pattern_file##*/}" 
+			echo "INFO: splited pattern files in: ${tmp_p_dir}/"
+		else
+			echo "INFO: reuse splited pattern files in: ${tmp_p_dir}/"
+		fi
+
+		# use splited pattern files one by one
+		local tmp_out
+		local tmp_in="${input_file}" 
+		for f in "${tmp_p_dir}"/* ; do
+			[[ -e "$f" ]] || continue
+			tmp_out="${result_file}.${f##*/}" 
+			func_file_remove_lines_simple "${f}" "${tmp_in}" > "${tmp_out}"
+			tmp_in="${tmp_out}"
+		done
+		result_file="${tmp_out}"
+	fi
+
+	# Show result
+	local input_lines="$(func_file_line_count "${input_file}")"
+	local result_lines="$(func_file_line_count "${result_file}")"
+	echo "INFO: result/input lines: ${result_lines}/${input_lines}, result file: ${result_file}"
+
+	# Old solution: works, but bak is in same dir
+	#local sed_cmd="$(func_sed_gen_d_cmd "$@")"
+	#sed --in-place=".bak-of-sed-cmd.$(func_dati)" -e "${sed_cmd}" "${file}"
+}
+
+func_file_remove_lines_simple() {
+	local usage="Usage: ${FUNCNAME[0]} <pattern_file> <input_file>"
+	local desc="Desc: remove patterns listed in file, and output to stdout" 
+	func_param_check 2 "$@"
+
+	# remove lines with grep -v, $2 could be regex patterns
+	grep -ivf "${1}" "${2}"
+}
+
+func_file_line_count() {
+	local usage="Usage: ${FUNCNAME[0]} <file>"
+	local desc="Desc: output only lines of file" 
+	func_param_check 1 "$@"
+
+	func_complain_path_not_exist "${1}" && return 1
+	wc -l "${1}" | cut -d' ' -f1
+}
+
+func_file_size() {
+	local usage="Usage: ${FUNCNAME[0]} <target>"
+	local desc="Desc: get file size, in Bytes" 
+	func_param_check 1 "$@"
+
+	if [ -d "${1}" ] ; then
+		# NOTE: even use --apparent-size, still found case, that output is DIFF when dir on diff FS
+		\du --apparent-size --bytes --summarize "${1}" | awk '{print $1}'
+	else
+		stat --printf="%s" "${1}"
+	fi
+}
+
+func_ln_soft() {
+	local usage="Usage: ${FUNCNAME[0]} <source> <target>"
+	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
+	func_param_check 2 "$@"
+
+	local source="$1"
+	local target="$2"
+	echo "INFO: create soft link ${target} --> ${source}"
+
+	# check, skip if target already link, remove if target empty 
+	func_complain_path_not_exist "${source}" && return 0
+	[ -h "${target}" ] && echo "INFO: ${target} already a link (--> $(readlink -f "${target}") ), skip" && return 0
+	[ -d "${target}" ] && func_is_dir_empty "${target}" && rmdir "${target}"
+
+	"ln" -s "${source}" "${target}"
+}
+
+func_is_filetype_text() {
+	local usage="Usage: ${FUNCNAME[0]} <path>"
+	local desc="Desc: check if filetype is text, return 0 if yes, otherwise 1" 
+	func_param_check 1 "$@"
+
+	file "${1}" | grep -q text
+}
+
+func_is_dir_empty() {
+	local usage="Usage: ${FUNCNAME[0]} <dir>"
+	local desc="Desc: check if directory is empty or inexist, return 0 if empty, otherwise 1" 
+	func_param_check 1 "$@"
+
+	# enough for me to use, for better solution: https://mywiki.wooledge.org/BashFAQ/004
+	[ "$(ls -A "${1}" 2> /dev/null)" ] && return 1 || return 0
+}
+
+func_is_dir_not_empty() {
+	local usage="Usage: ${FUNCNAME[0]} <dir>"
+	local desc="Desc: check if directory is not empty, return 0 if not empty, otherwise 1" 
+	func_param_check 1 "$@"
+
+	# enough for me to use, for better solution: https://mywiki.wooledge.org/BashFAQ/004
+	[ "$(ls -A "${1}" 2> /dev/null)" ] && return 0 || return 1
+}
+
+func_validate_dir_not_empty() {
+	local usage="Usage: ${FUNCNAME[0]} <dir> ..."
+	local desc="Desc: the directory must exist and NOT empty, otherwise will exit" 
+	func_param_check 1 "$@"
+	
+	for p in "$@" ; do
+		# only redirect stderr, otherwise the test will always false
+		func_is_dir_empty "${p}" && func_die "ERROR: ${p} is empty!"
+	done
+}
+
+func_validate_dir_empty() {
+	local usage="Usage: ${FUNCNAME[0]} <dir> ..."
+	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
+	func_param_check 1 "$@"
+	
+	for p in "$@" ; do
+		# only redirect stderr, otherwise the test will always false
+		func_is_dir_empty "${p}" || func_die "ERROR: ${p} not empty!"
+	done
+}
+
+func_complain_path_exist() {
+	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
+	local desc="Desc: complains if path already exist, return 0 if exist, otherwise 1" 
+	func_param_check 1 "$@"
+	
+	[ -e "${1}" ] && echo "${2:-WARN: path ${1} already exist}" 1>&2 && return 0
+	return 1
+}
+
+func_complain_path_not_exist() {
+	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
+	local desc="Desc: complains if path not exist, return 0 if not exist, otherwise 1" 
+	func_param_check 1 "$@"
+	
+	[ ! -e "${1}" ] && echo "${2:-WARN: path ${1} NOT exist}" 1>&2 && return 0
+	return 1
+}
+
+func_validate_path_exist() {
+	local usage="Usage: ${FUNCNAME[0]} <path> ..."
+	local desc="Desc: the path must be exist, otherwise will exit" 
+	func_param_check 1 "$@"
+	
+	for p in "$@" ; do
+		[ ! -e "${p}" ] && func_die "ERROR: ${p} NOT exist!"
+	done
+}
+
+func_validate_path_not_exist() { func_validate_path_inexist "$@" ;}
+func_validate_path_inexist() {
+	local usage="Usage: ${FUNCNAME[0]} <path> ..."
+	local desc="Desc: the path must be NOT exist, otherwise will exit" 
+	func_param_check 1 "$@"
+	
+	for p in "$@" ; do
+		[ -e "${p}" ] && func_die "ERROR: ${p} already exist!"
+	done
+}
+
+# shellcheck disable=2155,2012
+func_validate_path_owner() {
+	local usage="Usage: ${FUNCNAME[0]} <path> <owner>"
+	local desc="Desc: the path must be owned by owner(xxx:xxx format), otherwise will exit" 
+	func_param_check 1 "$@"
+
+	local expect="${2}"
+	local real=$(ls -ld "${1}" | awk '{print $3":"$4}')
+	[ "${real}" != "${expect}" ] && func_die "ERROR: owner NOT match, expect: ${expect}, real: ${real}"
+}
+
+func_backup_tmp() {
+	func_backup_simple "${1}" "/tmp/${1##*/}_$(func_dati)"
+}
+
+func_backup_aside() {
+	func_backup_simple "${1}" "${1}_$(func_dati)"
+}
+
+# NOTE: func_backup_dated is in myenv_func.sh
+func_backup_simple() {
+	local usage="Usage: ${FUNCNAME[0]} <path>"
+	local desc="Desc: backup file" 
+	func_param_check 2 "$@"
+	func_validate_path_exist "${1}"
+	func_validate_path_not_exist "${2}"
+	local size target_dir available_space
+
+	# check size of file
+	size="$(func_file_size "${1}")"
+	if (( size > 100*1000*1000 )) ; then
+		func_error "file size too big (${size}): ${1}" 1>&2
+		return 1
+	fi
+
+	# prepare target dir
+	target_dir="$(dirname "${2}")"
+	[[ -e "${target_dir}" ]] || mkdir "${target_dir}"
+
+	# check size of available space
+	available_space="$(func_available_space_of_path "${target_dir}")"
+	if (( size + 500*1000*1000 > available_space )); then
+		func_error "available space too small ($(func_num_to_human "${available_space}")), less than 500M after copy" 1>&2
+		return 1
+	fi
+
+	# check privilidge and cp
+	if [ -w "${p}" ] ; then
+		cp -r "${1}" "${2}"
+	else
+		sudo cp -r "${1}" "${2}"
+	fi
+
+	# very important, many case need this info
+	echo "${2}" 
+}
+
+func_available_space_of_path() {
+	local usage="Usage: ${FUNCNAME[0]} <file>"
+	local desc="Desc: show the remain space of path (partition of that path)" 
+	func_param_check 1 "$@"
+	func_validate_path_exist "${1}"
+	
+	# unit: bytes. '-B1' == "--block-size=1"
+	\df "${1}" -B1 | tail -1 | awk '{print $4}'
+}
+
+################################################################################
+# File transfer
+################################################################################
 func_download() {
 	local usage="Usage: ${FUNCNAME[0]} <url> <target>"
 	local desc="Desc: download from url to local target" 
@@ -84,6 +730,31 @@ func_download_wget() {
 	echo "" # next line should in new line
 	[ -f "${dl_fullpath}" ] || func_die "ERROR: ${dl_fullpath} not found, seems download faild!"
 	"cd" - &> /dev/null || func_die "ERROR: failed to cd back to previous dir"
+}
+
+func_log() {
+	local usage="Usage: ${FUNCNAME[0]} <level> <prefix> <log_path> <str>" 
+	func_param_check 4 "$@"
+
+	local level="$1"
+	local prefix="$2"
+	local log_path="$3"
+	shift; shift; shift
+
+	[ ! -e "$log_path" ] && mkdir -p "$(dirname "$log_path")" && touch "$log_path"
+
+	echo "$(func_dati) $level [$prefix] $*" >> "$log_path"
+}
+
+func_log_info() {
+	local usage="Usage: ${FUNCNAME[0]} <prefix> <log_path> <str>" 
+	func_param_check 3 "$@"
+
+	func_log "INFO" "$@"
+}
+
+func_log_filter_brief() {
+	sed -n -e "/^\(Desc\|INFO\|WARN\|ERROR\):/p"
 }
 
 # shellcheck disable=2155,2012
@@ -145,34 +816,6 @@ func_uncompress() {
 	fi
 
 	"cd" - &> /dev/null || func_die "ERROR: failed to cd back to previous dir"
-}
-
-func_vcs_update() {
-	local usage="Usage: ${FUNCNAME[0]} <src_type> <src_addr> <target_dir>"
-	local desc="Desc: init or update vcs like hg/git/svn"
-	func_param_check 3 "$@"
-
-	local src_type="${1}"
-	local src_addr="${2}"
-	local target_dir="${3}"
-	echo "INFO: init/update source, type: ${src_type}, addr: ${src_addr}, target: ${target_dir}"
-	case "${src_type}" in
-		hg)	local cmd="hg"  ; local cmd_init="hg clone"     ; local cmd_update="hg pull"	;;
-		git)	local cmd="git" ; local cmd_init="git clone"    ; local cmd_update="git pull"	;;
-		svn)	local cmd="svn" ; local cmd_init="svn checkout" ; local cmd_update="svn update"	;;
-		*)	func_die "ERROR: Can not handle src_type (${src_type})"	;;
-	esac
-
-	func_validate_cmd_exist ${cmd}
-	
-	if [ -e "${target_dir}" ] ; then
-		pushd "${target_dir}" &> /dev/null
-		${cmd_update} || func_die "ERROR: ${cmd_update} failed"
-		popd &> /dev/null
-	else
-		mkdir -p "$(dirname "${target_dir}")"
-		${cmd_init} "${src_addr}" "${target_dir}" || func_die "ERROR: ${cmd_init} failed"
-	fi
 }
 
 func_rsync_v1() {
@@ -251,174 +894,26 @@ func_rsync_out_filter() {
 }
 
 ################################################################################
-# Utility: output
+# Shell Scripting
 ################################################################################
-# TODO: good reference: https://github.com/Offirmo/offirmo-shell-lib/blob/master/bin/osl_lib_output.sh
+func_script_self() { 
+	local usage="Usage: ${FUNCNAME[0]}" 
+	local desc="Desc: get fullpath of self (script)" 
 
-################################################################################
-# Utility: process
-################################################################################
-
-func_pids_of_descendants() {
-	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
-	local desc="Desc: return pid list of all descendants (including self), or empty if none" 
-	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
-
-	func_validate_cmd_exist pstree
-
-	local pid_num="${1}"
-	if pstree --version 2>&1 | grep -q "thp.uni-due.de" ; then
-		pstree -w "${pid_num}" | grep -o '\-+= \([0-9]\+\)' | grep -o '[0-9]\+' | tr '\n' ' '
-	elif pstree --version 2>&1 | grep -q "PSmisc" ; then
-		pstree -p "${pid_num}" | grep -o '([0-9]\+)' | grep -o '[0-9]\+' | tr '\n' ' '
-	fi
+	test -L "$0" && readlink "$0" || echo "$0"
 }
 
-# shellcheck disable=2009
-func_pids_of_direct_child() {
-	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
-	local desc="Desc: return pid list of direct childs (including self), or empty if none" 
-	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+func_script_base() { 
+	local usage="Usage: ${FUNCNAME[0]} <suffix> (MUST invoke in script !!!)" 
+	local desc="Desc: get dir of current script, suffix will be directly added to the base dir" 
 
-	local pid_num="${1}"
-	if ! func_is_pid_running "${pid_num}" ; then
-		return 0
-	fi
+	local script_dir="$(dirname ${0})"
+	func_is_str_empty "${script_dir}" && func_die "ERROR: script dir MUST NOT empty, pls check"
 
-	local pid_tmp
-	local pid_list=""
-	local regex="[ ]*([0-9]+)[ ]+${pid_num}" 
-	for pid_tmp in $(ps ax -o "pid= ppid=" | grep -E "${regex}" | sed -E "s/${regex}/\1/g"); do
-		pid_list="${pid_list} ${pid_tmp}"
-	done
-	echo "${pid_list} ${pid_num}"
+	readlink -f "${script_dir}/${*}"
+	#base="$(readlink -f $(dirname ${0}))"
 }
 
-# shellcheck disable=2009,2155,2086
-func_kill_self_and_descendants() {
-	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
-	local desc="Desc: kill <pid> and all its child process, return 0 if killed or not need to kill, return 1 failed to kill" 
-	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
-
-	local need_sudo="${1}"
-	local sudo_cmd=""
-	if [ "${need_sudo}" = 'true' ] ; then
-		sudo_cmd="sudo"
-	fi
-
-	local pid_num="${2}"
-	if ! func_is_pid_running "${pid_num}" ; then
-		echo "INFO: process ${pid_num} NOT running, just return"
-		return 0
-	fi
-
-	local pid_list="$(func_pids_of_descendants "${pid_num}")"
-	echo "INFO: kill pid_list: ${sudo_cmd} kill -9 ${pid_list}"
-
-	# no quote on ${sudo_cmd}, otherwise gets "cmd not found" error when empty
-	${sudo_cmd} kill -9 ${pid_list}
-
-	sleep 0.5
-	local pid_tmp
-	local pid_fail=''
-	for pid_tmp in ${pid_list} ; do
-		if func_is_pid_running "${pid_tmp}" ; then
-			pid_fail="${pid_fail} ${pid_tmp}"
-		fi
-	done
-	if [ -n "${pid_fail}" ] ; then
-		echo "ERROR: failed to kill, pid_fail: ${pid_fail}"
-	fi
-}
-
-func_kill_self_and_direct_child() {
-
-	# TODO: copied from stackoverflow, but NOT verified yet
-	echo "ERROR: this function is NOT ready yet!" 1>&2
-	return 1
-
-	# candidate 1: some times failed to kill, and makes child's parent pid becomes 1, because pkill NOT stable?
-	# NOTE 1: pkill only sends signal to child process, grandchild WILL NOT receive the signal
-	# NOTE 2: if need support multiple pid, use -P <pid1> -P <pid2> ...
-	# NOTE 3: parent process might already finished, so no error output for 'kill' cmd
-	# NOTE 4: why sleep 1? seems some times kill works before pkill, which cause pkill can NOT find child (since parent killed and child's parent becomes pid 1)
-	#if [ "${need_sudo}" = 'true' ] ; then
-	#	echo "INFO: kill cmd: sudo pkill -TERM -P ${pid_num} && sleep 1 && sudo kill -TERM ${pid_num} >/dev/null 2>&1"
-	#	sudo pkill -TERM -P "${pid_num}" && sleep 1 && sudo kill -TERM "${pid_num}" >/dev/null 2>&1
-	#else
-	#	echo "INFO: kill cmd: pkill -TERM -P ${pid_num} && sleep 1 && kill -TERM ${pid_num} >/dev/null 2>&1"
-	#	pkill -TERM -P "${pid_num}" && sleep 1 && kill -TERM "${pid_num}" >/dev/null 2>&1
-	#fi
-
-	# candidate 2: kill on group, not the "-" prefix: https://stackoverflow.com/questions/392022/best-way-to-kill-all-child-processes/6481337
-	#kill -- -$PGID     Use default signal (TERM = 15)			# use process group id
-	#kill -9 -$PGID     Use the signal KILL (9)				# use process group id
-	#kill -- -$(ps -o pgid= $PID | grep -o '[0-9]*')   (signal TERM)	# use process id
-	#kill -9 -$(ps -o pgid= $PID | grep -o '[0-9]*')   (signal KILL)	# use process id
-
-	# candidate 3: rkill command from pslist package sends given signal (or SIGTERM by default) to specified process and all its descendants:
-	#rkill [-SIG] pid/name...
-}
-
-# shellcheck disable=2155
-func_is_running() {
-	local usage="Usage: ${FUNCNAME[0]} <pid_file>" 
-	local desc="Desc: check is pid in <pid_file> is running" 
-	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
-	
-	local pid_num="$(cat "${1}" 2>/dev/null)"
-	func_is_positive_int "${pid_num}" || func_die "ERROR: pid_file (${1}) NOT exist or no valid pid inside!"
-
-	func_is_pid_running "${pid_num}"
-}
-
-func_is_pid_or_its_child_running() {
-	local usage="Usage: ${FUNCNAME[0]} <pid>" 
-	local desc="Desc: check is <pid> running, or any of its child running" 
-	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
-
-	ps -ef | grep -v grep | grep -q "[[:space:]]${1}[[:space:]]"
-}
-
-func_is_pid_running() {
-	local usage="Usage: ${FUNCNAME[0]} <pid>" 
-	local desc="Desc: check is <pid> running" 
-	[ $# -lt 1 ] && echo -e "${desc} \n ${usage} \n" && exit 1
-	
-	func_is_str_blank "${1}" && return 1
-
-	# NOTE: if the process is in sudo mode, 'kill -0' check will failed, at least some plf will complain permission
-	# 0 is an inexist signal, but helps check if process exist
-	#kill -0 "${1}" 2>/dev/null 
-
-	# POSIX way, better compatible on diff os
-	# shellcheck disable=2009
-	ps -o pid= -p "${1}" | grep -q "${1}"
-}
-
-################################################################################
-# Utility: logging
-################################################################################
-func_techo() {
-	local usage="Usage: ${FUNCNAME[0]} <level> <msg>" 
-	local desc="Desc: echo msg format: <level-in-uppercase>: <TIME>: <msg>"
-	func_param_check 2 "$@"
-	
-	echo -e "$(date "+%Y-%m-%d %H:%M:%S"): ${1^^}: ${2}"
-}
-
-func_decho() {
-	local usage="Usage: ${FUNCNAME[0]} <msg>" 
-	local desc="Desc: echo msg as DEBUG level, based on env var ME_DEBUG=true to really show"
-	func_param_check 1 "$@"
-	
-	[ "${ME_DEBUG}" = 'true' ] || return 0
-	echo -e "DEBUG: ${1}"
-}
-
-################################################################################
-# Utility: For_Script
-################################################################################
 func_script_base_of_parent() { 
 	local usage="Usage: ${FUNCNAME[0]} (MUST invoke in script !!!)" 
 	local desc="Desc: get parent dir of current script" 
@@ -426,338 +921,6 @@ func_script_base_of_parent() {
 	func_script_base "/../"
 }
 
-func_script_base() { 
-	local usage="Usage: ${FUNCNAME[0]} <suffix> (MUST invoke in script !!!)" 
-	local desc="Desc: get dir of current script, suffix will be directly added to the base dir" 
-
-	script_dir="$(dirname ${0})"
-	func_is_str_empty "${script_dir}" && func_die "ERROR: script dir MUST NOT empty, pls check"
-
-	readlink -f "${script_dir}/${*}"
-	#base="$(readlink -f $(dirname ${0}))"
-}
-
-################################################################################
-# Utility: FileSystem
-################################################################################
-func_cd() {
-	local usage="Usage: ${FUNCNAME[0]} <path>" 
-	local desc="Desc: (fail fast) change dir, exit whole process if fail"
-	func_param_check 1 "$@"
-	
-	if [ -n "${1}" ] ; then
-		"cd" "${1}" || func_die "ERROR: failed to cd back to previous dir" 
-		return
-	fi
-	func_die "ERROR: failed to change dir: cd ${1}"
-}
-
-func_mkdir() {
-	local usage="Usage: ${FUNCNAME[0]} <path> ..." 
-	local desc="Desc: (fail fast) create dirs if NOT exist, exit whole process if fail"
-	func_param_check 1 "$@"
-	
-	for p in "$@" ; do
-		[ -e "${p}" ] && continue
-		mkdir -p "${p}" || func_die "ERROR: failed to create dir ${p}"
-	done
-}
-
-func_mkdir_cd() { 
-	local usage="Usage: ${FUNCNAME[0]} <path>" 
-	local desc="Desc: (fail fast) create dir and cd into it. Create dirs if NOT exist, exit if fail, which is different with /bin/mkdir" 
-	func_param_check 1 "$@"
-
-	func_mkdir "$1" 
-	"cd" "${1}" || func_die "ERROR: failed to mkdir or cd into it ($1)"
-
-	# to avoid the path have blank, any simpler solution?
-	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
-}
-
-func_sed_gen_d_cmd() {
-	local usage="Usage: ${FUNCNAME[0]} <pattern> [pattern] ..."
-	local desc="Desc: gen d cmd for sed" 
-	func_param_check 1 "$@"
-
-	local sed_cmd p
-	for p in "$@" ; do
-		sed_cmd="${sed_cmd}/${p//\//\\/}/d;"
-	done
-	echo "${sed_cmd}"
-
-}
-
-func_pipe_remove_lines() {
-	local usage="Usage: ${FUNCNAME[0]} <pattern> [pattern] ..."
-	local desc="Desc: remove patterns in pipe, this helps when pattern are path, improve readability" 
-	func_param_check 1 "$@"
-
-	local sed_cmd="$(func_sed_gen_d_cmd "$@")"
-	echo "INFO: func_pipe_remove_lines: sed cmd: sed -e '${sed_cmd}'" >&2
-	sed -e "${sed_cmd}"
-}
-
-func_file_remove_lines() {
-
-	# USE CASE: func_file_remove_lines fhr.lst <quick_code_file.txt>
-
-	local usage="Usage: ${FUNCNAME[0]} <pattern_file> <input_file>"
-	local desc="Desc: remove patterns listed in file, useful when pattern list a very long" 
-	func_param_check 2 "$@"
-
-	# Var & Check
-	local PATTERN_SPLIT_COUNT="1000"
-	local pattern_file="${1}"
-	local input_file="${2}"
-	local target_file="${2}.removed.$(func_dati)"
-	func_complain_path_not_exist "${input_file}" && return 1
-	func_complain_path_not_exist "${pattern_file}" && return 1
-
-	# Remove
-	local result_file="$(mktemp -d)/$(basename "${input_file}").REMOVED" 
-	local pattern_count="$(func_file_line_count "${pattern_file}")"
-	if (( pattern_count <= PATTERN_SPLIT_COUNT )) ; then 
-		echo "INFO: pattern lines NOT need split ( $pattern_count <= $PATTERN_SPLIT_COUNT )"
-		func_file_remove_lines_simple "${pattern_file}" "${input_file}" > "${result_file}"
-	else
-		echo "INFO: too much pattern lines, need split ( $pattern_count > $PATTERN_SPLIT_COUNT )"
-
-		# split patterns
-		local pattern_file_md5="$(md5sum "${pattern_file}" | cut -d' ' -f1)"
-		local tmp_p_dir="/tmp/func_file_remove_lines-patterns-${PATTERN_SPLIT_COUNT}-${pattern_file_md5}"
-		if [ ! -d "${tmp_p_dir}" ] ; then
-			mkdir -p "${tmp_p_dir}" 
-			split -d -l "${PATTERN_SPLIT_COUNT}" "${pattern_file}" "${tmp_p_dir}/${pattern_file##*/}" 
-			echo "INFO: splited pattern files in: ${tmp_p_dir}/"
-		else
-			echo "INFO: reuse splited pattern files in: ${tmp_p_dir}/"
-		fi
-
-		# use splited pattern files one by one
-		local tmp_out
-		local tmp_in="${input_file}" 
-		for f in ${tmp_p_dir}/* ; do
-			tmp_out="${result_file}.${f##*/}" 
-			func_file_remove_lines_simple "${f}" "${tmp_in}" > "${tmp_out}"
-			tmp_in="${tmp_out}"
-		done
-		result_file="${tmp_out}"
-	fi
-
-	# Show result
-	local input_lines="$(func_file_line_count "${input_file}")"
-	local result_lines="$(func_file_line_count "${result_file}")"
-	echo "INFO: result/input lines: ${result_lines}/${input_lines}, result file: ${result_file}"
-
-	# Old solution: works, but bak is in same dir
-	#local sed_cmd="$(func_sed_gen_d_cmd "$@")"
-	#sed --in-place=".bak-of-sed-cmd.$(func_dati)" -e "${sed_cmd}" "${file}"
-}
-
-func_file_remove_lines_simple() {
-	local usage="Usage: ${FUNCNAME[0]} <pattern_file> <input_file>"
-	local desc="Desc: remove patterns listed in file, and output to stdout" 
-	func_param_check 2 "$@"
-
-	# remove lines with grep -v, $2 could be regex patterns
-	grep -ivf "${1}" "${2}"
-}
-
-func_file_line_count() {
-	local usage="Usage: ${FUNCNAME[0]} <file>"
-	local desc="Desc: output only lines of file" 
-	func_param_check 1 "$@"
-
-	func_complain_path_not_exist "${1}" && return 1
-	wc -l "${1}" | cut -d' ' -f1
-}
-
-func_file_size() {
-	local usage="Usage: ${FUNCNAME[0]} <target>"
-	local desc="Desc: get file size, in Bytes" 
-	func_param_check 1 "$@"
-
-	if [ -d "${1}" ] ; then
-		# NOTE: even use --apparent-size, still found case, that output is DIFF when dir on diff FS
-		\du --apparent-size --bytes --summarize "${1}" | cut -f1
-	else
-		stat --printf="%s" "${1}"
-	fi
-}
-
-#func_dir_diff() {
-#	local usage="Usage: ${FUNCNAME[0]} <source> <target>"
-#	local desc="Desc: compare diff of dir" 
-#	func_param_check 1 "$@"
-#
-#	func_dir_diff_size "$@" "true" && return 0
-#
-#	echo "TODO: more comparison"
-#}
-#
-#func_dir_diff_size() {
-#	local usage="Usage: ${FUNCNAME[0]} <source> <target> <print=true>"
-#	local desc="Desc: compare size of dir" 
-#	func_param_check 1 "$@"
-#
-#	local src="${1}"
-#	local tgt="${2}"
-#	local prt="${3}"
-#	local src_size="$(func_file_size "${src}")"
-#	local tgt_size="$(func_file_size "${tgt}")"
-#
-#	if (( src_size == tgt_size )) ; then
-#		[ -n "${prt}" ] && echo "same size: $(func_num_to_human ${src_size})"
-#		return 0 
-#	else
-#		[ -n "${prt}" ] && echo "DIFF size: $(func_num_to_human ${src_size}) != $(func_num_to_human ${tgt_size}) (${src} V.S. ${tgt})"
-#		return 1
-#	fi
-#}
-
-func_ln_soft() {
-	local usage="Usage: ${FUNCNAME[0]} <source> <target>"
-	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
-	func_param_check 2 "$@"
-
-	local source="$1"
-	local target="$2"
-	echo "INFO: create soft link ${target} --> ${source}"
-
-	# check, skip if target already link, remove if target empty 
-	func_complain_path_not_exist "${source}" && return 0
-	[ -h "${target}" ] && echo "INFO: ${target} already a link (--> $(readlink -f "${target}") ), skip" && return 0
-	[ -d "${target}" ] && func_is_dir_empty "${target}" && rmdir "${target}"
-
-	"ln" -s "${source}" "${target}"
-}
-
-func_is_filetype_text() {
-	local usage="Usage: ${FUNCNAME[0]} <path>"
-	local desc="Desc: check if filetype is text, return 0 if yes, otherwise 1" 
-	func_param_check 1 "$@"
-
-	file "${1}" | grep -q text
-}
-
-func_is_dir_empty() {
-	local usage="Usage: ${FUNCNAME[0]} <dir>"
-	local desc="Desc: check if directory is empty or inexist, return 0 if empty, otherwise 1" 
-	func_param_check 1 "$@"
-
-	[ "$(ls -A "${1}" 2> /dev/null)" ] && return 1 || return 0
-}
-
-func_is_dir_not_empty() {
-	local usage="Usage: ${FUNCNAME[0]} <dir>"
-	local desc="Desc: check if directory is not empty, return 0 if not empty, otherwise 1" 
-	func_param_check 1 "$@"
-
-	[ "$(ls -A "${1}" 2> /dev/null)" ] && return 0 || return 1
-}
-
-func_validate_dir_not_empty() {
-	local usage="Usage: ${FUNCNAME[0]} <dir> ..."
-	local desc="Desc: the directory must exist and NOT empty, otherwise will exit" 
-	func_param_check 1 "$@"
-	
-	for p in "$@" ; do
-		# only redirect stderr, otherwise the test will always false
-		func_is_dir_empty "${p}" && func_die "ERROR: ${p} is empty!"
-	done
-}
-
-func_validate_dir_empty() {
-	local usage="Usage: ${FUNCNAME[0]} <dir> ..."
-	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
-	func_param_check 1 "$@"
-	
-	for p in "$@" ; do
-		# only redirect stderr, otherwise the test will always false
-		func_is_dir_empty "${p}" || func_die "ERROR: ${p} not empty!"
-	done
-}
-
-func_complain_path_exist() {
-	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
-	local desc="Desc: complains if path already exist, return 0 if exist, otherwise 1" 
-	func_param_check 1 "$@"
-	
-	[ -e "${1}" ] && echo "${2:-WARN: path ${1} already exist!}" && return 0
-	return 1
-}
-
-func_complain_path_not_exist() {
-	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
-	local desc="Desc: complains if path not exist, return 0 if not exist, otherwise 1" 
-	func_param_check 1 "$@"
-	
-	[ ! -e "${1}" ] && echo "${2:-WARN: path ${1} NOT exist!}" && return 0
-	return 1
-}
-
-func_validate_path_exist() {
-	local usage="Usage: ${FUNCNAME[0]} <path> ..."
-	local desc="Desc: the path must be exist, otherwise will exit" 
-	func_param_check 1 "$@"
-	
-	for p in "$@" ; do
-		[ ! -e "${p}" ] && func_die "ERROR: ${p} NOT exist!"
-	done
-}
-
-func_validate_path_not_exist() { func_validate_path_inexist "$@" ;}
-func_validate_path_inexist() {
-	local usage="Usage: ${FUNCNAME[0]} <path> ..."
-	local desc="Desc: the path must be NOT exist, otherwise will exit" 
-	func_param_check 1 "$@"
-	
-	for p in "$@" ; do
-		[ -e "${p}" ] && func_die "ERROR: ${p} already exist!"
-	done
-}
-
-# shellcheck disable=2155,2012
-func_validate_path_owner() {
-	local usage="Usage: ${FUNCNAME[0]} <path> <owner>"
-	local desc="Desc: the path must be owned by owner(xxx:xxx format), otherwise will exit" 
-	func_param_check 1 "$@"
-
-	local expect="${2}"
-	local real=$(ls -ld "${1}" | awk '{print $3":"$4}')
-	[ "${real}" != "${expect}" ] && func_die "ERROR: owner NOT match, expect: ${expect}, real: ${real}"
-}
-
-# shellcheck disable=2015
-func_duplicate_dated() {
-	local usage="Usage: ${FUNCNAME[0]} <file> ..."
-	local desc="Desc: backup file, with suffixed date" 
-	func_param_check 1 "$@"
-	
-	for p in "$@" ; do
-		func_complain_path_not_exist "${p}" && continue
-
-		# if target is dir, check size first (>100M will warn and skip)
-		if [ -d "${p}" ] ; then
-			p_size=$(stat -c%s "${p}")
-			p_size_h=$(func_num_to_human zip_size)
-			(( p_size > 104857600 )) && echo "WARN: ${p} size (${p_size_h}) too big (>100M), skip" && continue 
-		fi
-
-		target="${p}.bak.$(func_dati)"
-		echo "INFO: backup file, ${p} --> ${target}"
-		if [ -w "${p}" ] ; then
-			cp -r "${p}" "${target}"	|| echo "WARN: backup ${p} failed, pls check!"
-		else
-			sudo cp -r "${p}" "${target}"	|| echo "WARN: backup ${p} failed (with sudo priviledge), pls check!"
-		fi
-	done
-}
-
-################################################################################
-# Utility: shell
-################################################################################
 func_is_non_interactive() {
 	# command 1: echo $- | grep -q "i" && echo interactive || echo non-interactive
 	# command 2: [ -z "$PS1" ] && echo interactive || echo non-interactive
@@ -786,7 +949,7 @@ func_complain_cmd_not_exist() {
 	func_param_check 1 "$@"
 
 	func_is_cmd_exist "${1}" && return 1
-	echo "${2:-WARN: cmd ${1} NOT exist!}" 
+	echo "${2:-WARN: cmd ${1} NOT exist}" 1>&2 
 	return 0
 }
 
@@ -798,6 +961,15 @@ func_validate_cmd_exist() {
 	for p in "$@" ; do
 		func_is_cmd_exist "${p}" || func_die "ERROR: cmd (${p}) NOT exist!"
 	done
+}
+
+func_validate_function_exist() {
+	local usage="USAGE: ${FUNCNAME[0]} <function-name>" 
+	local desc="Desc: check if <function-name> exist as a function" 
+	func_param_check 1 "$@"
+	
+	func_is_function_exist "${1}" && return 0
+	func_die "ERROR: ${1} NOT exist or NOT a function!"
 }
 
 func_is_function_exist() {
@@ -815,23 +987,14 @@ func_complain_function_not_exist() {
 	func_param_check 1 "$@"
 
 	func_is_function_exist "${1}" && return 1
-	echo "WARN: ${1} NOT exist or NOT a function!"
-}
-
-func_validate_function_exist() {
-	local usage="USAGE: ${FUNCNAME[0]} <function-name>" 
-	local desc="Desc: check if <function-name> exist as a function" 
-	func_param_check 1 "$@"
-	
-	func_is_function_exist "${1}" && return 0
-	func_die "ERROR: ${1} NOT exist or NOT a function!"
+	echo "WARN: ${1} NOT exist or NOT a function" 1>&2
 }
 
 func_complain_sudo_not_auto() { 
 	local usage="Usage: ${FUNCNAME[0]} <msg>"
 	local desc="Desc: complains if current user not have sudo privilege, or need input password, return 0 if not have, otherwise 1" 
 	
-	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege, or NOT auto (need input password), pls check!}" && return 0
+	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege, or NOT auto (need input password), pls check}" 1>&2 && return 0
 	return 1
 }
 
@@ -903,7 +1066,7 @@ func_gen_local_vars_secure() {
 }
 
 ################################################################################
-# Utility: os/platform/machine
+# System: os/platform/machine
 ################################################################################
 OS_OSX="osx"
 OS_WIN="win"
@@ -959,8 +1122,8 @@ func_os_name() {
 		linux*)		echo "${OS_LINUX}"	;return ;;
 		msys*)		echo "${OS_MINGW}"	;return ;;	# Lightweight shell and GNU utilities compiled for Windows (part of MinGW)
 		bsd*)		echo "${OS_BSD}"	;return ;;
-		win*)		echo "${OS_WIN}"	;return ;;	# NOT sure, check on windows!
-		aix*)		echo "${OS_AIX}"	;return ;;	# NOT sure, check on windows!
+		win*)		echo "${OS_WIN}"	;return ;;	# NOT sure, check on windows
+		aix*)		echo "${OS_AIX}"	;return ;;	# NOT sure, check on windows
 	esac
 
 	# final
@@ -1022,7 +1185,7 @@ func_os_info() {
 }
 
 ################################################################################
-# Utility: network
+# System: network
 ################################################################################
 func_is_valid_ip() {
 	local usage="Usage: ${FUNCNAME[0]} <address>" 
@@ -1042,19 +1205,6 @@ func_is_valid_ipv4() {
 	# candiate: use python: socket.inet_pton(socket.AF_INET, sys.argv[1])
 	# candiate: seems tool ipcalc/sipcalc could do this, but need install
 
-	# Test
-	#func_is_valid_ip4 4.2.2.2 && echo yes || echo no
-	#func_is_valid_ip4 192.168.1.1 && echo yes || echo no
-	#func_is_valid_ip4 0.0.0.0 && echo yes || echo no
-	#func_is_valid_ip4 255.255.255.255 && echo yes || echo no
-	#func_is_valid_ip4 192.168.0.1 && echo yes || echo no
-	#func_is_valid_ip4 " 169.252.12.253       " && eyn
-	#echo "^^^^^^^^^^^ is yes -------- vvvvvvvv below is no"
-	#func_is_valid_ip4 255.255.255.256 && echo yes || echo no
-	#func_is_valid_ip4 a.b.c.d && echo yes || echo no
-	#func_is_valid_ip4 192.168.0 && echo yes || echo no
-	#func_is_valid_ip4 1234.123.123.123 && echo yes || echo no
-
 	# seems accurate enough
 	local part="25[0-5]\|2[0-4][0-9]\|1[0-9][0-9]\|[1-9][0-9]\|[0-9]"
 
@@ -1070,13 +1220,6 @@ func_is_valid_ipv6() {
 	
 	# candiate: https://twobit.us/2011/07/validating-ip-addresses/
 	# candiate: use python: socket.inet_pton(socket.AF_INET6, sys.argv[1])
-
-	# Test
-	#func_is_valid_ip6 1:2:3:4:5:6:7:8 && eyn
-	#func_is_valid_ip6 1:2:3:4:5:6:7:9999 && eyn
-	#echo "^^^^^^^^^^^ is yes -------- vvvvvvvv below is no"
-	#func_is_valid_ip6 1:2:3:4:5:6:7: && eyn
-	#func_is_valid_ip6 1:2:3:4:5:6:7:9999999 && eyn
 
 	# Source: http://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
 	# Comment: use POSIX regex, seems have some flaw, improve it if really need to 
@@ -1248,6 +1391,8 @@ func_is_array_not_empty() {
 	[[ "$#" -gt 0 ]] && return 0 || return 1
 }
 
+
+func_is_array_contans() { func_array_contans "$@" ;}
 func_array_contans() {
 	local usage="USAGE: ${FUNCNAME[0]} <element> <array>" 
 	local desc="Desc: check if <array> contains <element>, return 0 if contains, otherwise 1" 
@@ -1362,7 +1507,8 @@ func_is_str_blank() {
 	func_param_check 1 "$@"
 	
 	# remove all space and use -z to check
-	[ -z "${1//[[:blank:]]}" ] && return 0 || return 1
+	#[ -z "${1//[[:blank:]]}" ] && return 0 || return 1
+	[ -z "${1//[[:space:]]}" ] && return 0 || return 1
 }
 
 func_str_not_contains() {
@@ -1387,6 +1533,7 @@ func_str_starts_with() {
 	func_param_check 2 "$@"
 	
 	# TODO
+	func_error "${FUNCNAME[0]} NOT impl yet !!!"
 }
 
 func_str_contains_blank() {
@@ -1397,18 +1544,16 @@ func_str_contains_blank() {
 	local str
 	for str in "$@" ; do
 		func_is_str_blank "${str}" && return 0
-	done
+	done 
 	return 1
 }
 
 func_str_urldecode() { 
 	# pure bash version, from https://stackoverflow.com/questions/6250698/how-to-decode-url-encoded-string-in-shell
-	# more readable version in comment: urldecode() { local i="${*//+/ }"; echo -e "${i//%/\\x}"; }
+	# '$_' 意思是上一个命令的最后一个参数。利用 : (no-op操作符)，让后面的参数变成可以被下一行的 '$_' 来引用到
+	# 作者有点玩技巧了，原链接的评论里也有人给出了更易读的方案，直接用个变量承载就好了: urldecode() { local i="${*//+/ }"; echo -e "${i//%/\\x}"; }
 
-	# : 本来是no-op操作符，但这里是为下面的 '$_' 服务的。
-	# 下面的 '$_' 意思是上一个命令的最后一个参数。
-	# 所以这里需要它作为命令，来让后面的参数变成'最后一个参数' 即 '$_'。
-	# 作者有点玩技巧了，原链接的评论里也有人给出了更易读的方案，直接用个变量承载就好了。
+	# 注意: 针对有Unicode的情况，没有验证过
 
 	# ${*//+/ } will replace all + with space 
 	: "${*//+/ }";			
