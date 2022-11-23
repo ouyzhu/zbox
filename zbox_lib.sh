@@ -2,9 +2,6 @@
 
 # source ${HOME}/.myenv/myenv_lib.sh || eval "$(wget -q -O - "https://raw.github.com/stico/myenv/master/.myenv/myenv_lib.sh")" || exit 1
 
-# TODO: 
-# - func_file_remove_lines: simplify?
-
 ################################################################################
 # Time
 ################################################################################
@@ -21,6 +18,7 @@ func_info() { func_techo "INFO" "$@" ; }
 func_warn() { func_techo "WARN" "$@" ; }
 func_error() { func_techo "ERROR" "$@" ; }
 func_debug() { [ "${ME_DEBUG}" = 'true' ] && func_techo "DEBUG" "$@" ; }
+func_debug_stderr() { func_debug "$@" 1>&2 ; }
 
 # for backward compitability
 func_decho() { func_debug "$@" ; }
@@ -44,6 +42,22 @@ func_die() {
 	exit 1 
 	# ~signal@bash: -INT NOT suitable, as it actually only breaks from function
 	#func_is_non_interactive && exit 1 || kill -INT $$
+}
+
+func_ask_yes_or_no() {
+	local usage="Usage: ${FUNCNAME[0]} <msg>" 
+	local desc="Desc: (interactive mode) ask user yes or no, return 0 for yes, 1 for others"
+	func_param_check 1 "$@"
+
+	local msg user_input
+	[[ "${1}" = *y/n* ]] && msg="${1}" || msg="${1}, pls answer y/n?" 
+
+	while 'true'; do
+		echo "${msg}" 1>&2
+		read -r -e user_input
+		{ [[ "${user_input}" = "y" ]] || [[ "${user_input}" = "Y" ]] ; } && return 0
+		{ [[ "${user_input}" = "n" ]] || [[ "${user_input}" = "N" ]] ; } && return 1
+	done
 }
 
 func_param_check() {
@@ -218,6 +232,7 @@ func_is_pid_or_its_child_running() {
 	local desc="Desc: check is <pid> running, or any of its child running" 
 	#func_param_check 1 "$@"
 
+	# shellcheck disable=2009 # suggest use pgrep
 	ps -ef | grep -v grep | grep -q "[[:space:]]${1}[[:space:]]"
 }
 
@@ -238,42 +253,101 @@ func_is_pid_running() {
 }
 
 ################################################################################
-# Pattern matching (regex / patterns)
+# Pattern_Matching (regex / patterns) (also see ~Text_Process )
 ################################################################################
 func_grepf() {
-	local usage="Usage: ${FUNCNAME[0]} [-param1] [-param2] ... [-paramN] [--] <pattern-file> [file]"
-	local desc="Desc: grep patterns in file" 
+	local usage="Usage: ${FUNCNAME[0]} [-param1] [-param2] ... [-paramN] [--] <pattern-file> [input-file]"
+	local desc="Desc: grep patterns in file (support big count of lines), filter blank/comment lines before grep which makes more stable (blank lines seems match everything!)"
 	func_param_check 1 "$@"
 
+	# DO NOT use 'local' claim this var, test case need change its value
+	FUNC_GREPF_MAX_PATTERN_LINE="${FUNC_GREPF_MAX_PATTERN_LINE:=2000}"
+
 	# Parse params
-	local params p
+	local p params pattern_file pattern_file_line_count pipe_mode
 	for p in "$@"; do 
 		[[ -z "${p}" ]] && shift && continue
 		[[ "${p}" == "--" ]] && shift && break
-
-		if [[ "${p}" == -* ]] ; then
-			params="${params} ${p}"
-			shift
-		fi
+		[[ "${p}" == -* ]] && params="${params} ${p}" && shift
 	done
 
 	# Check pattern file
-	local pattern_file="${1}"
-	func_complain_path_not_exist "${pattern_file}" && return 1
-	shift
+	pattern_file="${1}"
+	func_validate_path_exist "${pattern_file}"
+	pattern_file_line_count="$(func_del_blank_and_hash_lines "${pattern_file}" | wc -l)"
 
-	# NOTE: run with pipe or file, do NOT quote $params. TODO: split pattern_file if too big?
+	# Check mode
+	pipe_mode='true'
+	[[ -n "${2}" ]] && pipe_mode='false' && shift
+
 	# shellcheck disable=2086
-	if [[ -z "${1}" ]] ; then
-		grep ${params} -f <(func_del_blank_lines "${pattern_file}")
+	# NOTE: 1) SHOULD support both pipe and file. 2) do NOT quote $params. 
+	if (( pattern_file_line_count <= FUNC_GREPF_MAX_PATTERN_LINE )) ; then
+
+		func_debug_stderr "Not need to split pattern file: ${pattern_file_line_count} <= ${FUNC_GREPF_MAX_PATTERN_LINE}"
+		if [[ "${pipe_mode}" = 'true' ]] ; then
+			grep ${params} -f <(func_del_blank_and_hash_lines "${pattern_file}")
+		else
+			grep ${params} -f <(func_del_blank_and_hash_lines "${pattern_file}") "$@"
+		fi
 	else
-		grep ${params} -f <(func_del_blank_lines "${pattern_file}") "$@"
+		local pattern_file_md5 tmp_split_dir
+		pattern_file_md5="$(md5sum "${pattern_file}" | cut -d' ' -f1)"
+		tmp_split_dir="/tmp/func_grepf-pattern-split-${FUNC_GREPF_MAX_PATTERN_LINE}-${pattern_file_md5}"
+		func_debug_stderr "Split pattern file (${pattern_file_line_count} > ${FUNC_GREPF_MAX_PATTERN_LINE}) into: ${tmp_split_dir}"
+
+		# Split
+		if [ ! -d "${tmp_split_dir}" ] ; then
+			mkdir -p "${tmp_split_dir}" 
+			split -d -l "${FUNC_GREPF_MAX_PATTERN_LINE}" <(func_del_blank_and_hash_lines "${pattern_file}") "${tmp_split_dir}/${pattern_file##*/}-" 
+		else
+			func_debug_stderr "reuse splited pattern files in: ${tmp_split_dir}/"
+		fi
+
+		# Use splited pattern files one by one
+		local tmp_name_prefix tmp_in tmp_out f 
+		tmp_name_prefix="$(mktemp -d)/func_grepf.tmp" 
+		func_debug_stderr "use pattern files one by one, check tmp file at: ${tmp_name_prefix%/*}/"
+		for f in "${tmp_split_dir}"/* ; do
+			[[ -s "${f}" ]] || continue
+
+			# 1st round need check mode, then all based on file
+			tmp_out="${tmp_name_prefix}-${f##*/}" 
+			if [[ ! -e "${tmp_in}" ]] && [[ "${pipe_mode}" = 'true' ]] ; then	grep ${params} -f "${f}" > "${tmp_out}"
+			elif [[ ! -e "${tmp_in}" ]] && [[ "${pipe_mode}" = 'false' ]] ; then	grep ${params} -f "${f}" "$@" > "${tmp_out}"
+			else									grep ${params} -f "${f}" "${tmp_in}" > "${tmp_out}"
+			fi
+			tmp_in="${tmp_out}"
+
+		done
+		cat "${tmp_out}"
+
+		# TODO: delete tmp files: rm -r "${tmp_name_prefix%/*}/"
 	fi
+}
+
+func_del_blank_lines() {
+	# can run with pipe or file
+	func_del_pattern_lines '^[[:space:]]*$' -- "$@"
+}
+
+func_del_blank_and_hash_lines() {
+	# can run with pipe or file
+	func_del_pattern_lines '^[[:space:]]*$' '^[[:space:]]*#' -- "$@"
+}
+
+func_del_pattern_lines_f() {
+	local usage="Usage: ${FUNCNAME[0]} <pattern_file> [input_file...]"
+	local desc="Desc: delete patterns listed in file" 
+	func_param_check 1 "$@"
+
+	#grep -ivf "${1}" "${2}"
+	func_grepf -v "$@"
 }
 
 func_del_pattern_lines() {
 	local usage="Usage: ${FUNCNAME[0]} <pattern1> <pattern2> ... <patternN> -- [file1] [file2] ... [fileN]"
-	local desc="Desc: delete those lines which match patterns, NOTE: if against files the '--' MUST used as separator!" 
+	local desc="Desc: delete patterns listed in paraemter, NOTE: if against files the '--' MUST used as separator!" 
 	func_param_check 1 "$@"
 
 	local p patterns
@@ -292,18 +366,68 @@ func_del_pattern_lines() {
 	fi
 }
 
-func_del_blank_lines() {
-	# can run with pipe or file
-	func_del_pattern_lines '^[[:space:]]*$' -- "$@"
-}
-
-func_del_blank_and_hash_lines() {
-	# can run with pipe or file
-	func_del_pattern_lines '^[[:space:]]*$' '^[[:space:]]*#' -- "$@"
-}
+# func_file_remove_lines() {
+# 
+# 	# DEPRECATED: use func_grepf
+# 	# USE CASE: func_file_remove_lines fhr.lst <quick_code_file.txt>
+# 
+# 	local usage="Usage: ${FUNCNAME[0]} <pattern_file> <input_file>"
+# 	local desc="Desc: remove patterns listed in file, useful when pattern list a very long" 
+# 	func_param_check 2 "$@"
+# 
+# 	# Var & Check
+# 	local PATTERN_SPLIT_COUNT pattern_file input_file result_file pattern_count pattern_file_md5 tmp_p_dir input_lines result_lines
+# 	PATTERN_SPLIT_COUNT="1000"
+# 	pattern_file="${1}"
+# 	input_file="${2}"
+# 	#local target_file="${2}.removed.$(func_dati)"
+# 	func_complain_path_not_exist "${input_file}" && return 1
+# 	func_complain_path_not_exist "${pattern_file}" && return 1
+# 
+# 	# Remove
+# 	result_file="$(mktemp -d)/$(basename "${input_file}").REMOVED" 
+# 	pattern_count="$(func_file_line_count "${pattern_file}")"
+# 	if (( pattern_count <= PATTERN_SPLIT_COUNT )) ; then 
+# 		echo "INFO: pattern lines NOT need split ( $pattern_count <= $PATTERN_SPLIT_COUNT )"
+# 		func_file_remove_lines_simple -i "${pattern_file}" "${input_file}" > "${result_file}"
+# 	else
+# 		echo "INFO: too much pattern lines, need split ( $pattern_count > $PATTERN_SPLIT_COUNT )"
+# 
+# 		# split patterns
+# 		pattern_file_md5="$(md5sum "${pattern_file}" | cut -d' ' -f1)"
+# 		tmp_p_dir="/tmp/func_file_remove_lines-patterns-${PATTERN_SPLIT_COUNT}-${pattern_file_md5}"
+# 		if [ ! -d "${tmp_p_dir}" ] ; then
+# 			mkdir -p "${tmp_p_dir}" 
+# 			split -d -l "${PATTERN_SPLIT_COUNT}" "${pattern_file}" "${tmp_p_dir}/${pattern_file##*/}" 
+# 			echo "INFO: splited pattern files in: ${tmp_p_dir}/"
+# 		else
+# 			echo "INFO: reuse splited pattern files in: ${tmp_p_dir}/"
+# 		fi
+# 
+# 		# use splited pattern files one by one
+# 		local tmp_out
+# 		local tmp_in="${input_file}" 
+# 		for f in "${tmp_p_dir}"/* ; do
+# 			[[ -e "$f" ]] || continue
+# 			tmp_out="${result_file}.${f##*/}" 
+# 			func_file_remove_lines_simple -i "${f}" "${tmp_in}" > "${tmp_out}"
+# 			tmp_in="${tmp_out}"
+# 		done
+# 		result_file="${tmp_out}"
+# 	fi
+# 
+# 	# Show result
+# 	input_lines="$(func_file_line_count "${input_file}")"
+# 	result_lines="$(func_file_line_count "${result_file}")"
+# 	echo "INFO: result/input lines: ${result_lines}/${input_lines}, result file: ${result_file}"
+# 
+# 	# Old solution: works, but bak is in same dir
+# 	#local sed_cmd="$(func_sed_gen_d_cmd "$@")"
+# 	#sed --in-place=".bak-of-sed-cmd.$(func_dati)" -e "${sed_cmd}" "${file}"
+# }
 
 ################################################################################
-# Text Process
+# Text_Process (also see ~Pattern_Matching )
 ################################################################################
 func_merge_lines() { func_combine_lines "$@"; }
 func_combine_lines() {
@@ -326,6 +450,7 @@ func_combine_lines() {
 	}' "$@"
 }
 
+# shellcheck disable=2120
 func_shrink_blank_lines() {
 	local usage="Usage: ${FUNCNAME[0]} [file]"
 	local desc="Desc: shrink blank lines, multiple consecutive blank lines into 1" 
@@ -340,6 +465,7 @@ func_shrink_blank_lines() {
 
 }
 
+# shellcheck disable=2119,2120
 func_shrink_dup_lines() {
 	local usage="Usage: ${FUNCNAME[0]} [pattern-file]"
 	local desc="Desc: shrink duplicated lines (and merge blank lines), without sorting" 
@@ -356,37 +482,6 @@ func_shrink_dup_lines() {
 	else
 		awk '($0 ~ /^[[:space:]]*$/) || !x[$0]++' | func_shrink_blank_lines
 	fi
-}
-
-func_shrink_pattern_lines() {
-	# TODO: seems this case NOT work. expect line2 removed, but NOT
-	# line1: AAA..BBB
-	# line2: AAA33BBB
-
-	# USED_IN: secu/awsvm/telegram (shrink kword.title) 
-	# NOTE: secu/personal/dup/del_list (func_dup_gather based on path, NOT pattern, can shrink with str which ending with "/", but not simply sub str)
-	#	if really want to use: 
-	#	step 1) func_shrink_pattern_lines del_list &> /dev/null ; 
-	#	step 2) ls -lhtr $TMPDIR/ ; (vi the latest file, find lines than matches 'match-line-found.*\/$', which could be deleted
-	local usage="Usage: ${FUNCNAME[0]} <pattern-file>"
-	local desc="Desc: shrink pattern lines (and merge blank lines), e.g. if lineA is sub string of lineB, lineB will be removed" 
-	local note="Note 1: NOT support pipe, seems not needed" 
-	local note="Note 2: useful for shrinking pattern file used in func_grepf()" 
-	func_param_check 1 "$@"
-	local input_file lines_to_del tmp_grep line
-
-	# Collect: lines to delete. NOTE: '-F' is necessary, otherwise gets 'grep: Invalid range end' if have such sub str: '[9-1]'
-	input_file="${1}"
-	lines_to_del="$(mktemp)"
-	while IFS= read -r line || [[ -n "${line}" ]] ; do
-		tmp_grep="$(grep -F "${line}" "${input_file}" | grep -v -x -F "${line}")"
-		func_is_str_blank "${tmp_grep}" && continue
-		echo -e "# match-line-found-with-this-line: ${line}\n${tmp_grep}" >> "${lines_to_del}"
-	done < <(func_del_blank_lines "${input_file}")
-	[[ ! -e "${lines_to_del}" ]] && echo "INFO: nothing to shrink, nothing performed" && return
-
-	# Shrink '-x' seems unnecessary here. NOTE, will also delete duplicated lines (and merge blank lines)
-	func_grepf -v -F "${lines_to_del}" "${input_file}" | func_shrink_dup_lines
 }
 
 ################################################################################
@@ -409,6 +504,7 @@ func_mkdir() {
 	local desc="Desc: (fail fast) create dirs if NOT exist, exit whole process if fail"
 	func_param_check 1 "$@"
 	
+	local p
 	for p in "$@" ; do
 		[ -e "${p}" ] && continue
 		mkdir -p "${p}" || func_die "ERROR: failed to create dir ${p}"
@@ -425,74 +521,6 @@ func_mkdir_cd() {
 
 	# to avoid the path have blank, any simpler solution?
 	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
-}
-
-func_file_remove_lines() {
-
-	# USE CASE: func_file_remove_lines fhr.lst <quick_code_file.txt>
-	# TODO: how to merge this with func_del_pattern_lines
-
-	local usage="Usage: ${FUNCNAME[0]} <pattern_file> <input_file>"
-	local desc="Desc: remove patterns listed in file, useful when pattern list a very long" 
-	func_param_check 2 "$@"
-
-	# Var & Check
-	local PATTERN_SPLIT_COUNT="1000"
-	local pattern_file="${1}"
-	local input_file="${2}"
-	#local target_file="${2}.removed.$(func_dati)"
-	func_complain_path_not_exist "${input_file}" && return 1
-	func_complain_path_not_exist "${pattern_file}" && return 1
-
-	# Remove
-	local result_file="$(mktemp -d)/$(basename "${input_file}").REMOVED" 
-	local pattern_count="$(func_file_line_count "${pattern_file}")"
-	if (( pattern_count <= PATTERN_SPLIT_COUNT )) ; then 
-		echo "INFO: pattern lines NOT need split ( $pattern_count <= $PATTERN_SPLIT_COUNT )"
-		func_file_remove_lines_simple "${pattern_file}" "${input_file}" > "${result_file}"
-	else
-		echo "INFO: too much pattern lines, need split ( $pattern_count > $PATTERN_SPLIT_COUNT )"
-
-		# split patterns
-		local pattern_file_md5="$(md5sum "${pattern_file}" | cut -d' ' -f1)"
-		local tmp_p_dir="/tmp/func_file_remove_lines-patterns-${PATTERN_SPLIT_COUNT}-${pattern_file_md5}"
-		if [ ! -d "${tmp_p_dir}" ] ; then
-			mkdir -p "${tmp_p_dir}" 
-			split -d -l "${PATTERN_SPLIT_COUNT}" "${pattern_file}" "${tmp_p_dir}/${pattern_file##*/}" 
-			echo "INFO: splited pattern files in: ${tmp_p_dir}/"
-		else
-			echo "INFO: reuse splited pattern files in: ${tmp_p_dir}/"
-		fi
-
-		# use splited pattern files one by one
-		local tmp_out
-		local tmp_in="${input_file}" 
-		for f in "${tmp_p_dir}"/* ; do
-			[[ -e "$f" ]] || continue
-			tmp_out="${result_file}.${f##*/}" 
-			func_file_remove_lines_simple "${f}" "${tmp_in}" > "${tmp_out}"
-			tmp_in="${tmp_out}"
-		done
-		result_file="${tmp_out}"
-	fi
-
-	# Show result
-	local input_lines="$(func_file_line_count "${input_file}")"
-	local result_lines="$(func_file_line_count "${result_file}")"
-	echo "INFO: result/input lines: ${result_lines}/${input_lines}, result file: ${result_file}"
-
-	# Old solution: works, but bak is in same dir
-	#local sed_cmd="$(func_sed_gen_d_cmd "$@")"
-	#sed --in-place=".bak-of-sed-cmd.$(func_dati)" -e "${sed_cmd}" "${file}"
-}
-
-func_file_remove_lines_simple() {
-	local usage="Usage: ${FUNCNAME[0]} <pattern_file> <input_file>"
-	local desc="Desc: remove patterns listed in file, and output to stdout" 
-	func_param_check 2 "$@"
-
-	# remove lines with grep -v, $2 could be regex patterns
-	grep -ivf "${1}" "${2}"
 }
 
 func_file_line_count() {
@@ -534,7 +562,19 @@ func_ln_soft() {
 	"ln" -s "${source}" "${target}"
 }
 
-func_is_filetype_text() {
+func_is_file_ext_image() {
+	local usage="Usage: ${FUNCNAME[0]} <path>"
+	local desc="Desc: check if file name extension is image, return 0 if yes, otherwise 1" 
+	func_param_check 1 "$@"
+
+	# for sed cmd: '/\.\(jpg\|jpeg\|gif\|png\|apng\|avif\|svg\|webp\|bmp\|ico\|tiff\|tif\)$/d;'
+
+	[[ "${1,,}" =~ .*\.(jpg|jpeg|gif|png|apng|avif|svg|webp|bmp|ico|tiff|tif) ]] && return 0	# ordinary ext
+	[[ "${1,,}" =~ .*\.(raw|cr2|nef|orf|sr2) ]] && return 0						# raw ext
+	return 1
+}
+
+func_is_file_type_text() {
 	local usage="Usage: ${FUNCNAME[0]} <path>"
 	local desc="Desc: check if filetype is text, return 0 if yes, otherwise 1" 
 	func_param_check 1 "$@"
@@ -565,6 +605,7 @@ func_validate_dir_not_empty() {
 	local desc="Desc: the directory must exist and NOT empty, otherwise will exit" 
 	func_param_check 1 "$@"
 	
+	local p
 	for p in "$@" ; do
 		# only redirect stderr, otherwise the test will always false
 		func_is_dir_empty "${p}" && func_die "ERROR: ${p} is empty!"
@@ -576,6 +617,7 @@ func_validate_dir_empty() {
 	local desc="Desc: the directory must be empty or NOT exist, otherwise will exit" 
 	func_param_check 1 "$@"
 	
+	local p
 	for p in "$@" ; do
 		# only redirect stderr, otherwise the test will always false
 		func_is_dir_empty "${p}" || func_die "ERROR: ${p} not empty!"
@@ -591,11 +633,13 @@ func_complain_path_exist() {
 	return 1
 }
 
+func_complain_path_inexist() { func_complain_path_not_exist "$@" ;}
 func_complain_path_not_exist() {
 	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
 	local desc="Desc: complains if path not exist, return 0 if not exist, otherwise 1" 
 	func_param_check 1 "$@"
 	
+	func_is_str_blank "${1}" && echo "ERROR: ${FUNCNAME[0]}: parameter is blank!" 1>&2 && return 0
 	[ ! -e "${1}" ] && echo "${2:-WARN: path ${1} NOT exist}" 1>&2 && return 0
 	return 1
 }
@@ -605,6 +649,7 @@ func_validate_path_exist() {
 	local desc="Desc: the path must be exist, otherwise will exit" 
 	func_param_check 1 "$@"
 	
+	local p
 	for p in "$@" ; do
 		[ ! -e "${p}" ] && func_die "ERROR: ${p} NOT exist!"
 	done
@@ -616,6 +661,7 @@ func_validate_path_inexist() {
 	local desc="Desc: the path must be NOT exist, otherwise will exit" 
 	func_param_check 1 "$@"
 	
+	local p
 	for p in "$@" ; do
 		[ -e "${p}" ] && func_die "ERROR: ${p} already exist!"
 	done
@@ -818,19 +864,48 @@ func_uncompress() {
 	"cd" - &> /dev/null || func_die "ERROR: failed to cd back to previous dir"
 }
 
-func_rsync_v1() {
+# shellcheck disable=2086
+func_rsync_ask_then_run() {
+	local usage="Usage: ${FUNCNAME[0]} <src> <tgt> <add_options>" 
+	local desc="Desc: rsync between source and target (including --delete), ask before run: --dry-run > show result > run" 
+	[ $# -lt 2 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+
+	local tmp_file_1 opt_del rsync_stat_str_1 rsync_stat_str_2 rsync_stat_str_3
+	tmp_file_1="$(mktemp)"
+	
+	func_rsync_simple "$@" --stats --dry-run --delete > "${tmp_file_1}"
+	echo "INFO: DETAIL LOG: ${tmp_file_1}"
+
+	# check if need ask, depends on options: --stats
+	rsync_stat_str_1='Number of created files: 0$'
+	rsync_stat_str_2='Number of deleted files: 0$'
+	rsync_stat_str_3='Number of regular files transferred: 0$'
+	if grep -q "${rsync_stat_str_1}" "${tmp_file_1}" &&  grep -q "${rsync_stat_str_2}" "${tmp_file_1}" &&  grep -q "${rsync_stat_str_3}" "${tmp_file_1}" ; then
+		echo "INFO: nothing need to update"
+		return 0
+	fi
+
+	# show brief and ask
+	func_rsync_out_filter_dry_run < "${tmp_file_1}" 
+	func_ask_yes_or_no "Do you want to run (y/n)?" || return 1 
+	[[ "$*" = *--delete* ]] || opt_del="--delete"
+	func_rsync_simple "$@" ${opt_del}
+}
+
+# shellcheck disable=2086
+func_rsync_simple() {
 	local usage="Usage: ${FUNCNAME[0]} <src> <tgt> <add_options>" 
 	local desc="Desc: rsync between source and target" 
 	[ $# -lt 2 ] && echo -e "${desc} \n ${usage} \n" && exit 1
 
-	local src="${1}"
-	local tgt="${2}"
-	local opts="${3}"
-	func_complain_path_not_exist "${src}" && return 1
-	func_complain_path_not_exist "${tgt}" && return 1
+	local src tgt
+	src="${1}"
+	tgt="${2}"
+	shift; shift;
+	func_validate_path_exist "${src}" "${tgt}"
 
-	func_techo DEBUG "run cmd: rsync -avP ${opts} ${src} ${tgt} 2>&1"
-	rsync -avP ${opts} "${src}" "${tgt}" 2>&1
+	func_info "CMD: rsync -avP $* ${src} ${tgt} 2>&1"
+	rsync -avP "$@" "${src}" "${tgt}" 2>&1
 }
 
 func_rsync_del_detect() {
@@ -845,9 +920,35 @@ func_rsync_del_detect() {
 		| sort -u
 }
 
+func_rsync_out_filter_dry_run() {
+	awk '	/DEBUG|INFO|WARN|ERROR/ {print;next;}	# reserve log lines
+
+		/\/$/ { next ;}				# remove dirs in output, which not really will change
+		/^File list / { next; }
+		/^Total bytes / { next; }
+		/^Literal data:/ { next; }
+		/^Matched data:/ { next; }
+		/^Number of files:/ { next; }
+		/^Total file size:/ { next; }
+		/^Total transferred file/ { next; }
+		/^sending incremental file/ { next; }
+
+		/^deleting / { print $0; next; }	# perserve all delete lines
+		/\// {
+			sub("[^/]*$", "", $0); 		# remove leaf files to reduce lines
+			print "updating " $0;
+			next;
+		}
+
+		{ print $0; }				# for other lines, just print out
+	'						\
+	| head --lines=-3				\
+	| func_shrink_dup_lines 
+}
+
 func_rsync_out_filter() {
 	# shellcheck disable=2148
-	awk '	/DEBUG: |INFO: |WARN: |ERROR: |FATAL: |TRACE: / {print $0;next;}	# reserve log lines
+	awk '	/DEBUG|INFO|WARN|ERROR/ {print $0;next;}	# reserve log lines
 
 		/^$/ {			next;}	# skip empty lines
 		/\/$/ {			next;}	# skip dir lines
@@ -886,11 +987,8 @@ func_rsync_out_filter() {
 			next;
 		} 
 
-		# for other lines, just print out
-		!/\/$/ {
-			print $0;
-			next;
-		}'
+		!/\/$/ { print $0; }			# for other lines, just print out
+	'
 }
 
 ################################################################################
@@ -907,8 +1005,9 @@ func_script_base() {
 	local usage="Usage: ${FUNCNAME[0]} <suffix> (MUST invoke in script !!!)" 
 	local desc="Desc: get dir of current script, suffix will be directly added to the base dir" 
 
-	local script_dir="$(dirname ${0})"
-	func_is_str_empty "${script_dir}" && func_die "ERROR: script dir MUST NOT empty, pls check"
+	local script_dir
+	script_dir="$(dirname "${0}")"
+	func_is_str_empty "${script_dir}" && func_die "ERROR: failed to get script dir (empty), pls check"
 
 	readlink -f "${script_dir}/${*}"
 	#base="$(readlink -f $(dirname ${0}))"
@@ -958,6 +1057,7 @@ func_validate_cmd_exist() {
 	local desc="Desc: the cmd must be exist, otherwise will exit" 
 	func_param_check 1 "$@"
 
+	local p
 	for p in "$@" ; do
 		func_is_cmd_exist "${p}" || func_die "ERROR: cmd (${p}) NOT exist!"
 	done
@@ -1368,15 +1468,15 @@ func_find_idle_port() {
 	
 	local tmp_port port_end
 	local port_start="${1}"
-	[ -n "${2}" ] && port_end="${2}" || port_end="$((${port_start}+20))"
+	[ -n "${2}" ] && port_end="${2}" || port_end="$(( port_start + 20))"
 
 	func_is_int_in_range "${port_end}" 1025 65535 || func_die "ERROR: port_end (${port_end}) not in range 1025~65535!)"
 	func_is_int_in_range "${port_start}" 1025 65535 || func_die "ERROR: port_start (${port_start}) not in range 1025~65535!)"
 
-	for tmp_port in $(seq ${port_start} ${port_end}) ; do
+	for tmp_port in $(seq "${port_start}" "${port_end}") ; do
 		# support linux & osx: netstat on linux/osx use ":/." for port separator
 		netstat -an | head | awk '{print gensub(/.*[\.:]/, "", "g", $4)}' | grep -q "${tmp_port}" && continue
-		echo ${tmp_port} && return 0
+		echo "${tmp_port}" && return 0
 	done
 	return 1
 }
@@ -1507,8 +1607,43 @@ func_is_str_blank() {
 	func_param_check 1 "$@"
 	
 	# remove all space and use -z to check
-	#[ -z "${1//[[:blank:]]}" ] && return 0 || return 1
 	[ -z "${1//[[:space:]]}" ] && return 0 || return 1
+}
+
+func_str_trim_right() { 
+	local usage="Usage: ${FUNCNAME[0]} <string>"
+	local desc="Desc: remove trailing space from string" 
+	func_param_check 1 "$@"
+	
+	local var="$*"
+	var="${var%"${var##*[![:space:]]}"}"		# remove trailing whitespace characters
+	printf '%s' "$var"
+}
+
+func_str_trim_left() { 
+	local usage="Usage: ${FUNCNAME[0]} <string>"
+	local desc="Desc: remove leading space from string" 
+	func_param_check 1 "$@"
+	
+	# FROM: https://stackoverflow.com/questions/369758/how-to-trim-whitespace-from-a-bash-variable
+	local var="$*"
+	var="${var#"${var%%[![:space:]]*}"}"		# remove leading whitespace characters
+	printf '%s' "$var"
+}
+
+func_str_trim() { 
+	local usage="Usage: ${FUNCNAME[0]} <string>"
+	local desc="Desc: remove leading & trailing space from string" 
+	func_param_check 1 "$@"
+	
+	# FROM: https://stackoverflow.com/questions/369758/how-to-trim-whitespace-from-a-bash-variable
+	local var="$*"
+	var="${var#"${var%%[![:space:]]*}"}"		# remove leading whitespace characters
+	var="${var%"${var##*[![:space:]]}"}"		# remove trailing whitespace characters
+	printf '%s' "$var"
+
+	# WORKS
+	#echo "${1}" | sed -e 's/^[[:space:]]*//;s/[[:space:]]*$//;'
 }
 
 func_str_not_contains() {
@@ -1553,7 +1688,9 @@ func_str_urldecode() {
 	# '$_' 意思是上一个命令的最后一个参数。利用 : (no-op操作符)，让后面的参数变成可以被下一行的 '$_' 来引用到
 	# 作者有点玩技巧了，原链接的评论里也有人给出了更易读的方案，直接用个变量承载就好了: urldecode() { local i="${*//+/ }"; echo -e "${i//%/\\x}"; }
 
-	# 注意: 针对有Unicode的情况，没有验证过
+	# 注意: 针对有Unicode的情况，没有验证过。下面FAQ链接有提到，url编码规范是在字节level的，所以针对Unicode，也是当作byte来处理的。
+	# 这个FAQ里有另外一个版本 (有urlencdoe和urldecode)，有很多关于unicode细节: http://mywiki.wooledge.org/BashFAQ/071
+	# 命令行工具: nkf can decode URLs: echo 'https://ja.wikipedia.org/wiki/%E9%87%8E%E8%89%AF%E7%8C%AB' | nkf --url-input
 
 	# ${*//+/ } will replace all + with space 
 	: "${*//+/ }";			

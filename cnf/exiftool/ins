@@ -1,0 +1,4 @@
+ins_steps           = "src ucd move"
+ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/exiftool -ver | grep 'ZBOX_TVER' &> /dev/null"
+use_env             = 'EXIFTOOL_HOME=ZBOX_INS_FULLPATH PATH=${EXIFTOOL_HOME}/:${PATH}'
+ins_plf             = 'osx,linux'
