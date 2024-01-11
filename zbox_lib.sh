@@ -88,23 +88,25 @@ func_vcs_update() {
 	local desc="Desc: init or update vcs like hg/git/svn"
 	func_param_check 3 "$@"
 
-	local src_type="${1}"
-	local src_addr="${2}"
-	local target_dir="${3}"
+	local src_type src_addr target_dir cmd_update cmd_init cmd
+	src_type="${1}"
+	src_addr="${2}"
+	target_dir="${3}"
 	echo "INFO: init/update source, type: ${src_type}, addr: ${src_addr}, target: ${target_dir}"
 	case "${src_type}" in
-		hg)	local cmd="hg"  ; local cmd_init="hg clone"     ; local cmd_update="hg pull"	;;
-		git)	local cmd="git" ; local cmd_init="git clone"    ; local cmd_update="git pull"	;;
-		svn)	local cmd="svn" ; local cmd_init="svn checkout" ; local cmd_update="svn update"	;;
+		hg)	cmd="hg"  ; cmd_init="hg clone"     ; cmd_update="hg pull"	;;
+		git)	cmd="git" ; cmd_init="git clone"    ; cmd_update="git pull"	;;
+		svn)	cmd="svn" ; cmd_init="svn checkout" ; cmd_update="svn update"	;;
 		*)	func_die "ERROR: Can not handle src_type (${src_type})"	;;
 	esac
 
 	func_validate_cmd_exist ${cmd}
 	
-	if [ -e "${target_dir}" ] ; then
-		pushd "${target_dir}" &> /dev/null
-		${cmd_update} || func_die "ERROR: ${cmd_update} failed"
-		popd &> /dev/null
+	if [[ -e "${target_dir}" ]] ; then
+		pushd "${target_dir}" &> /dev/null	|| func_die "ERROR: cd failed (${target_dir})"
+		${cmd_update}				|| func_die "ERROR: ${cmd_update} failed"
+		# shellcheck disable=2164
+		popd &> /dev/null			
 	else
 		mkdir -p "$(dirname "${target_dir}")"
 		${cmd_init} "${src_addr}" "${target_dir}" || func_die "ERROR: ${cmd_init} failed"
@@ -450,6 +452,29 @@ func_combine_lines() {
 	}' "$@"
 }
 
+func_shrink_pattern_lines() {
+	# USED_IN: secu/$HOSTNAME/telegram (shrink kword.title)
+	local usage="Usage: ${FUNCNAME[0]} <pattern-file>"
+	local desc="Desc: shrink lines (and remove blank lines), e.g. if lineA is sub string of lineB, lineB will be removed"
+	desc="$desc \nNote 1: NOT support pipe, seems not needed"
+	desc="$desc \nNote 2: useful for shrinking pattern file used in func_grepf()"
+	func_param_check 1 "$@"
+
+	# Collect: lines to delete. NOTE: '-F' is necessary, otherwise gets 'grep: Invalid range end' if have such sub str: '[9-1]'
+	local input_file lines_to_del tmp_grep line
+	input_file="${1}"
+	lines_to_del="$(mktemp)"
+	while IFS= read -r line || [[ -n "${line}" ]] ; do
+		tmp_grep="$(grep -F "${line}" "${input_file}" | grep -v -x -F "${line}")"
+		func_is_str_blank "${tmp_grep}" && continue
+		echo -e "# match-line-found-with-this-line: ${line}\n${tmp_grep}" >> "${lines_to_del}"
+	done < <(func_del_blank_lines "${input_file}")
+	[[ ! -e "${lines_to_del}" ]] && echo "INFO: nothing to shrink, nothing performed" && return
+
+	# Shrink '-x' seems unnecessary here. NOTE, will also delete duplicated lines (and merge blank lines)
+	func_grepf -v -F "${lines_to_del}" "${input_file}" | func_del_blank_lines | func_shrink_dup_lines
+}
+
 # shellcheck disable=2120
 func_shrink_blank_lines() {
 	local usage="Usage: ${FUNCNAME[0]} [file]"
@@ -569,7 +594,7 @@ func_is_file_ext_image() {
 
 	# for sed cmd: '/\.\(jpg\|jpeg\|gif\|png\|apng\|avif\|svg\|webp\|bmp\|ico\|tiff\|tif\)$/d;'
 
-	[[ "${1,,}" =~ .*\.(jpg|jpeg|gif|png|apng|avif|svg|webp|bmp|ico|tiff|tif) ]] && return 0	# ordinary ext
+	[[ "${1,,}" =~ .*\.(heic|jpg|jpeg|gif|png|apng|avif|svg|webp|bmp|ico|tiff|tif) ]] && return 0	# ordinary ext
 	[[ "${1,,}" =~ .*\.(raw|cr2|nef|orf|sr2) ]] && return 0						# raw ext
 	return 1
 }
@@ -688,8 +713,8 @@ func_backup_aside() {
 
 # NOTE: func_backup_dated is in myenv_func.sh
 func_backup_simple() {
-	local usage="Usage: ${FUNCNAME[0]} <path>"
-	local desc="Desc: backup file" 
+	local usage="Usage: ${FUNCNAME[0]} <src_path> [target_path]"
+	local desc="Desc: backup file, do safe check before backup, e.g.: size limit, space count"
 	func_param_check 2 "$@"
 	func_validate_path_exist "${1}"
 	func_validate_path_not_exist "${2}"
@@ -706,6 +731,12 @@ func_backup_simple() {
 	target_dir="$(dirname "${2}")"
 	[[ -e "${target_dir}" ]] || mkdir "${target_dir}"
 
+	# shellcheck disable=2181
+	if [ "$?" -ne "0" ] ; then 
+		func_error "failed to make target dir"
+		return 1
+	fi
+
 	# check size of available space
 	available_space="$(func_available_space_of_path "${target_dir}")"
 	if (( size + 500*1000*1000 > available_space )); then
@@ -714,7 +745,7 @@ func_backup_simple() {
 	fi
 
 	# check privilidge and cp
-	if [ -w "${p}" ] ; then
+	if [ -w "${target_dir}" ] ; then
 		cp -r "${1}" "${2}"
 	else
 		sudo cp -r "${1}" "${2}"
@@ -874,19 +905,20 @@ func_rsync_ask_then_run() {
 	tmp_file_1="$(mktemp)"
 	
 	func_rsync_simple "$@" --stats --dry-run --delete > "${tmp_file_1}"
-	echo "INFO: DETAIL LOG: ${tmp_file_1}"
 
 	# check if need ask, depends on options: --stats
 	rsync_stat_str_1='Number of created files: 0$'
 	rsync_stat_str_2='Number of deleted files: 0$'
 	rsync_stat_str_3='Number of regular files transferred: 0$'
 	if grep -q "${rsync_stat_str_1}" "${tmp_file_1}" &&  grep -q "${rsync_stat_str_2}" "${tmp_file_1}" &&  grep -q "${rsync_stat_str_3}" "${tmp_file_1}" ; then
-		echo "INFO: nothing need to update"
+		echo "INFO: nothing need to update for: ${1} -> ${2}, detail log: ${tmp_file_1}"
 		return 0
 	fi
 
 	# show brief and ask
-	func_rsync_out_filter_dry_run < "${tmp_file_1}" 
+	func_rsync_out_brief "${tmp_file_1}" 
+	sleep 1
+	echo "INFO: there are changes for: ${1} -> ${2}, detail log: ${tmp_file_1}"
 	func_ask_yes_or_no "Do you want to run (y/n)?" || return 1 
 	[[ "$*" = *--delete* ]] || opt_del="--delete"
 	func_rsync_simple "$@" ${opt_del}
@@ -920,8 +952,19 @@ func_rsync_del_detect() {
 		| sort -u
 }
 
-func_rsync_out_filter_dry_run() {
-	awk '	/DEBUG|INFO|WARN|ERROR/ {print;next;}	# reserve log lines
+func_rsync_out_brief() {
+	local usage="Usage: ${FUNCNAME[0]} <log_file>" 
+	local desc="Desc: show brief of rsync out" 
+	[ $# -lt 2 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+
+	local log_file del_count
+	log_file="${1}"
+	func_complain_path_not_exist "${log_file}" && return 1
+	del_count="$(grep -c "^deleting " "${log_file}")"
+
+	awk -v del_count="${del_count}"			\
+	 '{
+		 /DEBUG|INFO|WARN|ERROR/ {print;next;}	# reserve log lines
 
 		/\/$/ { next ;}				# remove dirs in output, which not really will change
 		/^File list / { next; }
@@ -933,20 +976,33 @@ func_rsync_out_filter_dry_run() {
 		/^Total transferred file/ { next; }
 		/^sending incremental file/ { next; }
 
-		/^deleting / { print $0; next; }	# perserve all delete lines
+		/^deleting / {
+			if (del_count > 50) {		# need shrink lines if too much
+				sub("[^/]*$", "", $0); 	# remove leaf files to reduce lines (by func_shrink_dup_lines later)
+				print "updating " $0;
+			} else {
+				print $0;
+			}
+			next;
+		}
+
 		/\// {
-			sub("[^/]*$", "", $0); 		# remove leaf files to reduce lines
+			sub("[^/]*$", "", $0); 		# remove leaf files to reduce lines (by func_shrink_dup_lines later)
 			print "updating " $0;
 			next;
 		}
 
 		{ print $0; }				# for other lines, just print out
-	'						\
+	}
+	END {
+		print "======== NOTE: Lines Compacted, Check Detail ! ========"
+	}
+	' "${log_file}"					\
 	| head --lines=-3				\
 	| func_shrink_dup_lines 
 }
 
-func_rsync_out_filter() {
+func_rsync_out_filter_mydoc() {
 	# shellcheck disable=2148
 	awk '	/DEBUG|INFO|WARN|ERROR/ {print $0;next;}	# reserve log lines
 
@@ -1001,9 +1057,21 @@ func_script_self() {
 	test -L "$0" && readlink "$0" || echo "$0"
 }
 
+func_script_origin_base() { 
+	local usage="Usage: ${FUNCNAME[0]} <suffix> (MUST invoke in script !!!)" 
+	local desc="Desc: get origin dir of current script (e.g. when script is a soft link, will get its original dir), suffix will be directly added to the base dir" 
+
+	local script_original_path script_dir
+	script_original_path="$(readlink -f "${0}")"
+	script_dir="$(dirname "${script_original_path}")"
+	func_is_str_empty "${script_dir}" && func_die "ERROR: failed to get script dir (empty), pls check"
+
+	readlink -f "${script_dir}/${*}"
+}
+
 func_script_base() { 
 	local usage="Usage: ${FUNCNAME[0]} <suffix> (MUST invoke in script !!!)" 
-	local desc="Desc: get dir of current script, suffix will be directly added to the base dir" 
+	local desc="Desc: get dir of current script (soft link script will NOT get its original dir), suffix will be directly added to the base dir" 
 
 	local script_dir
 	script_dir="$(dirname "${0}")"

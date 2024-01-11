@@ -1,28 +1,44 @@
 # NOTE
 #
-# compile on osx, works on yosemite
 # since truecrypt stopped dev, need extra files and patches for compile, simple review shows no harm things inside
 # ref: http://www.nerdenmeister.org/2013/08/16/build-truecrypt-on-os-x-64-bit-with-hardware-acceleration/
 #
-# Manual Process: 
+# Manual Install: 
+#	mac_Big_Sur (works)
+#		# osxfuse closed source, so NO more macports, use its binary installation
+#		# (works) 2023-06: Big Sur: macfuse version: v4.5.0
+#		install macfuse at: https://osxfuse.github.io/			
+#		umask 022
+#		sudo ln -s /usr/local/lib/pkgconfig/fuse.pc /opt/local/lib/pkgconfig/fuse.pc
 #
-#	# Dependecies: need wx head files, even not need GUI
-#	sudo port install wxWidgets-3.0 osxfuse wget pkgconfig nasm		
-#	sudo port select wxWidgets wxWidgets-3.0
-#	tar -xzf Downloads/TrueCrypt\ 7.1a\ Source.tar.gz
-#	cd truecrypt-7.1a-source
-#	# Patch
-#	wget --quiet http://www.nerdenmeister.org/truecrypt-osx.patch
-#	patch -p0 < truecrypt-osx.patch
-#	mkdir Pkcs11
-#	cd Pkcs11
-#	wget --quiet ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-20/pkcs11.h
-#	wget --quiet ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-20/pkcs11f.h
-#	wget --quiet ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-20/pkcs11t.h
-#	# Compile
-#	make -j4 -f Makefile.osx NOGUI=1
-#	# Check: should gets "TrueCrypt 7.1a"
-#	Main/TrueCrypt --version
+#		# mac need patch
+#		cp -r ~/.zbox/src/truecrypt/extra/* ./
+#		patch -p0 < truecrypt-osx.patch
+#		cp Makefile Makefile.osx
+#
+#		# make
+#		make -j4 -f Makefile.osx NOGUI=1
+#		./Main/TrueCrypt --version
+#
+#	mac_yosemite (works)
+#		# Dependecies: need wx head files, even not need GUI
+#		xcode-select --install						# need xcode
+#		sudo port install wxWidgets-3.0 osxfuse wget pkgconfig nasm		
+#		sudo port select wxWidgets wxWidgets-3.0
+#		tar -xzf Downloads/TrueCrypt\ 7.1a\ Source.tar.gz
+#		cd truecrypt-7.1a-source
+#		# Patch
+#		wget --quiet http://www.nerdenmeister.org/truecrypt-osx.patch
+#		patch -p0 < truecrypt-osx.patch
+#		mkdir Pkcs11
+#		cd Pkcs11
+#		wget --quiet ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-20/pkcs11.h
+#		wget --quiet ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-20/pkcs11f.h
+#		wget --quiet ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-20/pkcs11t.h
+#		# Compile
+#		make -j4 -f Makefile.osx NOGUI=1
+#		# Check: should gets "TrueCrypt 7.1a"
+#		Main/TrueCrypt --version
 
 ins_steps               = "src ucd dep make"
 ins_src_addr            = "https://fake_address_as_truecrypt_stopped_dev_7.1a_is_the_last_ver"
