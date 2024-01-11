@@ -641,7 +641,7 @@ zbox_ins_default() {
 }
 
 zbox_ins_dep() {
-	local desc="Desc: install dependencies (using apt-get on linux, port on osx)\n${ZBOX_FUNC_INS_USAGE}"
+	local desc="Desc: install dependencies (using apt-get on linux, brew/port on osx)\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 2 "$@"
 
 	eval $(zbox_gen_ins_cnf_vars "$@")
@@ -663,8 +663,9 @@ zbox_ins_dep() {
 
 	# dep of osx platform
 	if [ -n "${ins_dep_port_install}" ] && [ "${ZBOX_PLF}" = "${ZBOX_PLF_OSX}" ] ; then
-		echo "INFO: (ins) dependencies: sudo port -N install ${ins_dep_port_install}"
-		sudo port -N install ${ins_dep_port_install} >> ${ZBOX_LOG} 2>&1
+		echo "INFO: (ins) dependencies: func_pkg_mgmt_ins ${ins_dep_port_install}"
+		#sudo port -N install ${ins_dep_port_install} >> ${ZBOX_LOG} 2>&1
+		func_pkg_mgmt_ins -N ${ins_dep_port_install} >> ${ZBOX_LOG} 2>&1
 	fi
 
 	# dep of zbox self

@@ -1352,6 +1352,23 @@ func_os_info() {
 	echo "${os_name}_${os_ver}_${os_len}"
 }
 
+func_pkg_mgmt_cmd() {
+	[ -d "/opt/local/man" ] && echo "port" && return
+	[ -d "/opt/homebrew/man" ] && echo "brew" && return
+	echo "unknown_pkg_cmd" && return 1
+}
+
+func_pkg_mgmt_ins() {
+	local usage="Usage: ${FUNCNAME[0]} <pkg-name> <pkg-more-param>" 
+	local desc="Desc: use platform pkg cmd to install package"
+	func_param_check 1 "$@"
+	
+	local pkg_mgmt_cmd="$(func_pkg_mgmt_cmd)"
+	func_complain_cmd_not_exist "${pkg_mgmt_cmd}" && return 1
+
+	pkg_mgmt_cmd install "$@"
+}
+
 ################################################################################
 # System: network
 ################################################################################
