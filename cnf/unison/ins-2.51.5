@@ -1,8 +1,8 @@
 ins_src_addr		= https://github.com/bcpierce00/unison/archive/refs/tags/v2.51.5.tar.gz
 
-# MNT 1: (2024-01) macports ins on lapmac2 used v4.14.1
-ins_src_pre_script      = "command -v opam && opam init -n ; opam switch create 4.14.1 ; eval `opam env --switch=4.14.1` "
-ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.14.1 "
+# MNT 1: (2024-01) macports ins on lapmac2 used v4.12.1
+ins_src_pre_script      = "command -v opam && opam init -n ; opam switch create 4.12.1 ; eval `opam env --switch=4.12.1` "
+ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.12.1 "
 
 # NOTE: lapmac2
 #		port search shows will install v2.51.5, here record info about this version, NOT verified yet
@@ -19,8 +19,6 @@ ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.14.1 "
 
 # v2.48.3
 #	# Make Error: This expression has type string but an expression was expected of type bytes
-#ins_src_pre_script      = "command -v opam && opam init -n ; opam switch create 4.12.0 ; eval `opam env --switch=4.12.0` "
-#ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.12.0 "
 #	#ins_src_pre_script      = "command -v opam && opam init -n ; opam switch create 4.10.2 ; eval `opam env --switch=4.10.2` "
 #	#ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.10.2 "
 #	
