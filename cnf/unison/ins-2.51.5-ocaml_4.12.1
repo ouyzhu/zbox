@@ -1,9 +1,10 @@
 ins_src_addr		= https://github.com/bcpierce00/unison/archive/refs/tags/v2.51.5.tar.gz
 
-# MNT 1: (2024-01) macports ins on lapmac2 used v4.12.1
-# MNT 2: (2024-01) ubuntu 22.04 use v4.13.1
-ins_src_pre_script      = "command -v opam && opam init -n ; opam switch create 4.13.1 ; eval `opam env --switch=4.13.1` "
-ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.13.1 "
+# MNT (2024-01) lapmac2 (mbp 2019): use macports ins ver "2.51.5 (ocaml 4.12.1)", zbox can NOT use (highest ver of ocaml is 4.0.9)
+#		lapmac3 (mbp M2): use zbox version, since could ins ocaml 4.12.1 (lowest ver of ocaml is 4.10.1)
+#		163vm (ubuntu 22.04): as lapmac3
+ins_src_pre_script      = "command -v opam && opam init -n ; opam switch create 4.12.1 ; eval `opam env --switch=4.12.1` "
+ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.12.1 "
 
 # NOTE: lapmac2
 #		port search shows will install v2.51.5, here record info about this version, NOT verified yet
