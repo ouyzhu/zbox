@@ -1,2 +1,2 @@
 # for more modules, see nginx and openresty guide
-ins_dep_port_install	= "pcre openssl"
+ins_dep_install	= "pcre openssl"

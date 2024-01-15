@@ -1,2 +1,2 @@
-ins_dep_port_install	= "hs-cabal-install"
+ins_dep_install	= "hs-cabal-install"
 

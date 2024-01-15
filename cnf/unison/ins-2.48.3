@@ -1,9 +1,17 @@
 ins_src_addr		= https://github.com/bcpierce00/unison/archive/refs/tags/2.48.3.tar.gz
 
 # MNT 1: seems need use version 4.02.1 (2019-06: tested: 4.07.1 NOT work for unison 2.48.3)
-# MNT 2: need use 2 pre_script, since the result of `opam config env` is multiple line
-ins_pre_script          = "command -v opam && opam init -n && opam switch create 4.02.1 ; opam switch 4.02.1 && eval `opam config env` "
+# MNT 2: need use 2 pre_script, since `opam config env` output multiple line. 
+# MNT 3: can not use ins_pre_script, which too early, will block every step
+ins_src_pre_script      = "command -v opam && opam init -n && opam switch create 4.02.1 ; opam switch 4.02.1 && eval `opam config env` "
 ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.02.1 "
+
+# MNT 1: NOT work on mac arm (M2), no coaml 4.02.1 available (cmd "opam switch list-available")
+# Make Error: This expression has type string but an expression was expected of type bytes
+#ins_src_pre_script      = "command -v opam && opam init -n ; opam switch create 4.14.1 ; eval `opam env --switch=4.14.1` "
+#ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.14.1 "
+#ins_src_pre_script      = "command -v opam && opam init -n ; opam switch create 4.10.2 ; eval `opam env --switch=4.10.2` "
+#ins_make_pre_script     = "command -v ocaml && ocaml -version | grep 4.10.2 "
 
 # MNT 1: on ubuntu 20.04, get error msg: Fatal error: exception Scanf.Scan_failure("scanf: bad input at char number 4: \"looking for ':', found '$'\"")
 # MNT 2: google shows this works, and NOTE: 536 is the exact num to get 2.48.3 (537: 2.48.4 / 540: 2.48.7 / 550: 2.48.17 / 600: 2.48.67)

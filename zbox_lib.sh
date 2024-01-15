@@ -3,6 +3,18 @@
 # source ${HOME}/.myenv/myenv_lib.sh || eval "$(wget -q -O - "https://raw.github.com/stico/myenv/master/.myenv/myenv_lib.sh")" || exit 1
 
 ################################################################################
+# Todo
+################################################################################
+# - use func_pkg_mgmt_ins instead of
+# 	sudo port install
+# 	sudo apt-get instal
+#
+################################################################################
+# Const
+################################################################################
+PARAM_NON_INTERACTIVE_MODE="param_non_interactive_mode"
+
+################################################################################
 # Time
 ################################################################################
 func_date() { date "+%Y-%m-%d";				}
@@ -1189,11 +1201,11 @@ func_gen_local_vars() {
 	(( ${#inexist_files[*]} > 0 )) && echo "DEBUG: skip those inexist files: ${inexist_files[*]}" 1>&2
 	(( ${#exist_files[*]} == 0 )) && echo "WARN: NO files really readable to gen local var: $*" 1>&2 && return 1
 
-	# TODO: embrace value with " or ', since bash eval get error if value have special chars like &/, etc. path field almost always have such chars.
+	# TODO: embrace value with "/', otherwise bash eval complains on chars like &/, which always in path
 	# works but not efficient: s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
-	cat "${exist_files[@]}"			\
-	| sed -e "/^[[:blank:]]*\($\|#\)/d;
-		s/[[:blank:]]*=[[:blank:]]*/=/;
+	cat "${exist_files[@]}"			| \
+	func_del_blank_and_hash_lines		| \
+	sed -e "s/[[:blank:]]*=[[:blank:]]*/=/;
 		s/^/local /"
 }
 
@@ -1353,9 +1365,11 @@ func_os_info() {
 }
 
 func_pkg_mgmt_cmd() {
-	[ -d "/opt/local/man" ] && echo "port" && return
-	[ -d "/opt/homebrew/man" ] && echo "brew" && return
-	echo "unknown_pkg_cmd" && return 1
+	local os_name="$(func_os_name)" 
+	[ "${os_name}" = "${OS_DEBIAN}" ] && echo "apt" && return
+	[ "${os_name}" = "${OS_OSX}" ] && [ -d "/opt/local/man" ] && echo "port" && return
+	[ "${os_name}" = "${OS_OSX}" ] && [ -d "/opt/homebrew/Cellar" ] && echo "brew" && return
+	echo "UNKNOWN_PKG_CMD"
 }
 
 func_pkg_mgmt_ins() {
@@ -1366,7 +1380,19 @@ func_pkg_mgmt_ins() {
 	local pkg_mgmt_cmd="$(func_pkg_mgmt_cmd)"
 	func_complain_cmd_not_exist "${pkg_mgmt_cmd}" && return 1
 
-	pkg_mgmt_cmd install "$@"
+	if [ "${1}" = "${PARAM_NON_INTERACTIVE_MODE}" ] ; then
+		shift
+		[ "${pkg_mgmt_cmd}" = "apt" ] && pkg_mgmt_cmd="sudo DEBIAN_FRONTEND=noninteractive apt install --yes"
+		[ "${pkg_mgmt_cmd}" = "port" ] && pkg_mgmt_cmd="sudo port install -N"
+
+		# TODO: seems brew install don't have this mode? -c not works
+		[ "${pkg_mgmt_cmd}" = "brew" ] && pkg_mgmt_cmd="brew  install"
+	else
+		[ "${pkg_mgmt_cmd}" = "apt" ] && pkg_mgmt_cmd="sudo apt install"
+		[ "${pkg_mgmt_cmd}" = "port" ] && pkg_mgmt_cmd="sudo port install"
+		[ "${pkg_mgmt_cmd}" = "brew" ] && pkg_mgmt_cmd="brew install"
+	fi
+	${pkg_mgmt_cmd} "$@"
 }
 
 ################################################################################

@@ -1,1 +1,1 @@
-ins_dep_port_install = "opam"
+ins_dep_install = "opam"

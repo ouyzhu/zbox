@@ -4,6 +4,9 @@
 ################################################################################
 # TODO
 ################################################################################
+# - use func_pkg_mgmt_ins instead of
+# 	sudo port install
+# 	sudo apt-get instal
 # - list python, output duplicated on lapmac2
 #	cause: analysis ins-xxx, output 1 line, analysis osx_ins-xxx, output another line
 # - support for global use
@@ -607,6 +610,10 @@ zbox_ins_src() {
 	local src_fulldir="$(dirname "${src_plfpath}")"
 	local ver="${2:-pkg}"
 
+	# execute pre script
+	zbox_run_script "ins_src_pre_script" "${ZBOX_TMP}" "${ins_src_pre_script}" "${ins_src_pre_script_desc}"
+
+	echo "INFO: (ins) download/update src: ${ins_src_addr}"
 	case "${ver}" in
 		svn|hg|git)	func_vcs_update "${ver}" "${ins_src_addr}" "${src_realpath}"	;;
 		*)		[[ -e "${src_plfpath}" ]]					\
@@ -662,10 +669,10 @@ zbox_ins_dep() {
 
 
 	# dep of osx platform
-	if [ -n "${ins_dep_port_install}" ] && [ "${ZBOX_PLF}" = "${ZBOX_PLF_OSX}" ] ; then
-		echo "INFO: (ins) dependencies: func_pkg_mgmt_ins ${ins_dep_port_install}"
-		#sudo port -N install ${ins_dep_port_install} >> ${ZBOX_LOG} 2>&1
-		func_pkg_mgmt_ins -N ${ins_dep_port_install} >> ${ZBOX_LOG} 2>&1
+	if [ -n "${ins_dep_install}" ] && [ "${ZBOX_PLF}" = "${ZBOX_PLF_OSX}" ] ; then
+		echo "INFO: (ins) dependencies: func_pkg_mgmt_ins ${ins_dep_install}"
+		#sudo port -N install ${ins_dep_install} >> ${ZBOX_LOG} 2>&1
+		func_pkg_mgmt_ins "${PARAM_NON_INTERACTIVE_MODE}" ${ins_dep_install} >> ${ZBOX_LOG} 2>&1
 	fi
 
 	# dep of zbox self
@@ -1028,7 +1035,7 @@ zbox_gen_ins_cnf_vars() {
 		s+ZBOX_SRC_FULLDIR+${src_fulldir}+g;
 		s+ZBOX_SRC_PLFPATH+${src_plfpath}+g;
 		s+ZBOX_UCD_FULLPATH+${ucd_fullpath}+g;
-		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;" 
+		s+ZBOX_INS_FULLPATH+${ins_fullpath}+g;"
 }
 
 zbox_run_script() {

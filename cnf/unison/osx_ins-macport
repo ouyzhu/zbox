@@ -1,6 +1,6 @@
 # GOOD: fastest way to install via macports@osx
 # BAD: unison usually need version match, but macports by default only maitains single version for big osx version
 
-ins_steps               = "dep"
-ins_dep_port_install	= "unison"
+ins_steps       = "dep"
+ins_dep_install	= "unison"
 

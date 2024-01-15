@@ -1,4 +1,4 @@
-ins_steps		= "src ucd dep make copyucd"
+ins_steps		= "dep src ucd make copyucd"
 ins_verify		= "ZBOX_INS_FULLPATH/unison -version 2>&1 | grep '^unison version' &> /dev/null"
 ins_make_steps		= "make"
 ins_make_make_opts	= "UISTYLE=text"
