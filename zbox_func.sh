@@ -2,9 +2,75 @@
 # shellcheck disable=2155
 
 ################################################################################
+# TODO tmp
+################################################################################
+#	###update files in src (FCS)
+#	mv ant/osx{,x86}_ant-1.9.4
+#	rm nodejs/node-v0.1*
+#	rm nodejs/osx_nodejs-0.1*
+#	mv nodejs/osx{,x86}_nodejs-5.10.1
+#	mv nodejs/osx{,x86}_nodejs-6.3.1
+#	mv mkvalidator/osx{,x86}_mkvalidator-0.4.0
+#	mv mkvalidator/osx{,x86}_mkvalidator-0.5.0
+#	mv exiftool/osx{,x86}_exiftool-12.51
+#	rm go/osx_go-1.11.1
+#	rm go/go1.11.1.darwin-amd64.tar.gz
+#	mv go/osx{,x86}_go-1.14.2
+#	mv btrace/osx{,x86}_btrace-1.3.9
+#	mv tomcat/osx{,x86}_tomcat-7.0.54
+#	mv tomcat/osx{,x86}_tomcat-7.0.54-jsvc
+#	mv openresty/osx{,x86}_openresty-1.11.2.2
+#	mv openresty/osx{,x86}_openresty-1.9.7.4
+#	mv python/osx{,x86}_python-2.7.10
+#	mv python/osx{,x86}_python-3.11.1
+#	mv python/osx{,x86}_python-3.6.1
+#	mv python/osx{,x86}_python-3.7.1
+#	mv logstash/osx{,x86}_logstash-1.3.2
+#	mv redis/osx{,x86}_redis-2.8.3
+#	mv redis/osx{,x86}_redis-3.0.4
+#	mv antlr/osx{,x86}_antlr-4.5rc2
+#	mv antlr/osx{,x86}_antlr-4.5.1
+#	mv maven/osx{,x86}_maven-2.2.1
+#	mv maven/osx{,x86}_maven-3.1.1
+#	mv mlocate/osx{,x86}_mlocate-0.26
+#	mv androidsdk/osx{,x86}_androidsdk-24.0.2
+#	mv androidsdk/osx{,x86}_androidsdk-26.0.2
+#	mv ourepo/osx{,x86}_ourepo-git
+#	mv kotlin/osx{,x86}_kotlin-1.1.2.5
+#	mv mongodb/osx{,x86}_mongodb-4.2.0
+#	mv zookeeper/osx{,x86}_zookeeper-3.4.6
+#	mv gradle/osx{,x86}_gradle-2.3
+#	mv gradle/osx{,x86}_gradle-4.0
+#	mv hcat/osx{,x86}_hcat-13-dw
+#	mv ntfs-3g/osx{,x86}_ntfs-3g-2016.2.22
+#	mv macvim/osx{,x86}_macvim-git
+#	mv nginx/osx{,x86}_nginx-1.5.8
+#	mv nginx/osx{,x86}_nginx-1.9.5
+#	mv mysql/osx{,x86}_mysql-5.6.23
+#	mv hg/osx{,x86}_hg-3.2.2
+#	mv gcloudsdk/osx{,x86}_gcloudsdk-226.0.0
+#	mv chromedriver/osx{,x86}_chromedriver-95.0.4638.69
+#	mv groovy/osx{,x86}_groovy-1.8.6
+#	mv groovy/osx{,x86}_groovy-2.2.1
+#	mv pup/osx{,x86}_pup-0.4.0
+#	mv truecrypt/osx{,x86}_truecrypt-7.1a-compile
+#	mv unison/osx{,x86}_unison-2.51.5
+#	mv unison/osx{,x86}_unison-2.48.3
+#	mv unison/osx{,x86}_unison-2.51.5-ocaml_2.13.1
+#	mv jenkins/osx{,x86}_jenkins-1.563
+#	mv neovim/osx{,x86}_neovim-0.3.1
+#	mv echarts/osx{,x86}_echarts-3.2.2
+#	mv ruby/osx{,x86}_ruby-2.2.0
+#	mv fzf/osx{,x86}_fzf-git
+#	mv git/osx{,x86}_git-2.1.0
+#	mv adminlte/osx{,x86}_adminlte-2.3.3
+#	mv heapanalyzer/osx{,x86}_heapanalyzer-4.5.5
+#	mv heapanalyzer/osx{,x86}_heapanalyzer-4.5.6
+
+################################################################################
 # TODO
 ################################################################################
-# - use func_pkg_mgmt_ins instead of
+# - (TODO_dep_use_func) use func_pkg_mgmt_ins instead of 
 # 	sudo port install
 # 	sudo apt-get instal
 # - list python, output duplicated on lapmac2
@@ -31,8 +97,6 @@
 ################################################################################
 # Constants
 ################################################################################
-ZBOX_PLF_OSX="osx"
-ZBOX_PLF_LINUX="linux"
 ZBOX_FUNC_INS_USAGE="Usage: ${FUNCNAME[0]} <tname> <tver> [<tadd>]"
 ZBOX_FUNC_STG_USAGE="Usage: ${FUNCNAME[0]} <tname> <tver> [<tadd>] <sname>"
 #ZBOX_INS_PLF_DEFAULT="osx,linux"
@@ -56,15 +120,9 @@ ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
 ################################################################################
 # Prepare: Check, source, init
 ################################################################################
-# Check Platform. 
-if [ "$(uname -s)" == "Darwin" ]; then
-	ZBOX_PLF="${ZBOX_PLF_OSX}"
-elif [ "$(uname -s)" == "Linux" ]; then
-	ZBOX_PLF="${ZBOX_PLF_LINUX}"
-else
-	echo "ERROR: current platform is NOT supported yet!"
-	exit 1
-fi
+# Check Platform. NOTE: the ":" in str_contains check is important, since need full match
+ZBOX_PLF="$(func_os_name)"
+func_str_not_contains "${OS_OSXX86}:${OS_OSXARM}:${OS_LINUX}:" "${ZBOX_PLF}:" && echo "ERROR: current platform (${ZBOX_PLF}) is NOT supported yet!" && exit 1
 
 # Check Bash Feature
 # shellcheck disable=2016,2026,2034
@@ -191,7 +249,7 @@ zbox_lst() {
 
 		local file=""
 		pushd "${tname}" > /dev/null
-		for file in ins-* ${ZBOX_PLF}_ins-* ; do	# only check necessary files, e.g. ins file is unecessary to check anytime, linux_ins-xxx is unecessary to check on osx
+		for file in ins-* "${ZBOX_PLF}"_ins-* ; do	# only check necessary files, e.g. ins file is unecessary to check anytime, linux_ins-xxx is unecessary to check on osx
 
 			# TODO: zbox_ (especially zbox_gen ...) functions cost lots of time
 
@@ -276,12 +334,12 @@ zbox_is_plf_support() {
 	local plf_base="${ZBOX_CNF}/${1}/${ZBOX_PLF}_${check_for}"
 	echo "DEBUG: check platform for ${check_for} config, current: ${ZBOX_PLF}, check for: $*"
 
-	# OPTION 1: support if have ins-.../stg-... file with plf prefix
+	# OPTION 1: support if have <plf_prefix>_ins-.../stg-... file 
 	[ -f "${plf_base}-${2}" ] || [ -f "${plf_base}-${2}-${3}" ] || [ -f "${plf_base}-${2}-${3}-${4}" ]	\
 	&& echo "DEBUG: ${check_for}-... with ${ZBOX_PLF} prefix config exist, platform supported"		\
 	&& return 0
 
-	# OPTION 2: for install, if <plf>_ins inexist && ins-... inexist, NOT support
+	# OPTION 2: for install, if <plf_prefix>_ins inexist && ins-... inexist, NOT support
 	[ "${check_for}" = "ins" ]											\
 	&& ! ( [ -f "${def_base_tver}" ] || [ -f "${def_base_tver_tadd}" ] || [ -f "${def_base_tver_tadd_stg}" ] )	\
 	&& echo "DEBUG: ins-... with platorm prefix config INEXIST, and ins-... config INEXIST, platform NOT supported"	\
@@ -640,13 +698,14 @@ zbox_ins_default() {
 	local ins_fullpath="$(zbox_gen_ins_fullpath "$@")"
 	local ins_fullpath_default="$(zbox_gen_ins_fullpath_default "$@")"
 
-	rm "${ins_fullpath_default}" >> ${ZBOX_LOG} 2>&1
+	rm "${ins_fullpath_default}" >> "${ZBOX_LOG}" 2>&1
 	echo "INFO: (ins) make this installation as defaut, linking: ${ins_fullpath_default} -> ${ins_fullpath}"
 	func_cd "$(dirname "${ins_fullpath}")" 
 	ln -s "$(basename "${ins_fullpath}")" "${ins_fullpath_default}" 
-	\cd - >> ${ZBOX_LOG} 2>&1
+	\cd - >> "${ZBOX_LOG}" 2>&1 || return
 }
 
+# shellcheck disable=2086,2046
 zbox_ins_dep() {
 	local desc="Desc: install dependencies (using apt-get on linux, brew/port on osx)\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 2 "$@"
@@ -654,25 +713,27 @@ zbox_ins_dep() {
 	eval $(zbox_gen_ins_cnf_vars "$@")
 	echo "INFO: (ins) start to install dependencies, ZBOX_PLF is '${ZBOX_PLF}'"
 
+	# TODO_dep_use_func: change to use func_pkg_mgmt_ins 
+
 	# dep of linux platform
-	if [ "${ZBOX_PLF}" = "${ZBOX_PLF_LINUX}" ] ; then
+	if [ "${ZBOX_PLF}" = "${OS_LINUX}" ] ; then
 		if [ -n "${ins_dep_apt_install}" ] ; then
 			echo "INFO: (ins) dependencies: sudo apt-get install -y ${ins_dep_apt_install}"
-			sudo apt-get install -y ${ins_dep_apt_install} >> ${ZBOX_LOG} 2>&1
+			sudo apt-get install -y ${ins_dep_apt_install} >> "${ZBOX_LOG}" 2>&1
 		fi
 
 		if [ -n "${ins_dep_apt_build_dep}" ] ; then
 			echo "INFO: (ins) dependencies: sudo apt-get build-dep ${ins_dep_apt_build_dep}"
-			sudo apt-get build-dep -y ${ins_dep_apt_build_dep} >> ${ZBOX_LOG} 2>&1
+			sudo apt-get build-dep -y ${ins_dep_apt_build_dep} >> "${ZBOX_LOG}" 2>&1
 		fi
 	fi
 
 
 	# dep of osx platform
-	if [ -n "${ins_dep_install}" ] && [ "${ZBOX_PLF}" = "${ZBOX_PLF_OSX}" ] ; then
+	if [ -n "${ins_dep_install}" ] && [[ "${ZBOX_PLF}" = ${OS_OSX}* ]] ; then
 		echo "INFO: (ins) dependencies: func_pkg_mgmt_ins ${ins_dep_install}"
 		#sudo port -N install ${ins_dep_install} >> ${ZBOX_LOG} 2>&1
-		func_pkg_mgmt_ins "${PARAM_NON_INTERACTIVE_MODE}" ${ins_dep_install} >> ${ZBOX_LOG} 2>&1
+		func_pkg_mgmt_ins "${PARAM_NON_INTERACTIVE_MODE}" ${ins_dep_install} >> "${ZBOX_LOG}" 2>&1
 	fi
 
 	# dep of zbox self
@@ -890,8 +951,9 @@ zbox_gen_ins_fullpath_default() {
 }
 
 zbox_gen_src_plfpath() {
-	local desc="Desc: generate platform dependent path of source package/code, which contains platform prefix (ZBOX_PLF) in filename\n${ZBOX_FUNC_INS_USAGE}"
+	local desc="Desc: gen platform dependent path of source package/code, which contains platform prefix (ZBOX_PLF) in filename\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 2 "$@"
+
 	echo "${ZBOX_SRC}/${1}/${ZBOX_PLF}_$(zbox_gen_uname "$@")"
 }
 
@@ -936,9 +998,9 @@ zbox_gen_stg_cnf_files() {
 	func_param_check 3 "$@"
 	
 	local stg=${ZBOX_CNF}/${1}/stg
-	local plf_stg=${ZBOX_CNF}/${1}/${ZBOX_PLF}_stg
-
 	local stg_tver=${stg}-${2}
+
+	local plf_stg=${ZBOX_CNF}/${1}/${ZBOX_PLF}_stg
 	local plf_stg_tver=${plf_stg}-${2}
 
 	# check if "tadd" exist and use different files
@@ -950,6 +1012,14 @@ zbox_gen_stg_cnf_files() {
 	else
 		local stg_tver_tadd_sname=${stg}-${2}-${3}
 		local plf_stg_tver_tadd_sname=${plf_stg}-${2}-${3}
+	fi
+
+	# For osxx86/osxarm, need also add osx_ files
+	if [[ "${ZBOX_PLF}" = ${OS_OSX}* ]] ; then
+		plf_stg="${plf_stg//${ZBOX_PLF}/${OS_OSX}} ${plf_stg}"
+		plf_stg_tver="${plf_stg_tver//${ZBOX_PLF}/${OS_OSX}} ${plf_stg_tver}"
+		plf_stg_tver_tadd="${plf_stg_tver_tadd//${ZBOX_PLF}/${OS_OSX}} ${plf_stg_tver_tadd} "
+		plf_stg_tver_tadd_sname="${plf_stg_tver_tadd_sname//${ZBOX_PLF}/${OS_OSX}} ${plf_stg_tver_tadd_sname}"
 	fi
 
 	# Note the precedence
@@ -972,8 +1042,10 @@ zbox_gen_stg_cnf_vars() {
 	# TODO: deprecated this after update naming of stg (2015-10)
 	#zbox_gen_stg_cnf_vars_raw "$@"		|\
 
+	# TODO: use func_gen_local_vars
 	local cnfs=$(zbox_gen_stg_cnf_files "$@")
-	cat ${cnfs} 2>> ${ZBOX_LOG}						|\
+	# shellcheck disable=2086
+	cat ${cnfs} 2>> "${ZBOX_LOG}"						|\
 	sed -e 	"/^\s*#/d;
 		/^\s*$/d;
 		s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
@@ -999,6 +1071,13 @@ zbox_gen_ins_cnf_files() {
 
 	[ -n "${3}" ] && local ins_tver_tadd=${ins}-${2}-${3}
 	[ -n "${3}" ] && local plf_ins_tver_tadd=${plf_ins}-${2}-${3}
+
+	# For osxx86/osxarm, need also add osx_ files
+	if [[ "${ZBOX_PLF}" = ${OS_OSX}* ]] ; then
+		plf_ins="${plf_ins//${ZBOX_PLF}/${OS_OSX}} ${plf_ins}"
+		plf_ins_tver="${plf_ins_tver//${ZBOX_PLF}/${OS_OSX}} ${plf_ins_tver}"
+		plf_ins_tver="${plf_ins_tver_tadd//${ZBOX_PLF}/${OS_OSX}} ${plf_ins_tver_tadd}"
+	fi
 
 	# Note the precedence
 	echo "${ins} ${plf_ins} ${ins_tver} ${plf_ins_tver} ${ins_tver_tadd} ${plf_ins_tver_tadd}"

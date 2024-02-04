@@ -1201,8 +1201,8 @@ func_gen_local_vars() {
 	(( ${#inexist_files[*]} > 0 )) && echo "DEBUG: skip those inexist files: ${inexist_files[*]}" 1>&2
 	(( ${#exist_files[*]} == 0 )) && echo "WARN: NO files really readable to gen local var: $*" 1>&2 && return 1
 
-	# TODO: embrace value with "/', otherwise bash eval complains on chars like &/, which always in path
-	# works but not efficient: s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
+	# TODO:	embrace value with "/', otherwise bash eval complains on chars like &/, which always in path
+	# v1: works but not efficient (used in zbox_gen_stg_cnf_vars) : s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
 	cat "${exist_files[@]}"			| \
 	func_del_blank_and_hash_lines		| \
 	sed -e "s/[[:blank:]]*=[[:blank:]]*/=/;
@@ -1248,7 +1248,10 @@ func_gen_local_vars_secure() {
 ################################################################################
 # System: os/platform/machine
 ################################################################################
+# os name def: ALL IN LOWERCASE !!!
 OS_OSX="osx"
+OS_OSXX86="osxx86"
+OS_OSXARM="osxarm"
 OS_WIN="win"
 OS_AIX="aix"
 OS_BSD="bsd"
@@ -1263,7 +1266,7 @@ OS_FREEBSD="freebsd"
 OS_MANDRAKE="mandrake"
 
 func_os_name() {
-	# based on release file, some NOT verified
+	# Check release file, some NOT verified
 	if [ -f /etc/lsb-release ] ; then					
 		# \L is to lowercase
 		sed -n -e "s/DISTRIB_ID=\(\S*\)/\L\1/p" /etc/lsb-release	
@@ -1282,9 +1285,9 @@ func_os_name() {
 		return
 	fi
 
-	local fullname
+	# Check bash buildin var
+	local fullname arch
 	if [ -n "$OSTYPE" ] ; then
-		# bash buildin var
 		fullname="${OSTYPE,,}"
 	else
 		func_validate_cmd_exist uname
@@ -1292,12 +1295,21 @@ func_os_name() {
 		fullname="${fullname,,}"
 	fi
 
+	# Detail for osx
+	if [[ "${fullname}" = darwin* ]] ; then
+		arch="$(uname -m)"
+		case "${arch}" in
+			x86*)	echo "${OS_OSXX86}"	;return ;;
+			arm*)	echo "${OS_OSXARM}"	;return ;;
+			*)	echo "${OS_OSX}"	;return ;;
+		esac
+	fi
+
 	# longer match first, TODO: what if $OSTYPE and $(uname -a) have diff string? list both of them?
 	case "${fullname}" in
 		solaris*)	echo "${OS_SOLARIS}"	;return ;;
 		sunos*)		echo "${OS_SOLARIS}"	;return ;;
 		freebsd*)	echo "${OS_FREEBSD}"	;return ;;
-		darwin*)	echo "${OS_OSX}"	;return ;; 
 		cygwin*)	echo "${OS_CYGWIN}"	;return ;; 
 		linux*)		echo "${OS_LINUX}"	;return ;;
 		msys*)		echo "${OS_MINGW}"	;return ;;	# Lightweight shell and GNU utilities compiled for Windows (part of MinGW)
@@ -1307,7 +1319,7 @@ func_os_name() {
 	esac
 
 	# final
-	echo "unknown: ${OSTYPE}, ${fullname}" ;
+	echo "UNKNOWN_OS_NAME_${OSTYPE}_${fullname}" ;
 }
 
 func_os_ver() {
@@ -1353,7 +1365,7 @@ func_os_len() {
 		*\ armv6*) echo "armv6";;
 		*\ armv7*) echo "armv7";;
 		*\ armv8*) echo "armv8";;
-		*)         echo "unknown";;
+		*)         echo "UNKNOWN_OS_LEN";;
 	esac
 }
 
@@ -1382,15 +1394,14 @@ func_pkg_mgmt_ins() {
 
 	if [ "${1}" = "${PARAM_NON_INTERACTIVE_MODE}" ] ; then
 		shift
-		[ "${pkg_mgmt_cmd}" = "apt" ] && pkg_mgmt_cmd="sudo DEBIAN_FRONTEND=noninteractive apt install --yes"
-		[ "${pkg_mgmt_cmd}" = "port" ] && pkg_mgmt_cmd="sudo port install -N"
-
 		# TODO: seems brew install don't have this mode? -c not works
 		[ "${pkg_mgmt_cmd}" = "brew" ] && pkg_mgmt_cmd="brew  install"
+		[ "${pkg_mgmt_cmd}" = "apt" ] && pkg_mgmt_cmd="sudo DEBIAN_FRONTEND=noninteractive apt install --yes"
+		[ "${pkg_mgmt_cmd}" = "port" ] && pkg_mgmt_cmd="sudo port install -N"
 	else
+		[ "${pkg_mgmt_cmd}" = "brew" ] && pkg_mgmt_cmd="brew install"
 		[ "${pkg_mgmt_cmd}" = "apt" ] && pkg_mgmt_cmd="sudo apt install"
 		[ "${pkg_mgmt_cmd}" = "port" ] && pkg_mgmt_cmd="sudo port install"
-		[ "${pkg_mgmt_cmd}" = "brew" ] && pkg_mgmt_cmd="brew install"
 	fi
 	${pkg_mgmt_cmd} "$@"
 }

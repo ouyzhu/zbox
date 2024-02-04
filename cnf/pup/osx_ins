@@ -1,6 +1,3 @@
-# official pkg NOT work, this one works
-ins_src_addr = https://homebrew.bintray.com/bottles/pup-0.4.0.high_sierra.bottle.tar.gz
-
 # path is also a bit diff, need add version in path
 ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/ZBOX_TVER/bin/pup --version | grep 'ZBOX_TVER' &> /dev/null"
 use_env             = 'PUP_HOME=ZBOX_INS_FULLPATH PATH=${PUP_HOME}/ZBOX_TVER/bin:${PATH}'
