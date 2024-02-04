@@ -249,12 +249,12 @@ zbox_lst() {
 
 		local file=""
 		pushd "${tname}" > /dev/null
-		for file in ins-* "${ZBOX_PLF}"_ins-* ; do	# only check necessary files, e.g. ins file is unecessary to check anytime, linux_ins-xxx is unecessary to check on osx
+		for file in ins-* "${ZBOX_PLF}"_ins-* ; do	# only check necessary files, e.g. ins is unecessary, linux_ins-xxx is unecessary on osx
 
 			# TODO: zbox_ (especially zbox_gen ...) functions cost lots of time
 
 			# when only cnf/xxx/ins file, "ins-*/${ZBOX_PLF}_ins-*" will be treated as filename by mistake
-			[ "${file}" == "ins-*" -o "${file}" == "${ZBOX_PLF}_ins-*" ] && echo "DEBUG: skip 'ins/${ZBOX_PLF}_ins' file, which not need to analyse" && continue	
+			[ "${file}" == "ins-*" -o "${file}" == "${ZBOX_PLF}_ins-*" ] && echo "DEBUG: skip '${file}', which not need to analyse" && continue	
 
 			# extract info: tver/tadd
 			local tveradd=${file#*ins-}
@@ -603,7 +603,7 @@ zbox_stg_gen_ctrl_scripts() {
 	eval $(zbox_gen_stg_cnf_vars "$@")
 	local stg_fullpath="$(zbox_gen_stg_fullpath "$@")"
 
-	if func_is_str_blank "${stg_tpl_base}" ; then
+	if func_is_str_blank "${stg_tpl_common_ver}" ; then
 		echo "INFO: use old way (stg_cmd_xxx) to gen script"
 		for cmd in ${stg_cmds:-start stop status} ; do
 			local cmd_path="${stg_fullpath}/bin/${cmd}.sh"
@@ -616,16 +616,15 @@ zbox_stg_gen_ctrl_scripts() {
 	else
 		echo "INFO: use new way (template) to gen script"
 
-		local p1="${ZBOX_TPL}/${stg_tpl_base}"
-		local p2="${ZBOX_CNF}/${1}/tpl_stg"
-		local p3="${ZBOX_CNF}/${1}/tpl_stg-${2}"
-		local p4="${ZBOX_CNF}/${1}/tpl_stg-${2}-${3}"
-		func_validate_path_exist "${p1}" "${p2}"
+		local p tmpdir tpl_common_path tpl_tname_path
+		tpl_common_path="${ZBOX_TPL}/${stg_tpl_common_ver}"
+		tpl_tname_path="${ZBOX_CNF}/${1}/stg_tpl"
 
-		local p
-		local tmpdir="$(mktemp -d)"
-		for p in p1 p2 p3 p4 ; do
-			cp -r "${!p}"/* "${tmpdir}" >> ${ZBOX_LOG} 2>&1										
+		func_validate_path_exist "${tpl_common_path}" "${tpl_tname_path}"
+		tmpdir="$(mktemp -d)"
+		for p in "${tpl_common_path}" "${tpl_tname_path}" "${tpl_tname_path}-${2}" "${tpl_tname_path}-${2}-${3}" ; do
+			[ -d "${p}" ] || continue
+			cp -r "${p}"/* "${tmpdir}" >> "${ZBOX_LOG}" 2>&1										
 		done
 		zbox_stg_translate "$(find "${tmpdir}"/ -type f)" "$@"
 		cp -r "${tmpdir}"/* "${stg_fullpath}"
@@ -1076,7 +1075,7 @@ zbox_gen_ins_cnf_files() {
 	if [[ "${ZBOX_PLF}" = ${OS_OSX}* ]] ; then
 		plf_ins="${plf_ins//${ZBOX_PLF}/${OS_OSX}} ${plf_ins}"
 		plf_ins_tver="${plf_ins_tver//${ZBOX_PLF}/${OS_OSX}} ${plf_ins_tver}"
-		plf_ins_tver="${plf_ins_tver_tadd//${ZBOX_PLF}/${OS_OSX}} ${plf_ins_tver_tadd}"
+		plf_ins_tver_tadd="${plf_ins_tver_tadd//${ZBOX_PLF}/${OS_OSX}} ${plf_ins_tver_tadd}"
 	fi
 
 	# Note the precedence

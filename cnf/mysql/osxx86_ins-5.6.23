@@ -1,1 +1,2 @@
-ins_src_addr        = http://dev.mysql.com/get/Downloads/MySQL-5.6/mysql-5.6.23-osx10.9-x86_64.tar.gz
+#ins_src_addr           = https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.36-macos14-x86_64.tar.gz
+ins_src_addr        = https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.36-macos14-x86_64.tar.gz

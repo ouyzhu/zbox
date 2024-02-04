@@ -1,4 +1,5 @@
-# TODO: suggest use "mysql_install_db" before v5.7.6, use "mysqld --initialize" for v5.7.6 and later. 
+# INFO: "mysql_install_db" is suggested for version before v5.7.6
+# TODO: use "mysqld --initialize" for v5.7.6 and later
 
 ZBOX_INS_FULLPATH/scripts/mysql_install_db \
 --basedir=ZBOX_INS_FULLPATH                \

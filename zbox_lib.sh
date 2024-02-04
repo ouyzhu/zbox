@@ -810,7 +810,8 @@ func_download_wget() {
 
 	# TODO: add control to unsecure options?
 
-	wget --progress=dot --no-check-certificate "${1}" 2>&1 | grep --line-buffered "%" | sed -u -e "s,\.,,g" 
+	# "dot:giga": each dot represents 1M retrieved
+	wget --progress=dot:giga --no-check-certificate "${1}" 2>&1 | grep --line-buffered "%" | sed -u -e "s,\.,,g" 
 
 	# Note, some awk version NOT works friendly
 	# Command line explain: [Showing File Download Progress Using Wget](http://fitnr.com/showing-file-download-progress-using-wget.html)
