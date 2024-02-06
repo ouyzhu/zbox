@@ -9,14 +9,15 @@ if ! func_is_running ; then
 	exit 0
 fi
 
-# Check pid
+# Stop 
+pid="$(cat "${FILE_PID}")"
+
+func_techo INFO "Found pid (${pid}) in ${FILE_PID}"
 if [ -z "${pid}" ] ; then
 	func_techo ERROR "pid is empty, can NOT stop anything, pls check!"
 	exit 1
 fi
 
-# Stop 
-pid="$(cat "${FILE_PID}")"
 func_techo INFO "Stopping pid (${pid})..."
 if func_is_str_blank "${CMD_STOP}" ; then
 	kill "${pid}"
