@@ -977,18 +977,19 @@ func_rsync_del_detect() {
 func_rsync_out_brief() {
 	local usage="Usage: ${FUNCNAME[0]} <log_file>" 
 	local desc="Desc: show brief of rsync out" 
-	[ $# -lt 2 ] && echo -e "${desc} \n ${usage} \n" && exit 1
+	[ $# -lt 1 ] && echo -e "${desc}\n${usage} \n" && exit 1
 
 	local log_file del_count
 	log_file="${1}"
 	func_complain_path_not_exist "${log_file}" && return 1
 	del_count="$(grep -c "^deleting " "${log_file}")"
 
-	awk -v del_count="${del_count}"			\
-	 '{
-		 /DEBUG|INFO|WARN|ERROR/ {print;next;}	# reserve log lines
+	awk -v del_count="${del_count}" '
+	BEBIN {}
 
-		/\/$/ { next ;}				# remove dirs in output, which not really will change
+		/DEBUG|INFO|WARN|ERROR/ { print; next; }	# reserve log lines
+
+		/\/$/ { next; }					# remove dirs in output, which not really will change
 		/^File list / { next; }
 		/^Total bytes / { next; }
 		/^Literal data:/ { next; }
@@ -999,8 +1000,8 @@ func_rsync_out_brief() {
 		/^sending incremental file/ { next; }
 
 		/^deleting / {
-			if (del_count > 50) {		# need shrink lines if too much
-				sub("[^/]*$", "", $0); 	# remove leaf files to reduce lines (by func_shrink_dup_lines later)
+			if (del_count > 50) {			# need shrink lines if too much
+				sub("[^/]*$", "", $0); 		# remove leaf files to reduce lines (by func_shrink_dup_lines later)
 				print "updating " $0;
 			} else {
 				print $0;
@@ -1009,24 +1010,25 @@ func_rsync_out_brief() {
 		}
 
 		/\// {
-			sub("[^/]*$", "", $0); 		# remove leaf files to reduce lines (by func_shrink_dup_lines later)
+			sub("[^/]*$", "", $0); 			# remove leaf files to reduce lines (by func_shrink_dup_lines later)
 			print "updating " $0;
 			next;
 		}
 
-		{ print $0; }				# for other lines, just print out
-	}
+		// { print $0; }				# for other lines, just print out
+
 	END {
 		print "======== NOTE: Lines Compacted, Check Detail ! ========"
-	}
-	' "${log_file}"					\
-	| head --lines=-3				\
+	}' "${log_file}"					\
+	| head --lines=-3					\
 	| func_shrink_dup_lines 
 }
 
+# TODO: seems deprecated
 func_rsync_out_filter_mydoc() {
 	# shellcheck disable=2148
-	awk '	/DEBUG|INFO|WARN|ERROR/ {print $0;next;}	# reserve log lines
+	awk '
+		/DEBUG|INFO|WARN|ERROR/ { print;next; }	# reserve log lines
 
 		/^$/ {			next;}	# skip empty lines
 		/\/$/ {			next;}	# skip dir lines
@@ -1386,11 +1388,15 @@ func_os_info() {
 	echo "${os_name}_${os_ver}_${os_len}"
 }
 
+func_is_os_osx() {
+	[[ "$(func_os_name)" = "${OS_OSX}"* ]]
+}
+
 func_pkg_mgmt_cmd() {
 	local os_name="$(func_os_name)" 
 	[ "${os_name}" = "${OS_DEBIAN}" ] && echo "apt" && return
-	[ "${os_name}" = "${OS_OSX}" ] && [ -d "/opt/local/man" ] && echo "port" && return
-	[ "${os_name}" = "${OS_OSX}" ] && [ -d "/opt/homebrew/Cellar" ] && echo "brew" && return
+	func_is_os_osx && [ -d "/opt/local/man" ] && echo "port" && return
+	func_is_os_osx && [ -d "/opt/homebrew/Cellar" ] && echo "brew" && return
 	echo "UNKNOWN_PKG_CMD"
 }
 
@@ -1528,9 +1534,9 @@ func_ip_list() {
 	# NOTE: "tr -s ' '" compact space to single for better field identify
 	local os_name=${MY_OS_NAME:-$(func_os_name)}
 
-	if [ "${os_name}" = "${OS_CYGWIN}" ] ; then
+	if func_is_os_osx ; then
 		func_ip_list_via_ifconfig_cygwin
-	elif [ "${os_name}" = "${OS_OSX}" ] ; then
+	elif [ "${os_name}" = "${OS_CYGWIN}" ] ; then
 		func_ip_list_via_ifconfig_osx
 	elif [ "${os_name}" = "${OS_WIN}" ] ; then
 		func_ip_list_via_ipconfig_win
