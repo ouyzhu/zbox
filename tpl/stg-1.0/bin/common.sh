@@ -47,7 +47,7 @@ func_techo() {
 	local desc="Desc: echo msg format: <TIME>: <level-in-uppercase>: <msg>"
 	func_param_check 2 "$@"
 	
-	echo -e "$(date "+%Y-%m-%d %H:%M:%S"): ${1^^}: ${2}"
+	echo -e "$(date "+%Y-%m-%d %H:%M:%S") ${1^^}: ${2}"
 }
 
 func_is_str_blank() {
@@ -101,7 +101,7 @@ func_proc_info() {
 		return 0
 	fi
 
-	if [ ! -z "${PROC_NAME}" ] ; then
+	if [ -n "${PROC_NAME}" ] ; then
 		echo "NOTE: no pidfile found, try grep proc name: ${PROC_NAME}"
 		ps -ef | grep "${PROC_NAME}" | grep -v grep
 		return 0

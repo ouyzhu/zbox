@@ -43,7 +43,7 @@ func_techo() {
 	
 	local level="${1}"
 	shift
-	echo -e "${level^^}: $(date "+%Y-%m-%d %H:%M:%S"): $*"
+	echo -e "$(date "+%Y-%m-%d %H:%M:%S") ${level^^} $*"
 }
 
 func_die() {
@@ -1630,8 +1630,8 @@ func_is_array_not_empty() {
 }
 
 
-func_is_array_contans() { func_array_contans "$@" ;}
-func_array_contans() {
+func_is_array_contains() { func_array_contains "$@" ;}
+func_array_contains() {
 	local usage="USAGE: ${FUNCNAME[0]} <element> <array>" 
 	local desc="Desc: check if <array> contains <element>, return 0 if contains, otherwise 1" 
 	func_param_check 2 "$@"

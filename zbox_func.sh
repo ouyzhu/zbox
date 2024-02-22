@@ -332,6 +332,7 @@ zbox_is_plf_support() {
 	local def_base_tver_tadd="${def_base}-${2}-${3}"
 	local def_base_tver_tadd_stg="${def_base}-${2}-${3}-${4}"
 	local plf_base="${ZBOX_CNF}/${1}/${ZBOX_PLF}_${check_for}"
+	local ins_fullpath="$(zbox_gen_ins_fullpath "$@")"
 	echo "DEBUG: check platform for ${check_for} config, current: ${ZBOX_PLF}, check for: $*"
 
 	# OPTION 1: support if have <plf_prefix>_ins-.../stg-... file 
@@ -346,10 +347,10 @@ zbox_is_plf_support() {
 	&& return 1
 
 	# OPTION 3: for stage, if stg inexist, NOT support
-	[ "${check_for}" = "stg" ]							\
-	&& ! [ -f "${def_base_tver}" ]							\
-	&& echo "DEBUG: stg conf (${def_base_tver}) INEXIST, platform NOT supported"	\
-	&& return 1
+	[ "${check_for}" = "stg" ]					\
+	&& [ -e "${ins_fullpath}" ] 					\
+	&& echo "DEBUG: since already installed, stg is supported"	\
+	&& return 0
 
 	# NOTE: ins_plf/stg_plf should be defined in specific tver/tadd/sname config file, NOT in overall stg/ins file (unless it is only for that platform, e.g. macvim)
 	# OPTION 4: "assume" support if no ins_plf/stg_plf property defined
