@@ -1,0 +1,2 @@
+ins_verify   = "ZBOX_INS_FULLPATH/Contents/Home/bin/java -version 2>&1 | grep '^java version' &> /dev/null"
+use_env      = 'JAVA_HOME=ZBOX_INS_FULLPATH/Contents/Home/ PATH=${JAVA_HOME}/bin:${PATH} '
