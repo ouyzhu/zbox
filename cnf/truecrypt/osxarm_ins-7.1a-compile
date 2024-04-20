@@ -1,0 +1,54 @@
+# NOTE
+#
+# since truecrypt stopped dev, need extra files and patches for compile, simple review shows no harm things inside
+# ref: http://www.nerdenmeister.org/2013/08/16/build-truecrypt-on-os-x-64-bit-with-hardware-acceleration/
+#
+# Manual Install: 
+#
+#	For X86, see file: osxx86_ins-7.1a-compile
+#
+#	mac_Sonoma (Using homebrew, No macports)
+#
+#		# (Works) 2024-04: macfuse version: v4.7.1
+#
+#		install macfuse at: https://osxfuse.github.io/
+#		# Then, need restart to enable Startup Security Utility in Recovery Mode
+#		# > Restart > Hold Power Button > Recovery Mode > (input password) > Menu "utility" > Startup Security Utility > Unlock
+#		# > Select "Reduced Security" and enable "Allow user management of kernel extensions from identified developers"
+#
+#		# mac need patch
+#		cd ~/.zbox/tmp/truecrypt-7.1a-compile/
+#		cp -r ~/.zbox/src/truecrypt/extra/* ./
+#		patch -p0 < truecrypt-osx.patch
+#		cp Makefile Makefile.osx
+#
+#		# ins dependecy
+#		brew install nasm wxwidgets pkg-config
+#
+#		# make soft link
+#		cd /opt/local
+#		ln -s ../homebrew/lib ./
+#		ln -s ../../homebrew/bin/nasm ./
+#
+#		# update makefile
+#		vi Makefile.osx
+#		# comment line 124 ~ 139, and add 2 lines
+#		#	CPU_ARCH = arm
+#		#	ASM_OBJ_FORMAT = macho64
+#
+#		# make & check
+#		make -j4 -f Makefile.osx NOGUI=1
+#		./Main/TrueCrypt --version
+#		
+#		# cp to ins
+#		mkdir -p $ZBOX/ins/truecrypt/truecrypt-7.1a-compile/
+#		cp -r ./Main/* $ZBOX/ins/truecrypt/truecrypt-7.1a-compile/
+
+ins_steps               = "src ucd dep make"
+ins_src_addr            = "https://fake_address_as_truecrypt_stopped_dev_7.1a_is_the_last_ver"
+ins_dep_install		= "wxWidgets-3.0 osxfuse wget pkgconfig nasm"
+ins_make_steps          = "clean make"
+ins_make_make_opts	= "-j4 NOGUI=1"
+ins_make_pre_script	= "sudo port select wxWidgets wxWidgets-3.0 && cp -R ZBOX_SRC_FULLDIR/extra/{Pkcs11,truecrypt-osx.patch} ZBOX_UCD_FULLPATH && cd ZBOX_UCD_FULLPATH && patch -p0 < truecrypt-osx.patch"
+ins_make_post_script	= "mkdir ZBOX_INS_FULLPATH && mv ZBOX_UCD_FULLPATH/Main/TrueCrypt ZBOX_INS_FULLPATH;"
+ins_verify		= "ZBOX_INS_FULLPATH/TrueCrypt --version | grep -q 'TrueCrypt 7.1a'"

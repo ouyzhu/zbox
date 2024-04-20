@@ -4,6 +4,9 @@
 # ref: http://www.nerdenmeister.org/2013/08/16/build-truecrypt-on-os-x-64-bit-with-hardware-acceleration/
 #
 # Manual Install: 
+#
+#	For X86, see file: osxarm_ins-7.1a-compile
+#
 #	mac_Big_Sur (works)
 #		# osxfuse closed source, so NO more macports, use its binary installation
 #		# (works) 2023-06: Big Sur: macfuse version: v4.5.0
@@ -12,6 +15,7 @@
 #		sudo ln -s /usr/local/lib/pkgconfig/fuse.pc /opt/local/lib/pkgconfig/fuse.pc
 #
 #		# mac need patch
+#		cd ~/.zbox/tmp/truecrypt-7.1a-compile/
 #		cp -r ~/.zbox/src/truecrypt/extra/* ./
 #		patch -p0 < truecrypt-osx.patch
 #		cp Makefile Makefile.osx
@@ -40,11 +44,9 @@
 #		# Check: should gets "TrueCrypt 7.1a"
 #		Main/TrueCrypt --version
 
-ins_steps               = "src ucd dep make"
-ins_src_addr            = "https://fake_address_as_truecrypt_stopped_dev_7.1a_is_the_last_ver"
-ins_dep_install		= "wxWidgets-3.0 osxfuse wget pkgconfig nasm"
+ins_steps               = "deperecated src ucd dep make"
+#ins_src_addr            = "https://fake_address_as_truecrypt_stopped_dev_7.1a_is_the_last_ver"
 ins_make_steps          = "clean make"
-ins_make_make_opts	= "-j4 NOGUI=1"
-ins_make_pre_script	= "sudo port select wxWidgets wxWidgets-3.0 && cp -R ZBOX_SRC_FULLDIR/extra/{Pkcs11,truecrypt-osx.patch} ZBOX_UCD_FULLPATH && cd ZBOX_UCD_FULLPATH && patch -p0 < truecrypt-osx.patch"
-ins_make_post_script	= "mkdir ZBOX_INS_FULLPATH && mv ZBOX_UCD_FULLPATH/Main/TrueCrypt ZBOX_INS_FULLPATH;"
+#ins_make_make_opts	= "-j4 NOGUI=1"
+#ins_make_post_script	= "mkdir ZBOX_INS_FULLPATH && mv ZBOX_UCD_FULLPATH/Main/TrueCrypt ZBOX_INS_FULLPATH;"
 ins_verify		= "ZBOX_INS_FULLPATH/TrueCrypt --version | grep -q 'TrueCrypt 7.1a'"

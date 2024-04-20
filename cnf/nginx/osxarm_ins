@@ -1,0 +1,8 @@
+#ins_make_configure_opts	= "--prefix=ZBOX_INS_FULLPATH --with-http_ssl_module --with-http_realip_module --with-openssl=/opt/homebrew/bin/openssl --with-ld-opt='-L /opt/homebrew/Cellar/openssl@3/3.2.1/lib/ -ldl -Wl,-rpath,/opt/homebrew/Cellar/openssl@3/3.2.1/lib/'"
+
+# (WORKS) on lapmac3: compile with openssl in brew (brew install openssl@3)
+# (Ref) https://stackoverflow.com/questions/69243776/http-ssl-module-failed-to-install-when-compile-from-source-code-of-nginx
+var_conf_path = "ZBOX_UCD_FULLPATH/auto/lib/openssl/conf"
+var_openssl_path = "/opt/homebrew/Cellar/openssl@3/3.2.1"
+ins_make_pre_script	= "cp ${var_conf_path}{,.bak} ;sed -ie 's+\$OPENSSL/\.\{0,1\}openssl+${var_openssl_path}+' ${var_conf_path}"
+ins_make_configure_opts	= "--prefix=ZBOX_INS_FULLPATH --with-http_ssl_module --with-http_realip_module --with-openssl=${var_openssl_path}"
