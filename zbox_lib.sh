@@ -1527,7 +1527,7 @@ func_ip_of_host() {
 
 func_ip_single() {
 	# some old version of 'sort' NOT support -V, which is better than plain 'sort'
-	func_ip_list | sed -e 's/^\S*\s*//;/^\s*$/d' | sort | tail -1
+	func_ip_list | sed -e 's/^\S*\s*//;/^\s*$/d' | sort | head -1
 }
 
 func_ip_list() {
@@ -1535,9 +1535,9 @@ func_ip_list() {
 	local os_name=${MY_OS_NAME:-$(func_os_name)}
 
 	if func_is_os_osx ; then
-		func_ip_list_via_ifconfig_cygwin
-	elif [ "${os_name}" = "${OS_CYGWIN}" ] ; then
 		func_ip_list_via_ifconfig_osx
+	elif [ "${os_name}" = "${OS_CYGWIN}" ] ; then
+		func_ip_list_via_ifconfig_cygwin
 	elif [ "${os_name}" = "${OS_WIN}" ] ; then
 		func_ip_list_via_ipconfig_win
 	else
@@ -1560,14 +1560,14 @@ func_ip_list_via_ifconfig_cygwin() {
 
 func_ip_list_via_ifconfig_osx() {
 	# output sample: en0:  172.29.160.219
-	/sbin/ifconfig -a | tr -s ' '		\
+	/sbin/ifconfig -a | tr -s ' '			\
 	| awk -F'[% ]' '			
 		/^[a-z]/{print "";printf $1}	
 		/^\s*inet /{printf " " $2}	
 		# Un-comment to show IPv6 addr	
 		# /^\s*inet6 /{printf " " $2}	
-		END{print ""}'			\
-	| sed -e "/127.0.0.1/d;/^\s*$/d;/\s/!d;"\
+		END{print ""}'				\
+	| sed -e "/127.0.0.1/d;/^\s*$/d;/\s/!d;"	\
 	| column -t -s " "
 }
 
