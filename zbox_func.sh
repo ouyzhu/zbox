@@ -120,9 +120,12 @@ ZBOX_LOG="${ZBOX_LOG:-"${ZBOX}/tmp/zbox.log"}"
 ################################################################################
 # Prepare: Check, source, init
 ################################################################################
-# Check Platform. NOTE: the ":" in str_contains check is important, since need full match
+# Check Platform. 
+# NOTE 1: DO NOT exit, only record, to avoid login failure (.bashrc source it)
+# NOTE 2: ":" in str_contains check is important, since need full match
 ZBOX_PLF="$(func_os_name)"
-func_str_not_contains "${OS_OSXX86}:${OS_OSXARM}:${OS_LINUX}:" "${ZBOX_PLF}:" && echo "ERROR: current platform (${ZBOX_PLF}) is NOT supported yet!" && exit 1
+func_str_not_contains "${OS_OSXX86}:${OS_OSXARM}:${OS_LINUX}:${OS_UBUNTU}:" "${ZBOX_PLF}:" \
+&& echo "ERROR: current platform (${ZBOX_PLF}) is NOT supported yet!"  >> "${ZBOX_LOG}" 2>&1
 
 # Check Bash Feature
 # shellcheck disable=2016,2026,2034

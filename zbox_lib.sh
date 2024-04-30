@@ -1261,6 +1261,8 @@ func_gen_local_vars_secure() {
 # System: os/platform/machine
 ################################################################################
 # os name def: ALL IN LOWERCASE !!!
+# shellcheck disable=2034
+OS_UBUNTU="ubuntu"
 OS_OSX="osx"
 OS_OSXX86="osxx86"
 OS_OSXARM="osxarm"
@@ -1277,10 +1279,23 @@ OS_SOLARIS="solaris"
 OS_FREEBSD="freebsd"
 OS_MANDRAKE="mandrake"
 
+func_os_type() {
+	# TODO: not really used yet, always use func_os_name?
+	case "$OSTYPE" in
+		solaris*) echo "SOLARIS" ;;
+		darwin*)  echo "OSX" ;; 
+		linux*)   echo "LINUX" ;;
+		bsd*)     echo "BSD" ;;
+		msys*)    echo "WINDOWS" ;;
+		cygwin*)  echo "ALSO WINDOWS" ;;
+		*)        echo "unknown: $OSTYPE" ;;
+	esac
+}
+
 func_os_name() {
 	# Check release file, some NOT verified
 	if [ -f /etc/lsb-release ] ; then					
-		# \L is to lowercase
+		# \L is to lowercase. Possible value: $OS_UBUNTU
 		sed -n -e "s/DISTRIB_ID=\(\S*\)/\L\1/p" /etc/lsb-release	
 		return
 	elif [ -f /etc/redhat-release ] ; then
