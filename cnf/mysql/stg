@@ -1,6 +1,8 @@
-# INFO: home brew's ins will also create DB by default
+# INFO: homebrew's ins will also create DB by default
 
 stg_dirs             = "bin conf logs data tmp"
+
+# ref: $ZBOX/tpl/<ver>
 stg_tpl_common_ver   = "stg-1.0"
 
 # TODO: use "mysql_secure_installation" for production env after stg for v8.0

@@ -1,0 +1,9 @@
+# INFO: homebrew's ins will also create DB by default
+
+# conf is in data/ dir (gen by pg)
+stg_dirs             = "bin logs data tmp"
+
+# ref: $ZBOX/tpl/<ver>
+stg_tpl_common_ver   = "stg-1.0"
+
+stg_post_script      = "bash ZBOX_STG_FULLPATH/bin/script.initdb.sh"

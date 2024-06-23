@@ -1,0 +1,4 @@
+ins_steps           = "src ucd move"
+ins_verify          = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/psql --version | grep '^psql' &> /dev/null"
+use_env             = 'PG_HOME=ZBOX_INS_FULLPATH'
+ins_plf             = 'osxarm,osxx86,linux'
