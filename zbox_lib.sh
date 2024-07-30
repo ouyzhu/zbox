@@ -10,19 +10,48 @@
 # 	sudo apt-get instal
 # - lots tool need gnu, how to check?
 #	sort/find/sed/awk
+
 ################################################################################
 # Const
 ################################################################################
 PARAM_NON_INTERACTIVE_MODE="param_non_interactive_mode"
+DEFAULT_TIME_ZONE="Asia/Shanghai"
 
 ################################################################################
 # Time
 ################################################################################
-func_date() { date "+%Y-%m-%d";				}
-func_time() { date "+%H-%M-%S";				}
-func_dati() { date "+%Y-%m-%d_%H-%M-%S";		}
-func_nanosec()  { date +%s%N;				}
-func_millisec() { echo $(($(date +%s%N)/1000000));	}
+func_time() { date "+%H-%M-%S";						}
+func_date() { TZ="${DEFAULT_TIME_ZONE}" date "+%Y-%m-%d";		}
+func_dati() { TZ="${DEFAULT_TIME_ZONE}" date "+%Y-%m-%d_%H-%M-%S";	}
+func_nanosec()  { date +%s%N;						}
+func_millisec() { echo $(($(date +%s%N)/1000000));			}
+
+func_is_str_date() {
+	local usage="Usage: ${FUNCNAME[0]} <date_str>" 
+	local desc="Desc: check if str is in +%Y-%m-%d format"
+	func_param_check 1 "$@"
+	
+	func_is_str_dati "$(func_str_trim "${1}")_00-00-00"
+}
+
+func_is_str_dati() {
+	local usage="Usage: ${FUNCNAME[0]} <dati_str>" 
+	local desc="Desc: check if str is in +%Y-%m-%d_%H-%M-%S format"
+	func_param_check 1 "$@"
+
+	# date只能解析通用格式，无法通过指定格式来解析。
+	# 注: Python可以: datetime.datetime.strptime(str, "%Y-%m-%d_%H-%M-%S")
+	[[ "$(func_str_trim "${1}")" =~ ^[1-2][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]_[0-2][0-9]-[0-5][0-9]-[0-5][0-9]$ ]] && return 0 || return 1
+}
+
+func_date_in_dati() {
+	local usage="Usage: ${FUNCNAME[0]} <dati_str>" 
+	local desc="Desc: extract date str from dati str"
+	func_param_check 1 "$@"
+
+	func_is_str_dati "${1}" || func_die "ERROR: ${1} is NOT a dati string, pls check!"
+	echo "${1%_*}"
+}
 
 ################################################################################
 # Misc
@@ -578,6 +607,10 @@ func_file_line_count() {
 	wc -l "${1}" | cut -d' ' -f1
 }
 
+func_file_size_human() {
+	func_num_to_human "$(func_file_size "$@")"
+}
+
 func_file_size() {
 	local usage="Usage: ${FUNCNAME[0]} <target>"
 	local desc="Desc: get file size, in Bytes" 
@@ -952,7 +985,13 @@ func_rsync_simple() {
 	local desc="Desc: rsync between source and target" 
 	[ $# -lt 2 ] && echo -e "${desc} \n ${usage} \n" && exit 1
 
-	local src tgt
+	local src tgt rsync_big_ver
+
+	# check rsync version
+	rsync_big_ver="$(rsync --version | head -1 | sed -e "s/^[^0-9]*\([0-9]\).*$/\1/" )"
+	(( "${rsync_big_ver}" < 3 )) && func_die "ERROR: rsync verison too low, exit, pls check!"
+
+	# check path
 	src="${1}"
 	tgt="${2}"
 	shift; shift;
@@ -1658,6 +1697,19 @@ func_array_contains() {
 	return 1
 }
 
+func_array_join() {
+	local usage="USAGE: ${FUNCNAME[0]} <separator_str> <array-elements>" 
+	local desc="Desc: join items by separator (string)" 
+	func_param_check 2 "$@"
+	
+	local separator="${1-}"
+	local first_item="${2-}"
+	if shift 2; then
+		# '/#' means prepend "${separator}" string to each element
+		printf "%s" "${first_item}" "${@/#/${separator}}"
+	fi
+}
+
 ################################################################################
 # Data Type: number
 ################################################################################
@@ -1737,6 +1789,9 @@ func_sum_1st_columm_SI() {
 ################################################################################
 # Data Type: string
 ################################################################################
+# 更多 (定义在本文件的其它地方) 
+# func_is_str_dati
+# func_is_str_date　
 func_is_str_empty() {
 	local usage="Usage: ${FUNCNAME[0]} <string...>"
 	local desc="Desc: check if string is empty (or not defined), return 0 if empty, otherwise 1" 
@@ -1747,10 +1802,9 @@ func_is_str_empty() {
 
 func_is_str_digit() {
 	local usage="Usage: ${FUNCNAME[0]} <string>"
-	local desc="Desc: check if string is digit, return 0 if yes, otherwise 1" 
+	local desc="Desc: check if string contains only digit, return 0 if yes, otherwise 1" 
 	func_param_check 1 "$@"
 
-	# TODO: _-. might also in digit?
 	[[ "${1}" =~ ^[0-9]+$ ]] && return 0 || return 1
 }
 
