@@ -598,6 +598,10 @@ func_mkdir_cd() {
 	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
 }
 
+func_file_lines() {
+	func_file_line_count "$@"
+}
+
 func_file_line_count() {
 	local usage="Usage: ${FUNCNAME[0]} <file>"
 	local desc="Desc: output only lines of file" 
@@ -608,7 +612,8 @@ func_file_line_count() {
 }
 
 func_file_size_human() {
-	func_num_to_human "$(func_file_size "$@")"
+	#func_num_to_human "$(func_file_size "$@")"
+	func_num_to_human_IEC "$(func_file_size "$@")"
 }
 
 func_file_size() {
@@ -794,7 +799,7 @@ func_backup_simple() {
 	# check size of available space
 	available_space="$(func_available_space_of_path "${target_dir}")"
 	if (( size + 500*1000*1000 > available_space )); then
-		func_error "available space too small ($(func_num_to_human "${available_space}")), less than 500M after copy" 1>&2
+		func_error "available space too small ($(func_num_to_human_IEC "${available_space}")), less than 500M after copy" 1>&2
 		return 1
 	fi
 
@@ -966,14 +971,16 @@ func_rsync_ask_then_run() {
 	rsync_stat_str_2='Number of deleted files: 0$'
 	rsync_stat_str_3='Number of regular files transferred: 0$'
 	if grep -q "${rsync_stat_str_1}" "${tmp_file_1}" &&  grep -q "${rsync_stat_str_2}" "${tmp_file_1}" &&  grep -q "${rsync_stat_str_3}" "${tmp_file_1}" ; then
-		echo "INFO: nothing need to update for: ${1} -> ${2}, detail log: ${tmp_file_1}"
+		echo "INFO: ${1} -> ${2}: nothing need to update"
+		echo "INFO: ${1} -> ${2}: detail log: ${tmp_file_1}"
 		return 0
 	fi
 
 	# show brief and ask
 	func_rsync_out_brief "${tmp_file_1}" 
 	sleep 1
-	echo "INFO: there are changes for: ${1} -> ${2}, detail log: ${tmp_file_1}"
+	echo "INFO: there are changes for: ${1} -> ${2}"
+	echo "INFO: detail log: ${tmp_file_1} ( $(func_file_lines "${tmp_file_1}" lines ) )"
 	func_ask_yes_or_no "Do you want to run (y/n)?" || return 1 
 	[[ "$*" = *--delete* ]] || opt_del="--delete"
 	func_rsync_simple "$@" ${opt_del}
@@ -1748,9 +1755,26 @@ func_is_positive_int() {
 	func_is_int "${num}" && (( num > 0 )) && return 0 || return 1
 }
 
+func_num_to_human_IEC() {
+	local usage="Usage: ${FUNCNAME[0]} <number>"
+	local desc="Desc: convert to number to human readable form (IEC std, 1K=1024)" 
+	func_param_check 1 "$@"
+	
+	echo "${1}" | numfmt --to=iec
+}
+
+func_num_to_human_SI() {
+	local usage="Usage: ${FUNCNAME[0]} <number>"
+	local desc="Desc: convert to number to human readable form (SI std, 1K=1000)" 
+	func_param_check 1 "$@"
+	
+	echo "${1}" | numfmt --to=si
+}
+
+# deprecated by: func_num_to_human_SI / func_num_to_human_IEC
 func_num_to_human() {
 	local usage="Usage: ${FUNCNAME[0]} <number>"
-	local desc="Desc: convert to number to human readable form, like: 4096 to 4K" 
+	local desc="Desc: convert to number to human readable form (IEC std, 1K=1024)"
 	func_param_check 1 "$@"
 	
 	local fraction=''
@@ -1762,7 +1786,8 @@ func_num_to_human() {
 	while ((number > 1024)); do
 		fraction="$(printf ".%02d" $((number % 1024 * 100 / 1024)))"
 		number=$((number / 1024))
-		let unit_index++
+		# let unit_index++
+		(( unit_index++ ))
 	done
 	echo "${number}${fraction}${UNIT[$unit_index]}"
 }
