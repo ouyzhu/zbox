@@ -4,7 +4,7 @@ ins_steps    = "src copy"
 # --no-update-rc will not update ~/.bashrc (source the ~/.fzf.bash), zbox do this via "use_cmd"
 ins_post_script     = "cd ZBOX_INS_FULLPATH ; bash install --key-bindings --completion --no-update-rc --no-zsh"
 
-ins_verify   = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/fzf --help 2>&1 | grep '^usage: fzf' &> /dev/null"
+ins_verify   = "source 'ZBOX_INS_FULLPATH'_env ; ZBOX_INS_FULLPATH/bin/fzf --help 2>&1 | grep '^[Uu]sage: fzf' &> /dev/null"
 
 # Candidates Settings
 # FZF_DEFAULT_COMMAND='ag -g ""'				# default use cmd 'find'

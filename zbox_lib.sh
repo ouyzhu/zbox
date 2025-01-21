@@ -10,17 +10,23 @@
 # 	sudo apt-get instal
 # - lots tool need gnu, how to check?
 #	sort/find/sed/awk
+# - use alias for function instead of func invoke
 
 ################################################################################
 # Const
 ################################################################################
 PARAM_NON_INTERACTIVE_MODE="param_non_interactive_mode"
 DEFAULT_TIME_ZONE="Asia/Shanghai"
+UNCOMFIRMED_YM="0000-00"
+FIND_UTIL_EXCLUDE=".fu.exclude"
+FIND_UTIL_FILESIZE=".fu.filesize"
 
 ################################################################################
 # Time
 ################################################################################
 func_time() { date "+%H-%M-%S";						}
+func_daty() { TZ="${DEFAULT_TIME_ZONE}" date "+%Y";			}
+func_datm() { TZ="${DEFAULT_TIME_ZONE}" date "+%Y-%m";			}
 func_date() { TZ="${DEFAULT_TIME_ZONE}" date "+%Y-%m-%d";		}
 func_dati() { TZ="${DEFAULT_TIME_ZONE}" date "+%Y-%m-%d_%H-%M-%S";	}
 func_nanosec()  { date +%s%N;						}
@@ -56,14 +62,25 @@ func_date_in_dati() {
 ################################################################################
 # Misc
 ################################################################################
-func_info() { func_techo "INFO" "$@" ; }
-func_warn() { func_techo "WARN" "$@" ; }
-func_error() { func_techo "ERROR" "$@" ; }
-func_debug() { [ "${ME_DEBUG}" = 'true' ] && func_techo "DEBUG" "$@" ; }
+func_info()         { func_techo "INFO"  "$@" ; }
+func_warn()         { func_techo "WARN"  "$@" ; }
+func_error()        { func_techo "ERROR" "$@" ; }
+func_debug()        { [[ "${ME_DEBUG}" == 'true' ]] && func_techo "DEBUG" "$@" ; }
+func_warn_stderr()  { func_warn  "$@" 1>&2 ; }
+func_error_stderr() { func_error "$@" 1>&2 ; }
 func_debug_stderr() { func_debug "$@" 1>&2 ; }
 
-# for backward compitability
-func_decho() { func_debug "$@" ; }
+func_var_to_str()    {
+	local usage="Usage: ${FUNCNAME[0]} <var-name> ..." 
+	local desc="Desc: concat var name-value pairs into str, simplify the code"
+	func_param_check 1 "$@"
+	
+	local v
+	for v in "$@" ; do 
+		printf "%s: '%q'" "${v}" "${!v}"
+	done
+	# TODO
+}
 
 func_techo() {
 	local usage="Usage: ${FUNCNAME[0]} <level> <msg>" 
@@ -102,6 +119,11 @@ func_ask_yes_or_no() {
 	done
 }
 
+func_param_complain() {
+	PARAM_COMPLAIN=true func_param_check "$@"
+}
+
+func_param_validate() { func_param_check "$@" ; }
 func_param_check() {
 	# Self param check. use -lt, so the exit status will not changed in legal condition
 	# NOT use desc/usage var name, so invoker could call 'func_param_check 2 "$@"' instead of 'func_param_check 2 "${desc}\n${usage}\n" "$@"'
@@ -110,18 +132,24 @@ func_param_check() {
 	local self_warn="Warn: (YOU SCRIPT HAS BUG) might be: \n\t1) NOT provide <count> or any <string> \n\t2) called ${FUNCNAME[0]} but actually not need to check" 
 	[ $# -lt 1 ] && func_die "${self_warn}\n${self_desc}\n${self_usage}\n"	
 	
-	local count=$1
+	local error_msg count
+	count="${1}"
 	shift
 
-	# shellcheck disable=2015
-	[[ "${count}" =~ ^[-]*[0-9]+$ ]] && (( count > 0 )) || func_die "ERROR: <count> of ${FUNCNAME[0]}, must be a positive number"
+	error_msg="${desc}\n${usage}\n"
+	#[[ "${count}" =~ ^[-]*[0-9]+$ ]] && (( count > 0 )) || func_die "ERROR: <count> of ${FUNCNAME[0]}, must be a positive number"
+	[[ "${count}" =~ ^[-]*[0-9]+$ ]] && (( count > 0 )) || error_msg="${error_msg}\nERROR: <count> of ${FUNCNAME[0]}, must be a positive number"
 
 	# do NOT call func_is_str_blank here, which cause infinite loop and "Segmentation fault: 11"
-	local error_msg="${desc}\n${usage}\n"
-	[ -z "${error_msg//[[:blank:]\\n]}" ] && error_msg="ERROR: parameter counts less than expected (expect ${count}), and desc/usage NOT defined."
+	[ -z "${error_msg//[[:blank:]\\n]}" ] && error_msg="ERROR: param counts < expected (${count}), and desc/usage NOT defined."
 
 	# real parameter check
-	[ $# -lt "${count}" ] && func_die "${error_msg}"
+	if [ $# -lt "${count}" ] ; then
+		echo -e "${error_msg}" 1>&2
+		[[ "${PARAM_COMPLAIN}" == 'true' ]] && return 0
+		exit 1
+	fi
+	return 1
 }
 
 func_vcs_update() {
@@ -305,6 +333,43 @@ func_is_pid_running() {
 }
 
 ################################################################################
+# MultiMedia
+################################################################################
+func_media_time_ym() {
+	local usage="Usage: ${FUNCNAME[0]} <file>"
+	local desc="Desc: extract year/month info from media (format: YYYY-mm), return ${UNCOMFIRMED_YM} if failed"
+	func_param_check 1 "$@"
+
+	func_complain_cmd_not_exist exiftool "exiftool NOT installed, pls check (zbox have it)" && return 1		# zbox / homebrew / apt install exiftool
+
+	local dm f tag
+	f="${1}"
+	for tag in DateTimeOriginal CreateDate ModifyDate GPSDateStamp; do
+		# GPSDateStamp ALWAYS output in "%Y:%m:%d" format, so use this format to unify the following process
+		dm="$(exiftool -s -"${tag}" -d "%Y:%m:%d" "${f}" | sed -e 's/^.*: \+//;s/:/-/g;s/-..$//;')"
+		if func_is_std_format_ym "${dm}" ; then
+			#echo "INFO: get Date-Month ${STR_SUCCESS}: ${dm} (${tag}, ${f##*"${BASENAME}"/})" >> "${log_file}"
+			echo "${dm}" 
+			return 0
+		fi
+	done
+
+	echo "${UNCOMFIRMED_YM}"
+	return 1
+}
+
+func_is_std_format_ym() {
+	local usage="Usage: ${FUNCNAME[0]} <str>"
+	local desc="Desc: check if time in 'YYYY-mm' format"
+	func_param_check 1 "$@"
+
+	func_is_str_blank "${1}" && return 1
+
+	# ${UNCOMFIRMED_YM} is NOT valid, so invoker of func_media_time_ym can do more logic for it
+	[[ "${1}" == 20[0-9][0-9]-[0-9][0-9] ]] && return 0 || return 1
+}
+
+################################################################################
 # Pattern_Matching (regex / patterns) (also see ~Text_Process )
 ################################################################################
 func_grepf() {
@@ -316,7 +381,7 @@ func_grepf() {
 	FUNC_GREPF_MAX_PATTERN_LINE="${FUNC_GREPF_MAX_PATTERN_LINE:=2000}"
 
 	# Parse params
-	local p params pattern_file pattern_file_line_count pipe_mode
+	local p params pattern_file pattern_file_line_count
 	for p in "$@"; do 
 		[[ -z "${p}" ]] && shift && continue
 		[[ "${p}" == "--" ]] && shift && break
@@ -325,80 +390,102 @@ func_grepf() {
 
 	# Check pattern file
 	pattern_file="${1}"
+	shift
 	func_validate_path_exist "${pattern_file}"
-	pattern_file_line_count="$(func_del_blank_and_hash_lines "${pattern_file}" | wc -l)"
+	pattern_file_line_count="$(func_del_blank_hash_lines "${pattern_file}" | wc -l)"
 
 	# Check mode
-	pipe_mode='true'
-	[[ -n "${2}" ]] && pipe_mode='false' && shift
+	#[[ -n "${1}" ]] && pipe_mode='false' || pipe_mode='true'
 
 	# shellcheck disable=2086
 	# NOTE: 1) SHOULD support both pipe and file. 2) do NOT quote $params. 
 	if (( pattern_file_line_count <= FUNC_GREPF_MAX_PATTERN_LINE )) ; then
-
 		func_debug_stderr "Not need to split pattern file: ${pattern_file_line_count} <= ${FUNC_GREPF_MAX_PATTERN_LINE}"
-		if [[ "${pipe_mode}" = 'true' ]] ; then
-			grep ${params} -f <(func_del_blank_and_hash_lines "${pattern_file}")
-		else
-			grep ${params} -f <(func_del_blank_and_hash_lines "${pattern_file}") "$@"
-		fi
-	else
-		local pattern_file_md5 tmp_split_dir
-		pattern_file_md5="$(md5sum "${pattern_file}" | cut -d' ' -f1)"
-		tmp_split_dir="/tmp/func_grepf-pattern-split-${FUNC_GREPF_MAX_PATTERN_LINE}-${pattern_file_md5}"
-		func_debug_stderr "Split pattern file (${pattern_file_line_count} > ${FUNC_GREPF_MAX_PATTERN_LINE}) into: ${tmp_split_dir}"
+		func_debug_stderr "CMD: grep ${params} -f <(func_del_blank_hash_lines ${pattern_file}) $*"
 
-		# Split
+		# PIPE_CONTENT_GOES_HERE
+		grep ${params} -f <(func_del_blank_hash_lines "${pattern_file}") "$@"
+	else
+		local tmp_split_dir tmp_split_f_prefix tmp_in tmp_out f 
+		tmp_split_f_prefix="$(mktemp -d)/func_grepf.tmp" 
+		tmp_split_dir="/tmp/func_grepf-pattern-split-${FUNC_GREPF_MAX_PATTERN_LINE}-$(func_file_md5sum "${pattern_file}")"
+
+		func_debug_stderr "Split/Reuse pattern file (${pattern_file_line_count} > ${FUNC_GREPF_MAX_PATTERN_LINE}) at: ${tmp_split_f_prefix%/*}/"
 		if [ ! -d "${tmp_split_dir}" ] ; then
 			mkdir -p "${tmp_split_dir}" 
-			split -d -l "${FUNC_GREPF_MAX_PATTERN_LINE}" <(func_del_blank_and_hash_lines "${pattern_file}") "${tmp_split_dir}/${pattern_file##*/}-" 
-		else
-			func_debug_stderr "reuse splited pattern files in: ${tmp_split_dir}/"
+			split -d -l "${FUNC_GREPF_MAX_PATTERN_LINE}" <(func_del_blank_hash_lines "${pattern_file}") "${tmp_split_dir}/${pattern_file##*/}-" 
 		fi
 
-		# Use splited pattern files one by one
-		local tmp_name_prefix tmp_in tmp_out f 
-		tmp_name_prefix="$(mktemp -d)/func_grepf.tmp" 
-		func_debug_stderr "use pattern files one by one, check tmp file at: ${tmp_name_prefix%/*}/"
-		for f in "${tmp_split_dir}"/* ; do
-			[[ -s "${f}" ]] || continue
+		# 注意: 有和没有参数 "-v" 方式是不一样的，所以需要分开不同的逻辑。
+		if func_str_contains "${params}" " -v" ; then
 
-			# 1st round need check mode, then all based on file
-			tmp_out="${tmp_name_prefix}-${f##*/}" 
-			if [[ ! -e "${tmp_in}" ]] && [[ "${pipe_mode}" = 'true' ]] ; then	grep ${params} -f "${f}" > "${tmp_out}"
-			elif [[ ! -e "${tmp_in}" ]] && [[ "${pipe_mode}" = 'false' ]] ; then	grep ${params} -f "${f}" "$@" > "${tmp_out}"
-			else									grep ${params} -f "${f}" "${tmp_in}" > "${tmp_out}"
-			fi
-			tmp_in="${tmp_out}"
+			func_debug_stderr "params contain '-v'. 逻辑: 针对输入一个个pattern文件过滤即可，最后一个过滤出的文件即为结果"
+			for f in "${tmp_split_dir}"/* ; do
+				[[ -s "${f}" ]] || continue
+				tmp_out="${tmp_split_f_prefix}-OUTPUT-${f##*/}" 
 
-		done
+				if [[ ! -e "${tmp_in}" ]] ; then	
+					# PIPE_CONTENT_GOES_HERE, 1st round goes here, other rount goes in 'else' block
+					grep ${params} -f "${f}" "$@" > "${tmp_out}"
+				else									
+					grep ${params} -f "${f}" "${tmp_in}" > "${tmp_out}"
+				fi
+				tmp_in="${tmp_out}"
+			done
+		else
+			local tmp_in_0 tmp_in_1
+			tmp_in_0="${tmp_split_f_prefix}-INPUT-ALL" 
+			tmp_out="${tmp_split_f_prefix}-OUTPUT-ALL" 
+
+			func_debug_stderr "params NOT contain '-v'. 逻辑: 依次用pattern扫描，累积到结果文件。注意: 匹配过的行需用'-v'过滤掉，以免被后续pattern文件再次匹配"
+
+			# PIPE_CONTENT_GOES_HERE, 输入要先全部保留下来
+			grep "" "$@" > "${tmp_in_0}"
+
+			for f in "${tmp_split_dir}"/* ; do
+				[[ -s "${f}" ]] || continue
+
+				tmp_in_1="${tmp_split_f_prefix}-INPUT-${f##*/}" 
+				grep ${params} -f "${f}" "${tmp_in_0}" >> "${tmp_out}"
+				grep ${params} -v -f "${f}" "${tmp_in_0}" > "${tmp_in_1}"
+				tmp_in_0="${tmp_in_1}"
+			done
+		fi
+
 		cat "${tmp_out}"
-
-		# TODO: delete tmp files: rm -r "${tmp_name_prefix%/*}/"
+		# cleanup? : delete tmp files: rm -r "${tmp_split_f_prefix%/*}/"
 	fi
 }
 
 func_del_blank_lines() {
-	# can run with pipe or file
+	# PIPE_CONTENT_GOES_HERE 
 	func_del_pattern_lines '^[[:space:]]*$' -- "$@"
 }
 
+func_del_blank_hash_lines() { func_del_blank_and_hash_lines "$@" ; }
 func_del_blank_and_hash_lines() {
-	# can run with pipe or file
+	# PIPE_CONTENT_GOES_HERE 
 	func_del_pattern_lines '^[[:space:]]*$' '^[[:space:]]*#' -- "$@"
+}
+
+func_del_string_lines_f() {
+	local usage="Usage: ${FUNCNAME[0]} <string_file> [input_file...]"
+	local desc="Desc: delete string (NOT pattern) listed in <string_file>" 
+	func_param_check 1 "$@"
+
+	func_grepf -v -F "$@"
 }
 
 func_del_pattern_lines_f() {
 	local usage="Usage: ${FUNCNAME[0]} <pattern_file> [input_file...]"
-	local desc="Desc: delete patterns listed in file" 
+	local desc="Desc: delete patterns listed in <pattern_file>" 
 	func_param_check 1 "$@"
 
-	#grep -ivf "${1}" "${2}"
 	func_grepf -v "$@"
 }
 
 func_del_pattern_lines() {
-	local usage="Usage: ${FUNCNAME[0]} <pattern1> <pattern2> ... <patternN> -- [file1] [file2] ... [fileN]"
+	local usage="Usage: <OTHER_CMD> | ${FUNCNAME[0]} <pattern1> ... <patternN> -- [file1] [file2] ... [fileN]"
 	local desc="Desc: delete patterns listed in paraemter, NOTE: if against files the '--' MUST used as separator!" 
 	func_param_check 1 "$@"
 
@@ -411,11 +498,8 @@ func_del_pattern_lines() {
 		shift
 	done
 
-	if [[ -z "${1}" ]] ; then
-		grep -v "${patterns#\\|}"
-	else
-		grep -v "${patterns#\\|}" "$@"
-	fi
+	# PIPE_CONTENT_GOES_HERE 
+	grep -v "${patterns#\\|}" "$@"
 }
 
 # func_file_remove_lines() {
@@ -483,23 +567,45 @@ func_del_pattern_lines() {
 ################################################################################
 func_merge_lines() { func_combine_lines "$@"; }
 func_combine_lines() {
-	local usage="Usage: ${FUNCNAME[0]} <n> <separator> [file]"
-	local desc="Desc: combine <n> lines into 1 line" 
-	func_param_check 2 "$@"
+	local usage="Usage: <OTHER_CMD> | ${FUNCNAME[0]} -b <begin_str> -e <end_str> -s <sep_str> -n <n, default: 2> [file]"
+	local desc="Desc: combine [n] (default is 2) not-blank-or-hash lines into 1 line: <begin_str><LINE-CONTENT><end_str><sep_str>..."
 
-	local count="${1}" 
-	local separator="${2}"
-	shift; shift;
+	# check getopt verison (need 
+	getopt --test
+	[[ "$?" != 4 ]] && func_warn_stderr "getopt is NOT util-linux version, pls check"
 
-	#'NR%3{printf "%s,",$0;next;}{print $0}' "${input}" > "${tmp_csv_merge}"
-	awk -v count="${count}" -v separator="${separator}" \
-	'NR%count {
-		printf "%s%s", $0, separator;
-		next;
-	}
-	{
-		print $0
-	}' "$@"
+	# parse argument, note the quotes around "$TEMP": they are essential!
+	local TEMP begin end sep count
+	TEMP=$(getopt -o 'b:e:s:n:' --long 'begin:,end:,sep:,count:' -n "${FUNCNAME[0]}" -- "$@")
+	eval set -- "$TEMP"
+	unset TEMP
+	count=2
+	while true; do
+		case "${1}" in
+			'-n'|'--count')	count="${2}"; shift 2; continue ;;
+			'-b'|'--begin')	begin="${2}"; shift 2; continue ;;
+			'-e'|'--end')	end="${2}"; shift 2; continue ;;
+			'-s'|'--sep')	sep="${2}"; shift 2; continue ;;
+			'--')		shift; break ;;
+			*)		func_warn_stderr "parse arguments failed: $*" ; exit 1 ;;
+		esac
+	done
+
+	# CRLF line terminators need to convert
+	# PIPE_CONTENT_GOES_HERE. Old: 'NR%3{printf "%s,",$0;next;}{print $0}' "${input}" > "${tmp_csv_merge}"
+	func_del_blank_hash_lines "$@" \
+	| sed 's/$//' \
+	| awk -v begin="${begin}" -v end="${end}" -v sep="${sep}" -v count="${count}" \
+		'NR%count {
+			# (count-1)th lines goes here
+			printf "%s%s%s%s", begin, $0, end, sep;
+			next;
+		}
+		{
+			# (count)th line goes here
+			printf "%s%s%s\n", begin, $0, end ;
+		}' \
+	| sed -e "s/${sep}$//"
 }
 
 func_shrink_pattern_lines() {
@@ -527,16 +633,13 @@ func_shrink_pattern_lines() {
 
 # shellcheck disable=2120
 func_shrink_blank_lines() {
-	local usage="Usage: ${FUNCNAME[0]} [file]"
+	local usage="Usage: <OTHER_CMD> | ${FUNCNAME[0]} [file]"
 	local desc="Desc: shrink blank lines, multiple consecutive blank lines into 1" 
 
-	# NOT use func_del_blank_lines, since it delete all blank lines
-	if [[ -n "${1}" ]] ; then
-		func_complain_path_not_exist "${1}" && return 1
-		sed -r 's/^\s+$//' "${1}" | cat -s
-	else
-		sed -r 's/^\s+$//' | cat -s
-	fi
+	[[ -n "${1}" ]] && func_complain_path_not_exist "${1}" && return 1
+
+	# PIPE_CONTENT_GOES_HERE, NOT use func_del_blank_lines, since it delete all blank lines
+	sed -r 's/^\s+$//' "$@" | cat -s
 
 }
 
@@ -545,22 +648,20 @@ func_shrink_dup_lines() {
 	local usage="Usage: ${FUNCNAME[0]} [pattern-file]"
 	local desc="Desc: shrink duplicated lines (and merge blank lines), without sorting" 
 
+	[[ -n "${1}" ]] && func_complain_path_not_exist "${1}" && return 1
+
 	# Candidates
 	# awk '!x[$0]++'				# remove duplicate lines without sorting. (++) is performed after (!), which is crucial
 	# awk '!x[$0]++ { print $0; fflush() }'		# helps when output a.s.a.p.
 	# awk 'length==0 || !x[$0]++'			# retain empty line
 	# awk '($0 ~ /^[[:space:]]*$/) || !x[$0]++'	# retain blank line
 
-	if [[ -n "${1}" ]] ; then
-		func_complain_path_not_exist "${1}" && return 1
-		awk '($0 ~ /^[[:space:]]*$/) || !x[$0]++' "${1}" | func_shrink_blank_lines
-	else
-		awk '($0 ~ /^[[:space:]]*$/) || !x[$0]++' | func_shrink_blank_lines
-	fi
+	# PIPE_CONTENT_GOES_HERE 
+	awk '($0 ~ /^[[:space:]]*$/) || !x[$0]++' "$@" | func_shrink_blank_lines
 }
 
 ################################################################################
-# File System
+# File System: basic
 ################################################################################
 func_cd() {
 	local usage="Usage: ${FUNCNAME[0]} <path>" 
@@ -598,24 +699,61 @@ func_mkdir_cd() {
 	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
 }
 
-func_file_lines() {
-	func_file_line_count "$@"
+func_mv_structurally() { 
+	local usage="Usage: ${FUNCNAME[0]} <fd_path> <tgt_base> [src_base]"
+	local desc="Desc: mv <fd_path> from <tgt_base>, use <src_base> to determine what dir hierarchy to perserve (none if omit)"
+	func_param_check 2 "$@"
+
+	local src_base tgt_base src_path rel_path
+
+	# PWD as src_base default value
+	src_path="$(readlink -f "${1}")"
+ 	tgt_base="$(readlink -f "${2}")"
+	[[ -n "${3}" ]] && src_base="$(readlink -f "${3}")/" || src_base="$(readlink -f "${PWD}")"
+
+	# Check
+	func_complain_path_inexist "${src_path}" && return 1
+	[[ ! -d "${tgt_base}" ]] && func_error "${tgt_base} should be a dir, pls check" && return 1
+
+	# count rel_path
+	if func_str_not_contains "${src_path}" "${src_base}" ; then
+		func_error "src_base should be part of src_path (is src_path a link?), pls check: ${src_path} V.S. ${src_base}"
+		return 1
+	fi
+	rel_path="${src_path##*"${src_base}"}"
+
+	# Perform
+	tgt_dir="$(dirname "${tgt_base}/${rel_path}")"
+	mkdir -p "${tgt_dir}" &> /dev/null
+	func_debug mv "${src_path}" "${tgt_dir}"
+	mv "${src_path}" "${tgt_dir}" 
 }
 
+func_file_line_count_clean() {
+	local usage="Usage: ${FUNCNAME[0]} <file>"
+	local desc="Desc: output only lines of file (exclude blank and hash lines)" 
+	func_param_check 1 "$@"
+
+	func_del_blank_hash_lines "${1}" | wc -l
+}
+
+func_file_lines() { func_file_line_count "$@"; }
 func_file_line_count() {
 	local usage="Usage: ${FUNCNAME[0]} <file>"
 	local desc="Desc: output only lines of file" 
 	func_param_check 1 "$@"
 
 	func_complain_path_not_exist "${1}" && return 1
-	wc -l "${1}" | cut -d' ' -f1
+	wc -l "${1}" | awk '{print $1}'
 }
 
+func_path_size_human() { func_file_size_human "$@"; }
 func_file_size_human() {
 	#func_num_to_human "$(func_file_size "$@")"
 	func_num_to_human_IEC "$(func_file_size "$@")"
 }
 
+func_path_size() { func_file_size "$@"; }
 func_file_size() {
 	local usage="Usage: ${FUNCNAME[0]} <target>"
 	local desc="Desc: get file size, in Bytes" 
@@ -627,6 +765,30 @@ func_file_size() {
 	else
 		stat --printf="%s" "${1}"
 	fi
+}
+
+func_path_common_base() {
+	local usage="Usage: <OTHER_CMD> | ${FUNCNAME[0]} \n ${FUNCNAME[0]} <file> [file] ..."
+	local desc="Desc: get common base of file paths, via pipe or paths store in <file>"
+
+	local result
+
+	# 处理空行，注释行，前缀空格
+	result="$(cat "$@" | func_del_blank_hash_lines | func_str_common_prefix | sed -e 's+[^/]*$++')"
+
+	# "/"为保底路径
+	echo "${result:-/}"
+}
+
+func_file_md5sum() { 
+	local usage="Usage: ${FUNCNAME[0]} <file>"
+	local desc="Desc: get file size, in Bytes" 
+	func_param_check 1 "$@"
+
+	[[ ! -e "${1}" ]] && func_error_stderr "file not found, skip gen md5: ${1}" && return 1
+
+	# 用head相比cut/awk，好处是没有结尾的'\n'，不过有它似乎很多场景下也没问题
+	md5sum "${1}" | head -c 32
 }
 
 func_ln_soft() {
@@ -723,8 +885,8 @@ func_complain_path_not_exist() {
 	local desc="Desc: complains if path not exist, return 0 if not exist, otherwise 1" 
 	func_param_check 1 "$@"
 	
-	func_is_str_blank "${1}" && echo "ERROR: ${FUNCNAME[0]}: parameter is blank!" 1>&2 && return 0
-	[ ! -e "${1}" ] && echo "${2:-WARN: path ${1} NOT exist}" 1>&2 && return 0
+	func_is_str_blank "${1}" && func_error_stderr "${FUNCNAME[0]}: path param blank!" && func_script_stacktrace && return 0
+	[ ! -e "${1}" ] && func_error_stderr "${2:-WARN: path ${1} NOT exist}" && return 0
 	return 1
 }
 
@@ -797,7 +959,7 @@ func_backup_simple() {
 	fi
 
 	# check size of available space
-	available_space="$(func_available_space_of_path "${target_dir}")"
+	available_space="$(func_disk_available_space "${target_dir}")"
 	if (( size + 500*1000*1000 > available_space )); then
 		func_error "available space too small ($(func_num_to_human_IEC "${available_space}")), less than 500M after copy" 1>&2
 		return 1
@@ -814,14 +976,90 @@ func_backup_simple() {
 	echo "${2}" 
 }
 
-func_available_space_of_path() {
-	local usage="Usage: ${FUNCNAME[0]} <file>"
+################################################################################
+# File System: Disk
+################################################################################
+func_disk_mount_point() {
+	local usage="Usage: ${FUNCNAME[0]} <path>"
+	local desc="Desc: show the mount point of path (partition mount point)" 
+	func_param_check 1 "$@"
+	func_validate_path_exist "${1}"
+	
+	# '-P': use the POSIX output format
+	\df "${1}" -P | tail -1 | awk '{print $6}'
+}
+
+func_disk_available_space() {
+	local usage="Usage: ${FUNCNAME[0]} <path>"
 	local desc="Desc: show the remain space of path (partition of that path)" 
 	func_param_check 1 "$@"
 	func_validate_path_exist "${1}"
 	
-	# unit: bytes. '-B1' == "--block-size=1"
-	\df "${1}" -B1 | tail -1 | awk '{print $4}'
+	# '-P': use the POSIX output format
+	# '-B1' == "--block-size=1": unit: bytes.
+	\df "${1}" -P -B1 | tail -1 | awk '{print $4}'
+}
+
+################################################################################
+# File System: Find Utils
+################################################################################
+func_gen_filesize_list() {
+	local usage="Usage: ${FUNCNAME[0]} [path] ..."
+	local desc="Desc: gen 'size\tfile' list for paths, support exclude paths in ${FIND_UTIL_FILESIZE}"
+
+	# default is current dir
+	[[ "$#" -eq 0 ]] && func_gen_filesize_list_single && return
+
+	# gen for each dir
+	local d err_msg
+	for d in "$@" ; do
+		err_msg="skip gen file-size list for path: ${d}"
+		func_complain_path_inexist "${d}" "path NOT exist, ${err_msg}" && continue
+		(
+			\cd "${d}" || func_die "Failed to cd, ${err_msg}"
+			func_gen_filesize_list_single
+		)
+	done
+}
+
+func_gen_filesize_list_single() {
+	# check if reuse
+	[[ "${FU_GEN_FSL}" == 'false' ]] && [[ -e "${FIND_UTIL_FILESIZE}" ]] && return
+
+	# make sure file is empty
+	rm "${FIND_UTIL_FILESIZE}" &> /dev/null
+
+	# assemble exclude params
+	local ex_params
+	if [[ -e "${FIND_UTIL_EXCLUDE}" ]] ; then
+		# 用作命令行时，需要有"\"，放在脚本中则不需要
+		#ex_params=" -not \( -path $(func_del_blank_hash_lines "${FIND_UTIL_EXCLUDE}" | awk 'ORS=" -prune \\) -not \\( -path "' | sed -e 's/-not .( -path $//')"
+		#ex_params=" -not ( -path $(func_del_blank_hash_lines "${FIND_UTIL_EXCLUDE}" | awk 'ORS=" -prune ) -not ( -path "' | sed -e 's/-not ( -path $//')"
+		ex_params="$( func_combine_lines -b "-not ( -path " -e " -prune ) " "${FIND_UTIL_EXCLUDE}" -n 99999 )"
+		echo "# NOTE: exclude param used: ${ex_params}" > "${FIND_UTIL_FILESIZE}"
+	fi
+
+	# 注意1: (必须) 保持用"."，因为exclude里用它，改了则excllude的规则均无效了
+	# 注意2: (建议) 保持逆序，即大文件在前面 (目前没有地方强依赖这个)
+	# REF: (很好的解释了-prune的用法) https://stackoverflow.com/questions/4210042/how-do-i-exclude-a-directory-when-using-find#answer-16595367
+	# shellcheck disable=2086
+	find . ${ex_params} -type f -printf "%s\t%p\n" | sort -rn >> "${FIND_UTIL_FILESIZE}"
+}
+
+func_find_loop_f() {
+	local usage="Usage: ${FUNCNAME[0]} <path> <function_name>"
+	local desc="Desc: run <function_name> for each file (xargs or -exec NOT support <function_name>)"
+	func_param_check 2 "$@"
+
+	local path file func
+	path="${1}"
+	func="${2}"
+	func_complain_path_inexist "${path}" && return 1
+	func_complain_func_inexist "${func}" && return 1
+
+	while IFS= read -r -d '' file ; do
+		 "${func}" "${file}"
+	done < <(find "${path}" -type f -print0)
 }
 
 ################################################################################
@@ -1158,6 +1396,13 @@ func_script_base_of_parent() {
 	func_script_base "/../"
 }
 
+func_script_stacktrace() { 
+	local i=1 line file func 
+	while read -r line func file < <(caller "${i}"); do
+		echo "[$((++i))] ${file}:${line}:${func}(): $(sed -n "${line}"p "${file}")" >&2 
+	done
+}
+
 func_is_non_interactive() {
 	# command 1: echo $- | grep -q "i" && echo interactive || echo non-interactive
 	# command 2: [ -z "$PS1" ] && echo interactive || echo non-interactive
@@ -1210,6 +1455,7 @@ func_validate_function_exist() {
 	func_die "ERROR: ${1} NOT exist or NOT a function!"
 }
 
+func_is_funcn_exist() { func_is_function_exist "$@" ; }
 func_is_function_exist() {
 	local usage="USAGE: ${FUNCNAME[0]} <function-name>" 
 	local desc="Desc: check if <function-name> exist as a function, return 0 if exist and a function, otherwise 1" 
@@ -1219,6 +1465,7 @@ func_is_function_exist() {
 	return 1
 }
 
+func_complain_func_inexist() { func_complain_function_not_exist "$@" ; }
 func_complain_function_not_exist() {
 	local usage="USAGE: ${FUNCNAME[0]} <function-name>" 
 	local desc="Desc: complain if <function-name> NOT exist as a function, return 1 if not exist or not a function, otherwise 1" 
@@ -1262,7 +1509,7 @@ func_gen_local_vars() {
 	# TODO:	embrace value with "/', otherwise bash eval complains on chars like &/, which always in path
 	# v1: works but not efficient (used in zbox_gen_stg_cnf_vars) : s/^\([^=[:blank:]]*\)[[:blank:]]*=[[:blank:]]*/\1=/;
 	cat "${exist_files[@]}"			| \
-	func_del_blank_and_hash_lines		| \
+	func_del_blank_hash_lines		| \
 	sed -e "s/[[:blank:]]*=[[:blank:]]*/=/;
 		s/^/local /"
 }
@@ -1833,6 +2080,10 @@ func_is_str_digit() {
 	[[ "${1}" =~ ^[0-9]+$ ]] && return 0 || return 1
 }
 
+func_is_str_not_blank() {
+	func_is_str_blank "$@" && return 1 || return 0
+}
+
 func_is_str_blank() {
 	local usage="Usage: ${FUNCNAME[0]} <string>"
 	local desc="Desc: check if string is blank (or not defined), return 0 if empty, otherwise 1" 
@@ -1876,6 +2127,22 @@ func_str_trim() {
 
 	# WORKS
 	#echo "${1}" | sed -e 's/^[[:space:]]*//;s/[[:space:]]*$//;'
+}
+
+func_str_common_prefix() {
+	local usage="Usage: <OTHER_CMD> | ${FUNCNAME[0]}"
+	local desc="Desc: find common prefix of lines" 
+
+	# Ref
+	# - https://unix.stackexchange.com/questions/441801/longest-common-prefix-of-lines
+	# - https://stackoverflow.com/questions/6973088/longest-common-prefix-of-two-strings-in-bash
+	# Note
+	# - sed: Use BRE back-references: \(.*\).*\n\1.* (其中"\1"为两行中一样的部分)
+	# - sed: N/D的配合，达到一行一行比较的效果，最后输出单行 (即结果) 
+	# - 预处理: 去掉前缀的空白字符 / 去掉空行。这里不合适去掉注释行(#开头)，因为它是正常的"str"
+	
+	# PIPE_CONTENT_GOES_HERE: 这里不用支持通过参数传文件的情况，因为调用方基本上是通过pipe来用它
+	sed -e 's/^[[:space:]]*//' | func_del_blank_lines | sed -e 'N;s/^\(.*\).*\n\1.*$/\1\n\1/;D'
 }
 
 func_str_not_contains() {
