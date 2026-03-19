@@ -713,6 +713,7 @@ zbox_ins_dep() {
 	local desc="Desc: install dependencies (using apt-get on linux, brew/port on osx)\n${ZBOX_FUNC_INS_USAGE}"
 	func_param_check 2 "$@"
 
+	echo "INFO: (ins) start to install dependencies, ZBOX_PLF is '${ZBOX_PLF}'"
 	eval $(zbox_gen_ins_cnf_vars "$@")
 	echo "INFO: (ins) start to install dependencies, ZBOX_PLF is '${ZBOX_PLF}'"
 

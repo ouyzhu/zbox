@@ -89,7 +89,11 @@ func_techo() {
 	
 	local level="${1}"
 	shift
-	echo -e "$(date "+%Y-%m-%d %H:%M:%S") ${level^^} $*"
+	if [[ "${ME_LOG_S}" = true ]] ; then
+		echo -e "${level^^} $*"
+	else
+		echo -e "$(date "+%Y-%m-%d %H:%M:%S") ${level^^} $*"
+	fi
 }
 
 func_die() {
@@ -565,12 +569,20 @@ func_del_pattern_lines() {
 ################################################################################
 # Text_Process (also see ~Pattern_Matching )
 ################################################################################
+func_count_dup_lines() {
+	local usage="Usage: ${FUNCNAME[0]} <file>"
+	local desc="Desc: count dup lines, output count (>1) and content"
+
+	# PIPE_CONTENT_GOES_HERE
+	sort "$@" | uniq -c | sed -e '/^\s*1\s/d;s/^\s*//' | sort -n
+}
+
 func_merge_lines() { func_combine_lines "$@"; }
 func_combine_lines() {
 	local usage="Usage: <OTHER_CMD> | ${FUNCNAME[0]} -b <begin_str> -e <end_str> -s <sep_str> -n <n, default: 2> [file]"
 	local desc="Desc: combine [n] (default is 2) not-blank-or-hash lines into 1 line: <begin_str><LINE-CONTENT><end_str><sep_str>..."
 
-	# check getopt verison (need 
+	# check getopt verison
 	getopt --test
 	[[ "$?" != 4 ]] && func_warn_stderr "getopt is NOT util-linux version, pls check"
 
@@ -591,10 +603,9 @@ func_combine_lines() {
 		esac
 	done
 
-	# CRLF line terminators need to convert
+	# DOS(CRLF结尾)格式会导致输出不正常，下面用sed预处理，注: 匹配中的^M，不会对linux/mac格式的文本文件产生影响，是安全的
 	# PIPE_CONTENT_GOES_HERE. Old: 'NR%3{printf "%s,",$0;next;}{print $0}' "${input}" > "${tmp_csv_merge}"
-	func_del_blank_hash_lines "$@" \
-	| sed 's/$//' \
+	func_del_blank_hash_lines "$@" | sed 's/$//' \
 	| awk -v begin="${begin}" -v end="${end}" -v sep="${sep}" -v count="${count}" \
 		'NR%count {
 			# (count-1)th lines goes here
@@ -1047,19 +1058,30 @@ func_gen_filesize_list_single() {
 }
 
 func_find_loop_f() {
-	local usage="Usage: ${FUNCNAME[0]} <path> <function_name>"
+
+	# 注意: 参数顺序变过一次: 把<function_name>放在第一个，这样后面可以跟find的更多参数
+	local usage="Usage: ${FUNCNAME[0]} <function_name> <path> <more_find_cmd_param>"
 	local desc="Desc: run <function_name> for each file (xargs or -exec NOT support <function_name>)"
 	func_param_check 2 "$@"
 
 	local path file func
+	func="${1}"
+	shift
 	path="${1}"
-	func="${2}"
 	func_complain_path_inexist "${path}" && return 1
 	func_complain_func_inexist "${func}" && return 1
 
 	while IFS= read -r -d '' file ; do
 		 "${func}" "${file}"
-	done < <(find "${path}" -type f -print0)
+	done < <(find "$@" -type f -print0)
+}
+
+func_find_latest() {
+	local usage="Usage: ${FUNCNAME[0]} <find_opts>"
+	local desc="Desc: find result, (inc) sort by last-modify-time"
+	func_param_check 2 "$@"
+
+	find "$@" -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-
 }
 
 ################################################################################
@@ -1105,6 +1127,27 @@ func_download_wget() {
 	echo "" # next line should in new line
 	[ -f "${dl_fullpath}" ] || func_die "ERROR: ${dl_fullpath} not found, seems download faild!"
 	"cd" - &> /dev/null || func_die "ERROR: failed to cd back to previous dir"
+}
+
+func_download_curl() {
+	# TODO: NOT fully tested
+	
+	local usage="Usage: ${FUNCNAME[0]} <url> <target_file>"
+	local desc="Desc: download using curl: A) fail silently for 4xx/5xx. B) otherwise, store html to tmp file "
+	func_param_check 2 "$@"
+
+	local url target_file http_code exit_status
+	url="${1}"
+	[[ -n "${2}" ]] && target_file="${2}" || target_file="$(mktemp)"
+
+	# use -w to get http_code (content always go into file)
+	# -f: Fail silently (no output at all) on server errors (4xx/5xx)
+	http_code="$(curl -s -f -w '%{http_code}\n' -o "${target_file}" "${url}")"
+	exit_status="$?"
+
+	echo "DEBUG: ${FUNCNAME[0]}: http_code: ${http_code}, exit_status: ${exit_status}, url: ${url}" 1>&2
+	# explicitly return exit_status of curl
+	return "${exit_status}"
 }
 
 func_log() {
@@ -1192,14 +1235,14 @@ func_uncompress() {
 
 	"cd" - &> /dev/null || func_die "ERROR: failed to cd back to previous dir"
 }
-
+	
 # shellcheck disable=2086
 func_rsync_ask_then_run() {
 	local usage="Usage: ${FUNCNAME[0]} <src> <tgt> <add_options>" 
 	local desc="Desc: rsync between source and target (including --delete), ask before run: --dry-run > show result > run" 
 	[ $# -lt 2 ] && echo -e "${desc} \n ${usage} \n" && exit 1
 
-	local tmp_file_1 opt_del rsync_stat_str_1 rsync_stat_str_2 rsync_stat_str_3
+	local tmp_file_1 rsync_stat_str_1 rsync_stat_str_2 rsync_stat_str_3
 	tmp_file_1="$(mktemp)"
 	
 	func_rsync_simple "$@" --stats --dry-run --delete > "${tmp_file_1}"
@@ -1217,11 +1260,14 @@ func_rsync_ask_then_run() {
 	# show brief and ask
 	func_rsync_out_brief "${tmp_file_1}" 
 	sleep 1
-	echo "INFO: there are changes for: ${1} -> ${2}"
-	echo "INFO: detail log: ${tmp_file_1} ( $(func_file_lines "${tmp_file_1}" lines ) )"
+	echo "INFO: changes found for: ${1} -> ${2}"
+	echo "INFO: detail log: ${tmp_file_1} ( $(func_file_lines "${tmp_file_1}" ) lines )"
 	func_ask_yes_or_no "Do you want to run (y/n)?" || return 1 
-	[[ "$*" = *--delete* ]] || opt_del="--delete"
-	func_rsync_simple "$@" ${opt_del}
+	if [[ "$*" = *--delete* ]] ;then
+		func_rsync_simple "$@" --delete
+	else
+		func_rsync_simple "$@"
+	fi
 }
 
 # shellcheck disable=2086
@@ -1271,6 +1317,7 @@ func_rsync_out_brief() {
 	awk -v del_count="${del_count}" '
 	BEBIN {}
 
+		/^rsync error:/ { print; next; }		# reserve rysnc error
 		/DEBUG|INFO|WARN|ERROR/ { print; next; }	# reserve log lines
 
 		/\/$/ { next; }					# remove dirs in output, which not really will change
@@ -1704,6 +1751,7 @@ func_pkg_mgmt_cmd() {
 	local os_name="$(func_os_name)" 
 	[ "${os_name}" = "${OS_DEBIAN}" ] && echo "apt" && return
 	func_is_os_osx && [ -d "/opt/local/man" ] && echo "port" && return
+	func_is_os_osx && [ -d "/usr/local/Cellar" ] && echo "brew" && return
 	func_is_os_osx && [ -d "/opt/homebrew/Cellar" ] && echo "brew" && return
 	echo "UNKNOWN_PKG_CMD"
 }
@@ -2072,6 +2120,19 @@ func_is_str_empty() {
 	[ -z "${1}" ] && return 0 || return 1
 }
 
+func_is_str_single_printable() {
+	local usage="Usage: ${FUNCNAME[0]} <string>"
+	local desc="Desc: check if string is single char/unicode" 
+	func_param_check 1 "$@"
+	local input_string="$1"
+	
+	# check length, then check type: [[:graph:]] for printable (or use [[:alpha:]] / [[:punct:]] )
+	[[ "${#input_string}" -eq 1 ]] && [[ "${input_string}" =~ [[:graph:]] ]] && return 0
+
+	# otherwise
+	return 1
+}
+
 func_is_str_digit() {
 	local usage="Usage: ${FUNCNAME[0]} <string>"
 	local desc="Desc: check if string contains only digit, return 0 if yes, otherwise 1" 
@@ -2180,6 +2241,38 @@ func_str_contains_blank() {
 		func_is_str_blank "${str}" && return 0
 	done 
 	return 1
+}
+
+func_str_trunc() {
+	local usage="Usage: ${FUNCNAME[0]} <str> <max_len>"
+	local desc="Desc: if str len > max_len (range: 3-100, default: 18), change to xxx... style"
+	func_param_check 1 "$@"
+	
+	local str max_len
+	str="${1}"
+	max_len="${2:-18}"
+
+	# in case out of range, always out put 3 dot
+	! func_is_int_in_range "${max_len}" 3 500 && echo "..." && return 1
+
+	# truncate
+	if [[ "${str}" == "${str:0:${max_len}}" ]] ; then
+		echo "${str}" 
+	else
+		echo "${str:0:$((max_len - 3))}..."
+	fi
+}
+
+func_str_to_unicode() {
+	local usage="Usage: ${FUNCNAME[0]} <str>"
+	local desc="Desc: convert str to unicode form, e.g. 'AB' to 'u41u42', '你好' to 'u4f60u597d'"
+	func_param_check 1 "$@"
+	
+	local char
+	for (( i=0; i<"${#1}"; i++ )); do
+		char="${1:${i}:1}"
+		printf "u%x" "'$char"
+	done
 }
 
 func_str_urldecode() { 
