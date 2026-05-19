@@ -15,11 +15,14 @@
 ################################################################################
 # Const
 ################################################################################
-PARAM_NON_INTERACTIVE_MODE="param_non_interactive_mode"
-DEFAULT_TIME_ZONE="Asia/Shanghai"
 UNCOMFIRMED_YM="0000-00"
 FIND_UTIL_EXCLUDE=".fu.exclude"
 FIND_UTIL_FILESIZE=".fu.filesize"
+DEFAULT_TIME_ZONE="Asia/Shanghai"
+PARAM_NON_INTERACTIVE_MODE="param_non_interactive_mode"
+
+# "LC_ALL=C" 十分重要，强制按字节比对，否则有些字符集下可能导致sort -u 误删除。
+ME_SORT_U="LC_ALL=C sort -u"
 
 ################################################################################
 # Time
@@ -48,6 +51,43 @@ func_is_str_dati() {
 	# date只能解析通用格式，无法通过指定格式来解析。
 	# 注: Python可以: datetime.datetime.strptime(str, "%Y-%m-%d_%H-%M-%S")
 	[[ "$(func_str_trim "${1}")" =~ ^[1-2][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]_[0-2][0-9]-[0-5][0-9]-[0-5][0-9]$ ]] && return 0 || return 1
+}
+
+func_dati_increase() {
+	local usage="Usage: ${FUNCNAME[0]} <dati_1> <dati_2>"
+	local desc="Desc: check if dati_1 to dati_2 is increased, also return true if equals"
+	func_param_check 2 "$@"
+	
+	# check
+	func_is_str_dati "${1}" || func_die "ERROR: 1st dati is invalid, pls check!"
+	func_is_str_dati "${2}" || func_die "ERROR: 2nd dati is invalid, pls check!"
+	
+	# convert to Unix Timestamp (note: 4/3 in sed means sub the 4th/3rd match
+	local ts1 ts2 fmt1 fmt2
+	fmt1=$(echo "$1" | sed 's/_/ /; s/-/:/4; s/-/:/3')
+	fmt2=$(echo "$2" | sed 's/_/ /; s/-/:/4; s/-/:/3')
+	ts1=$(date -d "$fmt1" +%s)
+	ts2=$(date -d "$fmt2" +%s)
+
+	# compare
+	[ "$ts1" -gt "$ts2" ] && return 1 || return 0
+}
+
+func_dati_in_str() {
+	local usage="Usage: ${FUNCNAME[0]} <str>" 
+	local desc="Desc: extract dati str from str"
+
+	local dati_str
+	local pattern='\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}'
+	if [ $# -gt 0 ]; then
+		dati_str="$(printf '%s\n' "$@" | grep -oP "$pattern")"
+	else
+		# PIPE_CONTENT_GOES_HERE 
+		dati_str="$(grep -oP "$pattern")"
+	fi
+
+	func_is_str_dati "${dati_str}" || func_die "ERROR: NO dati string found in str, pls check!"
+	echo "${dati_str}"
 }
 
 func_date_in_dati() {
@@ -189,7 +229,7 @@ func_vcs_update() {
 
 func_ver_increase() {
 	local usage="Usage: ${FUNCNAME[0]} <v1> <v2>"
-	local desc="Desc: check if v1 > v2 is increased, also return true if equals"
+	local desc="Desc: check if v1 to v2 is increased, also return true if equals"
 	func_param_check 2 "$@"
 	
 	# ref: https://stackoverflow.com/questions/4023830/how-to-compare-two-strings-in-dot-separated-version-format-in-bash
@@ -894,7 +934,8 @@ func_complain_path_inexist() { func_complain_path_not_exist "$@" ;}
 func_complain_path_not_exist() {
 	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
 	local desc="Desc: complains if path not exist, return 0 if not exist, otherwise 1" 
-	func_param_check 1 "$@"
+
+	[ $# -lt 1 ] && func_error_stderr "WARN: NO param provided for checking"  && return 0
 	
 	func_is_str_blank "${1}" && func_error_stderr "${FUNCNAME[0]}: path param blank!" && func_script_stacktrace && return 0
 	[ ! -e "${1}" ] && func_error_stderr "${2:-WARN: path ${1} NOT exist}" && return 0
@@ -1082,6 +1123,36 @@ func_find_latest() {
 	func_param_check 2 "$@"
 
 	find "$@" -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-
+}
+
+func_find_newer_dati_file() {
+	local usage="Usage: ${FUNCNAME[0]} <fn_wildcard_w/t_dati> <where_to_find> <where_to_check>"
+	local desc="Desc: find a newer version of file, dati (format as func_dati) is in beginning of file name"
+	func_param_check 3 "$@"
+
+	local pattern p_find p_check maybe_newer latest_used curr_dati last_dati
+	p_find="${2}"
+	p_check="${3}"
+	pattern="20??-??-??_??-??-??*${1}"
+	func_validate_path_exist "${p_find}" "${p_check}"
+
+	# find files 
+	maybe_newer="$(func_find_latest "${p_find}" -name "${pattern}" | tail -1)"
+	latest_used="$(func_find_latest "${p_check}" -name "${pattern}" | tail -1)"
+	func_is_str_blank "${latest_used}" && func_die "ERROR: NO file found in path (${p_find})"
+	func_validate_path_exist "${latest_used}" "${maybe_newer}"
+
+	# extract dati
+	curr_dati="$(func_dati_in_str "${maybe_newer}")"
+	last_dati="$(func_dati_in_str "${latest_used}")"
+	func_is_str_blank "${last_dati}" && func_die "ERROR: NO suitalbe file found in path (${p_check})"
+
+	# compare
+	if func_dati_increase "${last_dati}" "${curr_dati}" ; then
+		echo "${maybe_newer}"
+	else
+		func_die "ERROR: NO newer ver found, last V.S found: ${last_dati} V.S ${curr_dati}"
+	fi
 }
 
 ################################################################################
@@ -1301,7 +1372,7 @@ func_rsync_del_detect() {
 	rsync --dry-run -rv --delete "${1}" "${2}"	\
 		| grep '^deleting '			\
 		| sed -e 's+/[^/]*$+/+'			\
-		| sort -u
+		| ${ME_SORT_U}
 }
 
 func_rsync_out_brief() {
