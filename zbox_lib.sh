@@ -218,7 +218,12 @@ func_vcs_update() {
 	
 	if [[ -e "${target_dir}" ]] ; then
 		pushd "${target_dir}" &> /dev/null	|| func_die "ERROR: cd failed (${target_dir})"
-		${cmd_update}				|| func_die "ERROR: ${cmd_update} failed"
+		if [ "${src_type}" = "git" ] ; then
+			command git remote set-url origin "${src_addr}" || func_die "ERROR: failed to update git origin"
+			command git pull --ff-only || func_die "ERROR: git pull failed"
+		else
+			${cmd_update}				|| func_die "ERROR: ${cmd_update} failed"
+		fi
 		# shellcheck disable=2164
 		popd &> /dev/null			
 	else
@@ -508,7 +513,7 @@ func_del_blank_lines() {
 
 func_del_blank_hash_lines() { func_del_blank_and_hash_lines "$@" ; }
 func_del_blank_and_hash_lines() {
-	# PIPE_CONTENT_GOES_HERE 
+	# PIPE_CONTENT_GOES_HERE
 	func_del_pattern_lines '^[[:space:]]*$' '^[[:space:]]*#' -- "$@"
 }
 
@@ -533,17 +538,23 @@ func_del_pattern_lines() {
 	local desc="Desc: delete patterns listed in paraemter, NOTE: if against files the '--' MUST used as separator!" 
 	func_param_check 1 "$@"
 
-	local p patterns
+	local p
+	local -a patterns grep_params
 	for p in "$@"; do 
 		[[ -z "${p}" ]] && shift && continue
 		[[ "${p}" == "--" ]] && shift && break
 
-		patterns="${patterns}\|${p}"
+		patterns+=("${p}")
 		shift
+	done
+	[ "${#patterns[@]}" -gt 0 ] || return 1
+
+	for p in "${patterns[@]}"; do
+		grep_params+=( -e "${p}" )
 	done
 
 	# PIPE_CONTENT_GOES_HERE 
-	grep -v "${patterns#\\|}" "$@"
+	grep -v "${grep_params[@]}" "$@"
 }
 
 # func_file_remove_lines() {
@@ -621,31 +632,34 @@ func_merge_lines() { func_combine_lines "$@"; }
 func_combine_lines() {
 	local usage="Usage: <OTHER_CMD> | ${FUNCNAME[0]} -b <begin_str> -e <end_str> -s <sep_str> -n <n, default: 2> [file]"
 	local desc="Desc: combine [n] (default is 2) not-blank-or-hash lines into 1 line: <begin_str><LINE-CONTENT><end_str><sep_str>..."
+	desc="$desc \nNote: options must precede file arguments for portable parsing."
 
-	# check getopt verison
-	getopt --test
-	[[ "$?" != 4 ]] && func_warn_stderr "getopt is NOT util-linux version, pls check"
+	# Keep options before file arguments so GNU getopt and the Bash fallback parse identically.
+	local TEMP begin end sep count getopt_status
+	command getopt --test > /dev/null 2>&1
+	getopt_status="$?"
+	if [ "${getopt_status}" -eq 4 ] ; then
+		# GNU getopt quotes and reorders arguments before the case-based parser.
+		TEMP="$(command getopt -o 'b:e:s:n:' --long 'begin:,end:,sep:,count:' -n "${FUNCNAME[0]}" -- "$@")" || return 1
+		eval set -- "$TEMP"
+	fi
 
-	# parse argument, note the quotes around "$TEMP": they are essential!
-	local TEMP begin end sep count
-	TEMP=$(getopt -o 'b:e:s:n:' --long 'begin:,end:,sep:,count:' -n "${FUNCNAME[0]}" -- "$@")
-	eval set -- "$TEMP"
-	unset TEMP
 	count=2
-	while true; do
+	while [ "$#" -gt 0 ]; do
 		case "${1}" in
 			'-n'|'--count')	count="${2}"; shift 2; continue ;;
 			'-b'|'--begin')	begin="${2}"; shift 2; continue ;;
 			'-e'|'--end')	end="${2}"; shift 2; continue ;;
 			'-s'|'--sep')	sep="${2}"; shift 2; continue ;;
 			'--')		shift; break ;;
-			*)		func_warn_stderr "parse arguments failed: $*" ; exit 1 ;;
+			-*)		func_warn_stderr "parse arguments failed: $*"; return 1 ;;
+			*)		break ;;
 		esac
 	done
 
-	# DOS(CRLF结尾)格式会导致输出不正常，下面用sed预处理，注: 匹配中的^M，不会对linux/mac格式的文本文件产生影响，是安全的
+	# REF: ~ANSI-C_Quoting@bash . DOS(CRLF结尾)格式会导致输出不正常，用sed预处理，注: 不会对linux/mac格式的文本文件产生影响，是安全的.
 	# PIPE_CONTENT_GOES_HERE. Old: 'NR%3{printf "%s,",$0;next;}{print $0}' "${input}" > "${tmp_csv_merge}"
-	func_del_blank_hash_lines "$@" | sed 's/$//' \
+	func_del_blank_hash_lines "$@" | sed $'s/\r$//' \
 	| awk -v begin="${begin}" -v end="${end}" -v sep="${sep}" -v count="${count}" \
 		'NR%count {
 			# (count-1)th lines goes here
@@ -690,7 +704,7 @@ func_shrink_blank_lines() {
 	[[ -n "${1}" ]] && func_complain_path_not_exist "${1}" && return 1
 
 	# PIPE_CONTENT_GOES_HERE, NOT use func_del_blank_lines, since it delete all blank lines
-	sed -r 's/^\s+$//' "$@" | cat -s
+	sed -E 's/^[[:space:]]+$//' "$@" | cat -s
 
 }
 
@@ -750,6 +764,46 @@ func_mkdir_cd() {
 	#func_mkdir "$1" && OLDPWD="$PWD" && eval \\cd "\"$1\"" || func_die "ERROR: failed to mkdir or cd into it ($1)"
 }
 
+func_path_canonical() {
+	local usage="Usage: ${FUNCNAME[0]} <path>"
+	local desc="Desc: output a physical absolute path; allow a missing final path below an existing parent"
+	func_param_check 1 "$@"
+
+	local original_path="${1}" path="${1}" resolved part
+	local -a missing_parts
+	[ -n "${path}" ] || {
+		func_error_stderr "failed to canonicalize an empty path"
+		return 1
+	}
+	while [ ! -e "${path}" ] && [ ! -L "${path}" ]; do
+		part="${path##*/}"
+		missing_parts=("${part}" "${missing_parts[@]}")
+		path="$(dirname "${path}")"
+	done
+
+	if command -v greadlink > /dev/null 2>&1 ; then
+		resolved="$(command greadlink -f "${path}")" || {
+			func_error_stderr "failed to canonicalize path (greadlink): ${original_path}"
+			return 1
+		}
+	elif command -v realpath > /dev/null 2>&1 ; then
+		resolved="$(command realpath "${path}")" || {
+			func_error_stderr "failed to canonicalize path (realpath): ${original_path}"
+			return 1
+		}
+	else
+		resolved="$(cd -P "$(dirname "${path}")" && printf '%s/%s\n' "$PWD" "${path##*/}")" || {
+			func_error_stderr "failed to canonicalize path (cd -P): ${original_path}"
+			return 1
+		}
+	fi
+
+	for part in "${missing_parts[@]}"; do
+		resolved="${resolved%/}/${part}"
+	done
+	printf '%s\n' "${resolved}"
+}
+
 func_mv_structurally() { 
 	local usage="Usage: ${FUNCNAME[0]} <fd_path> <tgt_base> [src_base]"
 	local desc="Desc: mv <fd_path> from <tgt_base>, use <src_base> to determine what dir hierarchy to perserve (none if omit)"
@@ -758,9 +812,9 @@ func_mv_structurally() {
 	local src_base tgt_base src_path rel_path
 
 	# PWD as src_base default value
-	src_path="$(readlink -f "${1}")"
- 	tgt_base="$(readlink -f "${2}")"
-	[[ -n "${3}" ]] && src_base="$(readlink -f "${3}")/" || src_base="$(readlink -f "${PWD}")"
+	src_path="$(func_path_canonical "${1}")" || return 1
+	tgt_base="$(func_path_canonical "${2}")" || return 1
+	[[ -n "${3}" ]] && src_base="$(func_path_canonical "${3}")/" || src_base="$(func_path_canonical "${PWD}")"
 
 	# Check
 	func_complain_path_inexist "${src_path}" && return 1
@@ -853,7 +907,7 @@ func_ln_soft() {
 
 	# check, skip if target already link, remove if target empty 
 	func_complain_path_not_exist "${source}" && return 0
-	[ -h "${target}" ] && echo "INFO: ${target} already a link (--> $(readlink -f "${target}") ), skip" && return 0
+	[ -h "${target}" ] && echo "INFO: ${target} already a link (--> $(readlink "${target}") ), skip" && return 0
 	[ -d "${target}" ] && func_is_dir_empty "${target}" && rmdir "${target}"
 
 	"ln" -s "${source}" "${target}"
@@ -1181,22 +1235,25 @@ func_download_wget() {
 
 	# if the target exist is an file, just return
 	local dl_fullpath="${2}/${1##*/}"
+	local dl_tmp wget_status
 	[ -f "${dl_fullpath}" ] && echo "INFO: file (${dl_fullpath}) already exist, skip download" && return 0
 
 	func_mkdir_cd "${2}" 
+	dl_tmp="${dl_fullpath}.tmp.$$"
 	echo "INFO: start download, url=${1} target=${dl_fullpath}"
 
-	# TODO: add control to unsecure options?
-
-	# "dot:giga": each dot represents 1M retrieved
-	wget --progress=dot:giga --no-check-certificate "${1}" 2>&1 | grep --line-buffered "%" | sed -u -e "s,\.,,g" 
+	# "dot:giga": each dot means 1M retrieved, insecure option: --no-check-certificate
+	wget --progress=dot:giga -O "${dl_tmp}" "${1}" 2>&1 | grep --line-buffered "%" | sed -u -e "s,\.,,g"
+	wget_status=${PIPESTATUS[0]}
 
 	# Note, some awk version NOT works friendly
 	# Command line explain: [Showing File Download Progress Using Wget](http://fitnr.com/showing-file-download-progress-using-wget.html)
-	#wget --progress=dot --no-check-certificate ${1}	2>&1 | grep --line-buffered "%" | sed -u -e "s,\.,,g" | awk 'BEGIN{printf("INFO: Download progress:  0%")}{printf("\b\b\b\b%4s", $2)}'
+	#wget --progress=dot ${1} 2>&1 | grep --line-buffered "%" | sed -u -e "s,\.,,g" | awk 'BEGIN{printf("INFO: Download progress:  0%%")}{printf("\b\b\b\b%%4s", $2)}'
 
 	echo "" # next line should in new line
-	[ -f "${dl_fullpath}" ] || func_die "ERROR: ${dl_fullpath} not found, seems download faild!"
+	[ "${wget_status}" -eq 0 ] || { command rm -f "${dl_tmp}"; func_die "ERROR: failed to download ${1}"; }
+	[ -f "${dl_tmp}" ] || func_die "ERROR: ${dl_tmp} not found, seems download faild!"
+	command mv -f "${dl_tmp}" "${dl_fullpath}" || func_die "ERROR: failed to publish ${dl_fullpath}"
 	"cd" - &> /dev/null || func_die "ERROR: failed to cd back to previous dir"
 }
 
@@ -1207,18 +1264,20 @@ func_download_curl() {
 	local desc="Desc: download using curl: A) fail silently for 4xx/5xx. B) otherwise, store html to tmp file "
 	func_param_check 2 "$@"
 
-	local url target_file http_code exit_status
+	local url target_file dl_tmp http_code exit_status
 	url="${1}"
 	[[ -n "${2}" ]] && target_file="${2}" || target_file="$(mktemp)"
+	dl_tmp="${target_file}.tmp.$$"
 
-	# use -w to get http_code (content always go into file)
+	# use -w to get http_code (content always goes into a temporary file)
 	# -f: Fail silently (no output at all) on server errors (4xx/5xx)
-	http_code="$(curl -s -f -w '%{http_code}\n' -o "${target_file}" "${url}")"
+	http_code="$(curl -s -f -w '%{http_code}\n' -o "${dl_tmp}" "${url}")"
 	exit_status="$?"
 
 	echo "DEBUG: ${FUNCNAME[0]}: http_code: ${http_code}, exit_status: ${exit_status}, url: ${url}" 1>&2
-	# explicitly return exit_status of curl
-	return "${exit_status}"
+	[ "${exit_status}" -eq 0 ] || { command rm -f "${dl_tmp}"; return "${exit_status}"; }
+	command mv -f "${dl_tmp}" "${target_file}" || { command rm -f "${dl_tmp}"; return 1; }
+
 }
 
 func_log() {
@@ -1255,12 +1314,13 @@ func_uncompress() {
 	func_param_check 1 "$@"
 	func_validate_path_exist "${1}"
 
-	# use readlink to avoid relative path
-	local source_file="$(readlink -f "${1}")"
+	# use a physical absolute path to avoid relative paths
+	local source_file="$(func_path_canonical "${1}")" || return 1
 	local target_dir="${source_file%.*}"
 
-	[ -n "${2}" ] && target_dir="$(readlink -f "${2}")"
-	[ -z "${target_dir}" ] && target_dir="${2}"		# NOTE: readlink -f on mac seems gets empty str, if more than last 2 level path inexist, so need "backup" here
+	if [ -n "${2}" ] ; then
+		target_dir="$(func_path_canonical "${2}")" || return 1
+	fi
 	func_complain_path_exist "${target_dir}" && return	# seem NOT need exit, just complain is enough?
 
 	echo "INFO: uncompress file, from: ${source_file} to: ${target_dir}"
@@ -1488,11 +1548,11 @@ func_script_origin_base() {
 	local desc="Desc: get origin dir of current script (e.g. when script is a soft link, will get its original dir), suffix will be directly added to the base dir" 
 
 	local script_original_path script_dir
-	script_original_path="$(readlink -f "${0}")"
+	script_original_path="$(func_path_canonical "${0}")" || return 1
 	script_dir="$(dirname "${script_original_path}")"
 	func_is_str_empty "${script_dir}" && func_die "ERROR: failed to get script dir (empty), pls check"
 
-	readlink -f "${script_dir}/${*}"
+	func_path_canonical "${script_dir}/${*}"
 }
 
 func_script_base() { 
@@ -1503,7 +1563,7 @@ func_script_base() {
 	script_dir="$(dirname "${0}")"
 	func_is_str_empty "${script_dir}" && func_die "ERROR: failed to get script dir (empty), pls check"
 
-	readlink -f "${script_dir}/${*}"
+	func_path_canonical "${script_dir}/${*}"
 	#base="$(readlink -f $(dirname ${0}))"
 }
 
@@ -1726,7 +1786,8 @@ func_os_name() {
 	# Check bash buildin var
 	local fullname arch
 	if [ -n "$OSTYPE" ] ; then
-		fullname="${OSTYPE,,}"
+		#fullname="${OSTYPE,,}"	# NOT work when init, bash 3.2 NOT support
+		fullname="$(echo "${OSTYPE}" | tr '[:upper:]' '[:lower:]')"
 	else
 		func_validate_cmd_exist uname
 		fullname="$(uname -o)"
@@ -2269,12 +2330,24 @@ func_str_common_prefix() {
 	# - https://unix.stackexchange.com/questions/441801/longest-common-prefix-of-lines
 	# - https://stackoverflow.com/questions/6973088/longest-common-prefix-of-two-strings-in-bash
 	# Note
-	# - sed: Use BRE back-references: \(.*\).*\n\1.* (其中"\1"为两行中一样的部分)
-	# - sed: N/D的配合，达到一行一行比较的效果，最后输出单行 (即结果) 
+	# - awk progressively shortens the prefix for each input line
 	# - 预处理: 去掉前缀的空白字符 / 去掉空行。这里不合适去掉注释行(#开头)，因为它是正常的"str"
 	
+	# Old version: works with GNU sed multiline \n matching, but not macOS BSD sed.
+	# sed -e 's/^[[:space:]]*//' | func_del_blank_lines | sed -e 'N;s/^\(.*\).*\n\1.*$/\1\n\1/;D'
+
 	# PIPE_CONTENT_GOES_HERE: 这里不用支持通过参数传文件的情况，因为调用方基本上是通过pipe来用它
-	sed -e 's/^[[:space:]]*//' | func_del_blank_lines | sed -e 'N;s/^\(.*\).*\n\1.*$/\1\n\1/;D'
+	sed -e 's/^[[:space:]]*//' | func_del_blank_lines | awk '
+		NR == 1 { prefix = $0; next }
+		{
+			limit = length(prefix) < length($0) ? length(prefix) : length($0)
+			i = 0
+			while (i < limit && substr(prefix, i + 1, 1) == substr($0, i + 1, 1)) {
+				i++
+			}
+			prefix = substr(prefix, 1, i)
+		}
+		END { if (NR) print prefix }'
 }
 
 func_str_not_contains() {
