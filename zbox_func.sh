@@ -95,6 +95,17 @@
 #	trans to git	t="$(mktemp -d)" ; cd "${t}" ; git clone --bare http://github.com/ouyzhu/zbox ; mv zbox.git ${HOME}/.zbox/.git ; cd ${HOME}/.zbox ; git init ; git pull ; git reset HEAD
 
 ################################################################################
+# Prepare: Source Library
+################################################################################
+# 注 1: 必须在使用任何 func_xxx (如下面的 func_die/func_os_name) 之前 source，否则那些调用会静默失败，
+#	曾因此导致 ZBOX_PLF 一直为空、平台检查从未生效
+# 注 2: 原来用的是 zbox_lib.sh，它其实是 myenv_lib.sh 的旧副本。zbox 已不需要独立运行，
+#	故删除该副本，统一以 myenv_lib.sh 为唯一真源，避免"旧副本静默生效"
+# 注 3: 同 NOTE 1 of platform check: 这里只记录错误，不 exit / 不 return，避免 .bashrc source 本文件时登录失败
+ZBOX_LIB="${HOME}/.myenv/myenv_lib.sh"
+source "${ZBOX_LIB}" || echo "ERROR: failed to source library: ${ZBOX_LIB}" 1>&2
+
+################################################################################
 # Constants
 ################################################################################
 ZBOX_FUNC_INS_USAGE="Usage: ${FUNCNAME[0]} <tname> <tver> [<tadd>]"
@@ -141,9 +152,6 @@ if [ "${BASH_ASSOCIATIVE_ARRAY}" = "true" ] ; then
 	# shellcheck disable=2154
 	tname_alias["java"]="jdk"
 fi
-
-# Source Library
-source "${ZBOX}/zbox_lib.sh" || func_die "ERROR: failed to source library: zbox_lib.sh"
 
 # Init Check
 [ ! -e "${ZBOX_INS}" ] && mkdir "${ZBOX_INS}"
