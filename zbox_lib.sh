@@ -108,7 +108,28 @@ func_error()        { func_techo "ERROR" "$@" ; }
 func_debug()        { [[ "${ME_DEBUG}" == 'true' ]] && func_techo "DEBUG" "$@" ; }
 func_warn_stderr()  { func_warn  "$@" 1>&2 ; }
 func_error_stderr() { func_error "$@" 1>&2 ; }
+func_error_caller_stderr() {
+	local line func file
+	read -r line func file < <(caller 2)
+	if [ -n "${file}" ] ; then
+		func_error_stderr "${file##*/}:${line}: ${1}"
+	else
+		func_error_stderr "${1}"
+	fi
+}
 func_debug_stderr() { func_debug "$@" 1>&2 ; }
+
+func_check_rc() {
+	local usage="Usage: ${FUNCNAME[0]} <rc> <msg> [ok_below]"
+	local desc="Desc: print msg to stderr when rc > ok_below, then return rc unchanged."
+	desc="${desc} Default ok_below=0 (standard: only rc=0 is silent)."
+	desc="${desc} Pass ok_below=1 for grep, where rc=1 means no match (not an error)."
+	func_param_check 2 "$@"
+
+	local rc="${1}" msg="${2}" ok="${3:-0}"
+	(( rc <= ok )) || func_error_stderr "${msg}"
+	return "${rc}"
+}
 
 func_var_to_str()    {
 	local usage="Usage: ${FUNCNAME[0]} <var-name> ..." 
@@ -244,13 +265,14 @@ func_ver_increase() {
 # Process
 ################################################################################
 func_pids_of_descendants() {
-	local usage="Usage: ${FUNCNAME[0]} <need_sudo> <pid>" 
+	local usage="Usage: ${FUNCNAME[0]} <pid>"
 	local desc="Desc: return pid list of all descendants (including self), or empty if none" 
-	#func_param_check 1 "$@"
+	func_param_check 1 "$@"
 
 	func_validate_cmd_exist pstree
 
 	local pid_num="${1}"
+	func_is_positive_int "${pid_num}" || return 1
 	if pstree --version 2>&1 | grep -q "thp.uni-due.de" ; then
 		pstree -w "${pid_num}" | grep -o '\-+= \([0-9]\+\)' | grep -o '[0-9]\+' | tr '\n' ' '
 	elif pstree --version 2>&1 | grep -q "PSmisc" ; then
@@ -265,9 +287,8 @@ func_pids_of_direct_child() {
 	#func_param_check 1 "$@"
 
 	local pid_num="${1}"
-	if ! func_is_pid_running "${pid_num}" ; then
-		return 0
-	fi
+	func_is_positive_int "${pid_num}" || return 1
+	func_is_pid_running "${pid_num}" || return 0
 
 	local pid_tmp
 	local pid_list=""
@@ -455,14 +476,22 @@ func_grepf() {
 		# PIPE_CONTENT_GOES_HERE
 		grep ${params} -f <(func_del_blank_hash_lines "${pattern_file}") "$@"
 	else
-		local tmp_split_dir tmp_split_f_prefix tmp_in tmp_out f 
+		local tmp_split_dir tmp_split_f_prefix tmp_in tmp_out f complete_marker
 		tmp_split_f_prefix="$(mktemp -d)/func_grepf.tmp" 
 		tmp_split_dir="/tmp/func_grepf-pattern-split-${FUNC_GREPF_MAX_PATTERN_LINE}-$(func_file_md5sum "${pattern_file}")"
+		complete_marker="${tmp_split_dir}/.complete"
 
 		func_debug_stderr "Split/Reuse pattern file (${pattern_file_line_count} > ${FUNC_GREPF_MAX_PATTERN_LINE}) at: ${tmp_split_f_prefix%/*}/"
-		if [ ! -d "${tmp_split_dir}" ] ; then
-			mkdir -p "${tmp_split_dir}" 
-			split -d -l "${FUNC_GREPF_MAX_PATTERN_LINE}" <(func_del_blank_hash_lines "${pattern_file}") "${tmp_split_dir}/${pattern_file##*/}-" 
+		if [ ! -f "${complete_marker}" ] ; then
+			command rm -rf "${tmp_split_dir}"
+			mkdir -p "${tmp_split_dir}" || return 1
+			split -d -l "${FUNC_GREPF_MAX_PATTERN_LINE}" <(func_del_blank_hash_lines "${pattern_file}") "${tmp_split_dir}/${pattern_file##*/}-"
+			local split_rc=$?
+			func_check_rc "${split_rc}" "split failed for pattern file: ${pattern_file}" || {
+				command rm -rf "${tmp_split_dir}"
+				return "${split_rc}"
+			}
+			: > "${complete_marker}" || return 1
 		fi
 
 		# 注意: 有和没有参数 "-v" 方式是不一样的，所以需要分开不同的逻辑。
@@ -479,29 +508,39 @@ func_grepf() {
 				else									
 					grep ${params} -f "${f}" "${tmp_in}" > "${tmp_out}"
 				fi
+				func_check_rc $? "grep failed with pattern file: ${f}" 1 || return $?
 				tmp_in="${tmp_out}"
 			done
 		else
 			local tmp_in_0 tmp_in_1
 			tmp_in_0="${tmp_split_f_prefix}-INPUT-ALL" 
 			tmp_out="${tmp_split_f_prefix}-OUTPUT-ALL" 
+			: > "${tmp_out}"
 
 			func_debug_stderr "params NOT contain '-v'. 逻辑: 依次用pattern扫描，累积到结果文件。注意: 匹配过的行需用'-v'过滤掉，以免被后续pattern文件再次匹配"
 
 			# PIPE_CONTENT_GOES_HERE, 输入要先全部保留下来
 			grep "" "$@" > "${tmp_in_0}"
+			func_check_rc $? "grep failed reading input" 1 || return $?
 
 			for f in "${tmp_split_dir}"/* ; do
 				[[ -s "${f}" ]] || continue
 
 				tmp_in_1="${tmp_split_f_prefix}-INPUT-${f##*/}" 
+				# rc=1 means no match in this chunk; accumulate and continue
 				grep ${params} -f "${f}" "${tmp_in_0}" >> "${tmp_out}"
+				func_check_rc $? "grep error with pattern file: ${f}" 1
+
+				# rc=1 means all remaining lines matched (empty remainder)
 				grep ${params} -v -f "${f}" "${tmp_in_0}" > "${tmp_in_1}"
+				func_check_rc $? "grep -v error with pattern file: ${f}" 1
+
 				tmp_in_0="${tmp_in_1}"
+				[[ -s "${tmp_in_0}" ]] || break		# no more input lines; skip remaining chunks
 			done
 		fi
 
-		cat "${tmp_out}"
+		cat "${tmp_out}" 2>/dev/null
 		# cleanup? : delete tmp files: rm -r "${tmp_split_f_prefix%/*}/"
 	fi
 }
@@ -804,6 +843,19 @@ func_path_canonical() {
 	printf '%s\n' "${resolved}"
 }
 
+func_path_escape_line() {
+	local usage="Usage: ${FUNCNAME[0]} <path>"
+	local desc="Desc: encode backslash, LF, tab, and CR so a path fits on one line"
+	func_param_check 1 "$@"
+
+	local path="${1}"
+	path="${path//\\/\\\\}"
+	path="${path//$'\n'/\\n}"
+	path="${path//$'\t'/\\t}"
+	path="${path//$'\r'/\\r}"
+	printf '%s' "${path}"
+}
+
 func_mv_structurally() { 
 	local usage="Usage: ${FUNCNAME[0]} <fd_path> <tgt_base> [src_base]"
 	local desc="Desc: mv <fd_path> from <tgt_base>, use <src_base> to determine what dir hierarchy to perserve (none if omit)"
@@ -935,20 +987,32 @@ func_is_file_type_text() {
 
 func_is_dir_empty() {
 	local usage="Usage: ${FUNCNAME[0]} <dir>"
-	local desc="Desc: check if directory is empty or inexist, return 0 if empty, otherwise 1" 
+	local desc="Desc: check if directory is empty or inexist, return 0 if empty, otherwise 1"
 	func_param_check 1 "$@"
 
+	[[ ! -e "${1}" && ! -L "${1}" ]] && return 0
+	[ -d "${1}" ] || return 1
+
 	# enough for me to use, for better solution: https://mywiki.wooledge.org/BashFAQ/004
-	[ "$(ls -A "${1}" 2> /dev/null)" ] && return 1 || return 0
+	local entries
+	entries="$(ls -A "${1}" 2> /dev/null)" || return 1
+	[ -z "${entries}" ] && return 0
+	return 1
 }
 
 func_is_dir_not_empty() {
 	local usage="Usage: ${FUNCNAME[0]} <dir>"
-	local desc="Desc: check if directory is not empty, return 0 if not empty, otherwise 1" 
+	local desc="Desc: check if directory is not empty, return 0 if not empty, otherwise 1"
 	func_param_check 1 "$@"
 
+	[[ ! -e "${1}" && ! -L "${1}" ]] && return 1
+	[ -d "${1}" ] || return 1
+
 	# enough for me to use, for better solution: https://mywiki.wooledge.org/BashFAQ/004
-	[ "$(ls -A "${1}" 2> /dev/null)" ] && return 0 || return 1
+	local entries
+	entries="$(ls -A "${1}" 2> /dev/null)" || return 1
+	[ -n "${entries}" ] && return 0
+	return 1
 }
 
 func_validate_dir_not_empty() {
@@ -959,7 +1023,7 @@ func_validate_dir_not_empty() {
 	local p
 	for p in "$@" ; do
 		# only redirect stderr, otherwise the test will always false
-		func_is_dir_empty "${p}" && func_die "ERROR: ${p} is empty!"
+		func_is_dir_not_empty "${p}" || func_die "ERROR: ${p} is empty, inaccessible, or NOT a directory!"
 	done
 }
 
@@ -975,24 +1039,34 @@ func_validate_dir_empty() {
 	done
 }
 
+func_is_path_exist() {
+	local usage="Usage: ${FUNCNAME[0]} <path>"
+	local desc="Desc: return 0 if path or symbolic link exists, otherwise 1"
+	func_param_check 1 "$@"
+
+	[[ -e "${1}" || -L "${1}" ]] && return 0 || return 1
+}
+
+# NOTE: func_complain_* returns 0 for callers to use it with && continue or && return.
 func_complain_path_exist() {
 	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
-	local desc="Desc: complains if path already exist, return 0 if exist, otherwise 1" 
-	func_param_check 1 "$@"
-	
-	[ -e "${1}" ] && echo "${2:-WARN: path ${1} already exist}" 1>&2 && return 0
+	local desc="Desc: complains if path already exist, blank, or missing; return 0 if complaint condition exists, otherwise 1"
+
+	[ $# -lt 1 ] && func_error_caller_stderr "no param provided for checking" && return 0
+	func_is_str_blank "${1}" && func_error_caller_stderr "path param blank!" && func_script_stacktrace && return 0
+	func_is_path_exist "${1}" && func_error_caller_stderr "${2:-path ${1} already exist}" && return 0
 	return 1
 }
 
 func_complain_path_inexist() { func_complain_path_not_exist "$@" ;}
 func_complain_path_not_exist() {
 	local usage="Usage: ${FUNCNAME[0]} <path> <msg>"
-	local desc="Desc: complains if path not exist, return 0 if not exist, otherwise 1" 
+	local desc="Desc: complains if path not exist, blank, or missing; return 0 if complaint condition exists, otherwise 1"
 
-	[ $# -lt 1 ] && func_error_stderr "WARN: NO param provided for checking"  && return 0
+	[ $# -lt 1 ] && func_error_caller_stderr "no param provided for checking" && return 0
 	
-	func_is_str_blank "${1}" && func_error_stderr "${FUNCNAME[0]}: path param blank!" && func_script_stacktrace && return 0
-	[ ! -e "${1}" ] && func_error_stderr "${2:-WARN: path ${1} NOT exist}" && return 0
+	func_is_str_blank "${1}" && func_error_caller_stderr "path param blank!" && func_script_stacktrace && return 0
+	func_is_path_exist "${1}" || { func_error_caller_stderr "${2:-path ${1} NOT exist}"; return 0; }
 	return 1
 }
 
@@ -1003,7 +1077,7 @@ func_validate_path_exist() {
 	
 	local p
 	for p in "$@" ; do
-		[ ! -e "${p}" ] && func_die "ERROR: ${p} NOT exist!"
+		func_is_path_exist "${p}" || func_die "ERROR: ${p} NOT exist!"
 	done
 }
 
@@ -1015,7 +1089,7 @@ func_validate_path_inexist() {
 	
 	local p
 	for p in "$@" ; do
-		[ -e "${p}" ] && func_die "ERROR: ${p} already exist!"
+		func_is_path_exist "${p}" && func_die "ERROR: ${p} already exist!"
 	done
 }
 
@@ -1023,9 +1097,10 @@ func_validate_path_inexist() {
 func_validate_path_owner() {
 	local usage="Usage: ${FUNCNAME[0]} <path> <owner>"
 	local desc="Desc: the path must be owned by owner(xxx:xxx format), otherwise will exit" 
-	func_param_check 1 "$@"
+	func_param_check 2 "$@"
 
 	local expect="${2}"
+	# TODO: prefer stat later: macOS/BSD `stat -f '%Su:%Sg'`; GNU `stat -c '%U:%G'`.
 	local real=$(ls -ld "${1}" | awk '{print $3":"$4}')
 	[ "${real}" != "${expect}" ] && func_die "ERROR: owner NOT match, expect: ${expect}, real: ${real}"
 }
@@ -1077,6 +1152,7 @@ func_backup_simple() {
 	else
 		sudo cp -r "${1}" "${2}"
 	fi
+	func_check_rc $? "failed to backup ${1} to ${2}" || return 1
 
 	# very important, many case need this info
 	echo "${2}" 
@@ -1481,56 +1557,9 @@ func_rsync_out_brief() {
 
 	END {
 		print "======== NOTE: Lines Compacted, Check Detail ! ========"
-	}' "${log_file}"					\
-	| head --lines=-3					\
-	| func_shrink_dup_lines 
-}
-
-# TODO: seems deprecated
-func_rsync_out_filter_mydoc() {
-	# shellcheck disable=2148
-	awk '
-		/DEBUG|INFO|WARN|ERROR/ { print;next; }	# reserve log lines
-
-		/^$/ {			next;}	# skip empty lines
-		/\/$/ {			next;}	# skip dir lines
-		/^sent / {		next;}	# skip rsync lines
-		/^sending / {		next;}	# skip rsync lines
-		/^total size / {	next;}	# skip rsync lines
-		/%.*\/s.*:..:/ {	next;}	# skip rsync lines (progress), sample: "171,324 100%   66.07MB/s    0:00:00 (xfr#1, ir-chk=1038/78727)"
-		/\(xfr#.*(ir|to)-chk=/ {next;}	# skip rsync lines (progress), sample: "171,324 100%   66.07MB/s    0:00:00 (xfr#1, ir-chk=1038/78727)"
-
-		# compact those too noisy output. Use last blank line to trigger the summary count
-		/^FCS\/maven\/m2_repo\/repository/ {
-			mvn_repo_updated_files++;
-			if(mvn_repo_update_flag == 0){
-				print "MAVEN REPO: START TO UPDATE.";
-				mvn_repo_update_flag = 1;
-			}
-			next;
-		} 
-		/^DCD\/mail/ {
-			dcd_mail_updated_files++;
-			if(dcd_mail_updated_flag == 0){
-				print "DCD MAIL: START TO UPDATE.";
-				dcd_mail_updated_flag = 1;
-			}
-			next;
-		} 
-		/^\s*$/ {		
-			if(mvn_repo_update_flag == 1 ) {
-				print "MAVEN REPO: UPDATED FILES: " mvn_repo_updated_files; 
-				mvn_repo_update_flag = 2;
-			}; 
-			if(dcd_mail_updated_flag == 1){
-				print "DCD MAIL: UPDATED_FILES: " dcd_mail_updated_files;
-				dcd_mail_updated_flag = 2;
-			}
-			next;
-		} 
-
-		!/\/$/ { print $0; }			# for other lines, just print out
-	'
+	}' "${log_file}" \
+	| head --lines=-3 \
+	| func_shrink_dup_lines
 }
 
 ################################################################################
@@ -1609,7 +1638,7 @@ func_complain_cmd_not_exist() {
 	func_param_check 1 "$@"
 
 	func_is_cmd_exist "${1}" && return 1
-	echo "${2:-WARN: cmd ${1} NOT exist}" 1>&2 
+	func_error_caller_stderr "${2:-cmd ${1} NOT exist}"
 	return 0
 }
 
@@ -1646,18 +1675,18 @@ func_is_function_exist() {
 func_complain_func_inexist() { func_complain_function_not_exist "$@" ; }
 func_complain_function_not_exist() {
 	local usage="USAGE: ${FUNCNAME[0]} <function-name>" 
-	local desc="Desc: complain if <function-name> NOT exist as a function, return 1 if not exist or not a function, otherwise 1" 
+	local desc="Desc: complain if <function-name> NOT exist as a function, return 0 if not exist or not a function, otherwise 1"
 	func_param_check 1 "$@"
 
 	func_is_function_exist "${1}" && return 1
-	echo "WARN: ${1} NOT exist or NOT a function" 1>&2
+	func_error_caller_stderr "${1} NOT exist or NOT a function"
 }
 
 func_complain_sudo_not_auto() { 
 	local usage="Usage: ${FUNCNAME[0]} <msg>"
 	local desc="Desc: complains if current user not have sudo privilege, or need input password, return 0 if not have, otherwise 1" 
 	
-	( ! sudo -n ls &> /dev/null) && echo "${2:-WARN: current user NOT have sudo privilege, or NOT auto (need input password), pls check}" 1>&2 && return 0
+	( ! sudo -n ls &> /dev/null) && func_error_caller_stderr "${1:-current user NOT have sudo privilege, or NOT auto (need input password), pls check}" && return 0
 	return 1
 }
 
@@ -2162,6 +2191,7 @@ func_is_int_in_range() {
 	#[[ -z "$num" || ! "$num" =~ ^[0-9]+$ || "$num" -gt "$maxNum" || "$num" -lt "1" ]]	
 }
 
+# Ref: func_is_str_digit
 func_is_int() {
 	local usage="Usage: ${FUNCNAME[0]} <param>"
 	local desc="Desc: return 0 if the param is integer, otherwise will 1" 
@@ -2182,41 +2212,63 @@ func_is_positive_int() {
 	func_is_int "${num}" && (( num > 0 )) && return 0 || return 1
 }
 
+func_is_num() {
+	local usage="Usage: ${FUNCNAME[0]} <param>"
+	local desc="Desc: return 0 if the param is a number, otherwise 1"
+	func_param_check 1 "$@"
+
+	local num="${1}"
+	[[ "${num}" =~ ^[-]?[0-9]+([.][0-9]+)?$ ]] && return 0 || return 1
+}
+
 func_num_to_human_IEC() {
 	local usage="Usage: ${FUNCNAME[0]} <number>"
-	local desc="Desc: convert to number to human readable form (IEC std, 1K=1024)" 
+	local desc="Desc: convert to number to human readable form (IEC std, 1K=1024)"
+
 	func_param_check 1 "$@"
-	
-	echo "${1}" | numfmt --to=iec
+	! func_is_num "${1}" && func_error_stderr "input is NOT a number (${1})" && return 1
+
+	if func_is_cmd_exist numfmt ; then
+		echo "${1}" | numfmt --to=iec
+	else
+		func_num_to_human "${1}" IEC
+	fi
 }
 
 func_num_to_human_SI() {
 	local usage="Usage: ${FUNCNAME[0]} <number>"
-	local desc="Desc: convert to number to human readable form (SI std, 1K=1000)" 
+	local desc="Desc: convert to number to human readable form (SI std, 1K=1000)"
+
 	func_param_check 1 "$@"
-	
-	echo "${1}" | numfmt --to=si
+	! func_is_num "${1}" && func_error_stderr "input is NOT a number (${1})" && return 1
+
+	if func_is_cmd_exist numfmt ; then
+		echo "${1}" | numfmt --to=si
+	else
+		func_num_to_human "${1}" SI
+	fi
 }
 
-# deprecated by: func_num_to_human_SI / func_num_to_human_IEC
 func_num_to_human() {
-	local usage="Usage: ${FUNCNAME[0]} <number>"
-	local desc="Desc: convert to number to human readable form (IEC std, 1K=1024)"
+	local usage="Usage: ${FUNCNAME[0]} <number> [IEC|SI]"
+	local desc="Desc: convert number to human readable form, default IEC"
 	func_param_check 1 "$@"
-	
-	local fraction=''
-	local unit_index=0
-	local number=${1:-0}
-	local UNIT=("" K M G T E P Y Z)
-	#local UNIT=({"",K,M,G,T,E,P,Y,Z}) # also works
 
-	while ((number > 1024)); do
-		fraction="$(printf ".%02d" $((number % 1024 * 100 / 1024)))"
-		number=$((number / 1024))
-		# let unit_index++
+	local number="${1:-0}" standard="${2:-IEC}"
+	local fraction='' unit_index=0 base=1024
+	local UNIT=("" K M G T P E Z Y)
+
+	# only handles integer
+	number="${number%%.*}"
+	! func_is_int "${number}" && func_error_stderr "input is NOT an integer (${1})" && return 1
+
+	[[ "${standard}" == SI ]] && base=1000
+	while (( number >= base && unit_index < ${#UNIT[@]} - 1 )); do
+		fraction="$(printf ".%02d" $((number % base * 100 / base)))"
+		number=$((number / base))
 		(( unit_index++ ))
 	done
-	echo "${number}${fraction}${UNIT[$unit_index]}"
+	printf '%s%s\n' "${number}${fraction}" "${UNIT[$unit_index]}"
 }
 
 func_sum_1st_columm_SI() {
@@ -2265,6 +2317,7 @@ func_is_str_single_printable() {
 	return 1
 }
 
+# Ref: func_is_int / func_is_positive_int / func_is_int_in_range
 func_is_str_digit() {
 	local usage="Usage: ${FUNCNAME[0]} <string>"
 	local desc="Desc: check if string contains only digit, return 0 if yes, otherwise 1" 
