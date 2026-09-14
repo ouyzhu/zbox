@@ -47,7 +47,8 @@ func_techo() {
 	local desc="Desc: echo msg format: <TIME>: <level-in-uppercase>: <msg>"
 	func_param_check 2 "$@"
 	
-	echo -e "$(date "+%Y-%m-%d %H:%M:%S") ${1^^}: ${2}"
+	# 注: 用 tr 而不是 "${1^^}"，后者是 bash 4+ 语法，bash 3.2 (macOS自带) 下会报 bad substitution
+	echo -e "$(date "+%Y-%m-%d %H:%M:%S") $(echo "${1}" | tr '[:lower:]' '[:upper:]'): ${2}"
 }
 
 func_is_str_blank() {
